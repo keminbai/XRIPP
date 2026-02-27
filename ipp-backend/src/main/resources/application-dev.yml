@@ -1,0 +1,29 @@
+# ========================================================================
+# 开发环境专用配置
+# ========================================================================
+
+spring:
+  datasource:
+    # 开发环境数据库（本地SQL Server）
+    url: jdbc:sqlserver://localhost:1433;databaseName=XRIPP_CORE;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: ${DB_PASSWORD:YourPassword123}
+
+# 开发环境日志级别（更详细）
+logging:
+  level:
+    root: DEBUG
+    com.xripp.backend: DEBUG
+    com.baomidou.mybatisplus: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+
+# MyBatis SQL日志（开发环境打印完整SQL）
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# Knife4j文档（开发环境开启）
+knife4j:
+  enable: true
+  production: false

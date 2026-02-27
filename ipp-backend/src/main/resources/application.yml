@@ -1,0 +1,147 @@
+# ========================================================================
+# XRIPP Backend Application Configuration
+# 环境：开发环境（Development）
+# 数据库：SQL Server 2022
+# ========================================================================
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: xripp-backend
+
+  # 数据源配置（SQL Server 2022）
+  datasource:
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://localhost:1433;databaseName=XRIPP_CORE;encrypt=false;trustServerCertificate=true
+    username: sa
+    password: ${DB_PASSWORD:123456}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: XRIPPHikariPool
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+
+  # Jackson配置（JSON序列化）
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+# MyBatis Plus配置
+mybatis-plus:
+  # Mapper XML文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml
+  
+  # 实体类扫描路径
+  type-aliases-package: com.xripp.backend.entity
+  
+  # 全局配置
+  global-config:
+    db-config:
+      # 主键类型（数据库ID自增）
+      id-type: auto
+      # 逻辑删除字段名
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+    # 关闭Banner
+    banner: false
+  
+  # MyBatis配置
+  configuration:
+    # 开启驼峰命名转换（数据库字段user_name -> Java字段userName）
+    map-underscore-to-camel-case: true
+    # 开启二级缓存
+    cache-enabled: true
+    # 懒加载
+    lazy-loading-enabled: true
+    # 日志实现（开发环境使用控制台）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# JWT配置
+jwt:
+  # 密钥（生产环境必须修改为复杂密钥，建议256位以上）
+  secret: ${JWT_SECRET:xripp-dev-secret-2026-very-long-key-32bytes-min}
+  # Token有效期（单位：秒，默认7天）
+  expiration: 604800
+  # Token前缀
+  token-prefix: Bearer
+  # Token请求头名称
+  header: Authorization
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.xripp.backend: DEBUG
+    com.baomidou.mybatisplus: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{50} - %msg%n"
+  file:
+    name: logs/xripp-backend.log
+    max-size: 10MB
+    max-history: 30
+
+# Knife4j API文档配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: true
+    enable-document-manage: true
+    swagger-model-name: 实体类列表
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  group-configs:
+    - group: 'XRIPP API'
+      paths-to-match: '/**'
+      packages-to-scan: com.xripp.backend.controller
+
+# 应用自定义配置
+xripp:
+  data-scope:
+    enabled: true
+    white-list:
+      - suppliers
+      - member_profile
+      - activities
+      - audit_logs
+    mapper-white-list:
+      - SuppliersMapper
+      - ActivityMapper
+      - MemberVerificationMapper
+      - OrderMapper
+      - TenderMapper
+  
+  # 安全配置
+  security:
+    # 不需要认证的URL
+    permit-all:
+      - /auth/login
+      - /auth/register
+      - /common/dicts/**
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /doc.html
