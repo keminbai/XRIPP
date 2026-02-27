@@ -7,7 +7,9 @@ import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.Activity;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.IActivityService;
+import com.xripp.backend.service.StateTransitionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -30,6 +32,7 @@ public class PartnerPublishesV3Controller {
     private static final int AUDIT_REJECTED = 40;
 
     private final IActivityService activityService;
+    private final StateTransitionService stateTransitionService;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -106,6 +109,47 @@ public class PartnerPublishesV3Controller {
         } catch (Exception e) {
             return V3Response.error("INTERNAL_ERROR", "create publish failed: " + e.getMessage());
         }
+    }
+
+    @Transactional
+    @PostMapping("/{id}/review")
+    public V3Response<Void> review(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body
+    ) {
+        if (!SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        String action = String.valueOf(body.getOrDefault("action", "")).trim();
+        String reason = String.valueOf(body.getOrDefault("reason", "")).trim();
+
+        if (!"approve".equals(action) && !"reject".equals(action)) {
+            return V3Response.error("VALIDATION_ERROR", "action must be approve|reject");
+        }
+
+        Activity a = activityService.getById(id);
+        if (a == null) {
+            return V3Response.error("RESOURCE_NOT_FOUND", "publish not found");
+        }
+
+        Integer curr = a.getAuditStatus();
+        if (curr == null || curr != AUDIT_PENDING) {
+            return V3Response.error("STATE_INVALID_TRANSITION", "only pending publish can be reviewed");
+        }
+
+        int newStatus = "approve".equals(action) ? AUDIT_APPROVED : AUDIT_REJECTED;
+        a.setAuditStatus(newStatus);
+        a.setUpdatedAt(new Date());
+        activityService.updateById(a);
+
+        stateTransitionService.log(
+                "activity", a.getId(),
+                String.valueOf(curr), String.valueOf(newStatus),
+                action, reason.isBlank() ? null : reason
+        );
+
+        return V3Response.success(null);
     }
 
     @DeleteMapping("/{id}")

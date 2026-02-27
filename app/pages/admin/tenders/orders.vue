@@ -266,7 +266,7 @@ const mapPaymentStatus = (orderStatus: string) => {
 const loadOrders = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/orders?page=1&page_size=200')
+    const res: any = await apiRequest('/v3/admin/orders?page=1&page_size=200')
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     apiOrders.value = items.map((o: any) => ({
       id: Number(o.id),

@@ -980,17 +980,22 @@ const handleUploadError: UploadProps['onError'] = (error) => {
   console.error('Upload error:', error)
 }
 
-// ✅ 核心修复：补充审核逻辑
 const handleApprove = (row: any) => {
   ElMessageBox.confirm(`确认批准发布 "${row.title}" 吗？`, '审核通过', {
     confirmButtonText: '批准上线',
     cancelButtonText: '取消',
     type: 'success'
   }).then(async () => {
-    // TODO: await api.approveActivity(row.id)
-    row.status = 'published'
-    row.statusLabel = '已发布'
-    ElMessage.success('审核通过，活动已上线')
+    try {
+      await apiRequest(`/v3/partner/publishes/${row.id}/review`, {
+        method: 'POST',
+        body: { action: 'approve', reason: '' }
+      })
+      ElMessage.success('审核通过，活动已上线')
+      await loadActivities()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '审核失败')
+    }
   })
 }
 
@@ -1006,11 +1011,17 @@ const handleReject = (row: any) => {
       }
       return true
     }
-  }).then(({ value }) => {
-    row.status = 'rejected'
-    row.statusLabel = '已驳回'
-    row.rejectReason = value
-    ElMessage.warning('已驳回申请')
+  }).then(async ({ value }) => {
+    try {
+      await apiRequest(`/v3/partner/publishes/${row.id}/review`, {
+        method: 'POST',
+        body: { action: 'reject', reason: value }
+      })
+      ElMessage.warning('已驳回申请')
+      await loadActivities()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '驳回失败')
+    }
   })
 }
 

@@ -1,5 +1,8 @@
 package com.xripp.backend.controller.v3;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.OrderEntity;
 import com.xripp.backend.security.SecurityContextHolder;
@@ -9,9 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.Map;
-import java.util.Set;
+import java.math.BigDecimal;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v3/admin/orders")
@@ -22,6 +26,65 @@ public class AdminOrdersV3Controller {
 
     private final IOrderService orderService;
     private final StateTransitionService stateTransitionService;
+
+    @GetMapping
+    public V3Response<V3PageData<Map<String, Object>>> list(
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(name = "page_size", defaultValue = "20") long pageSize,
+            @RequestParam(name = "order_status", required = false) String orderStatus,
+            @RequestParam(name = "order_type", required = false) String orderType,
+            @RequestParam(required = false) String keyword
+    ) {
+        if (!SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        QueryWrapper<OrderEntity> qw = new QueryWrapper<>();
+        if (orderStatus != null && !orderStatus.isBlank()) {
+            qw.eq("order_status", orderStatus.trim());
+        }
+        if (orderType != null && !orderType.isBlank()) {
+            qw.eq("order_type", orderType.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("order_no", kw).or().like("biz_type", kw));
+        }
+        qw.orderByDesc("created_at");
+
+        Page<OrderEntity> p = new Page<>(page, pageSize);
+        Page<OrderEntity> result = orderService.page(p, qw);
+
+        List<Map<String, Object>> items = result.getRecords().stream()
+                .map(this::toItem)
+                .collect(Collectors.toList());
+
+        return V3Response.success(new V3PageData<>(
+                items, result.getCurrent(), result.getSize(), result.getTotal()
+        ));
+    }
+
+    private Map<String, Object> toItem(OrderEntity o) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", o.getId());
+        m.put("orderNo", o.getOrderNo() != null ? o.getOrderNo() : "ORD-" + o.getId());
+        m.put("userId", o.getUserId());
+        m.put("partnerId", o.getPartnerId());
+        m.put("orderType", o.getOrderType() != null ? o.getOrderType() : "");
+        m.put("orderStatus", o.getOrderStatus() != null ? o.getOrderStatus() : "");
+        m.put("amount", o.getAmount() != null ? o.getAmount() : BigDecimal.ZERO);
+        m.put("currencyCode", o.getCurrencyCode() != null ? o.getCurrencyCode() : "CNY");
+        m.put("bizType", o.getBizType() != null ? o.getBizType() : "");
+        m.put("bizId", o.getBizId());
+        m.put("createdAt", fmtDate(o.getCreatedAt()));
+        m.put("updatedAt", fmtDate(o.getUpdatedAt()));
+        return m;
+    }
+
+    private String fmtDate(Date date) {
+        if (date == null) return "";
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date);
+    }
 
     @Transactional
     @PostMapping("/{id}/transition")
