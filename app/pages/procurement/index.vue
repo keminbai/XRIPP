@@ -151,7 +151,7 @@
       </div>
 
       <!-- C. 标书列表 -->
-      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px]">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px]" v-loading="loading">
         <div class="hidden lg:grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
           <div class="col-span-5">项目信息</div>
           <div class="col-span-2">采购机构</div>
@@ -161,39 +161,39 @@
         </div>
 
         <div class="divide-y divide-slate-100">
-          <div v-if="filteredTenders.length === 0" class="p-12 text-center text-slate-400">
+          <div v-if="!loading && tenders.length === 0" class="p-12 text-center text-slate-400">
             <div class="text-5xl mb-3">📂</div>
             <div class="font-bold text-slate-600 mb-2">暂无匹配的商机</div>
             <p class="text-sm">请尝试调整关键词或筛选条件</p>
           </div>
 
-          <div 
-            v-for="item in paginatedTenders" 
-            :key="item.id" 
+          <div
+            v-for="item in tenders"
+            :key="item.id"
             class="group hover:bg-blue-50/50 transition-all duration-200 cursor-pointer border-l-4 border-transparent hover:border-brand-500"
             @click="navigateTo(`/procurement/${item.id}`)"
           >
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 px-6 py-5 items-center">
-              
+
               <div class="col-span-12 lg:col-span-5 flex items-start gap-4">
-                <div 
+                <div
                   class="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-xs font-bold border-2"
-                  :class="getTypeStyle(item.type)"
+                  :class="getTypeStyle(item.category)"
                 >
-                  {{ getTypeAbbr(item.type) }}
+                  {{ getTypeAbbr(item.category) }}
                 </div>
-                
+
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1 flex-wrap">
-                    <span class="text-xs font-mono text-slate-400">#{{ item.id }}</span>
+                    <span class="text-xs font-mono text-slate-400">{{ item.tenderNo }}</span>
                     <span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                      {{ item.type }}
+                      {{ item.categoryLabel }}
                     </span>
                   </div>
                   <h3 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors mb-1 line-clamp-1">
-                    {{ item.titleZh }}
+                    {{ item.title }}
                   </h3>
-                  <p class="text-xs text-slate-500 line-clamp-1">{{ item.title }}</p>
+                  <p class="text-xs text-slate-500 line-clamp-1">{{ item.organization }}</p>
                 </div>
               </div>
 
@@ -247,12 +247,12 @@
           </div>
         </div>
 
-        <div class="p-6 border-t border-slate-100 flex justify-center bg-slate-50/30" v-if="filteredTenders.length > 0">
-          <el-pagination 
+        <div class="p-6 border-t border-slate-100 flex justify-center bg-slate-50/30" v-if="totalCount > 0">
+          <el-pagination
             v-model:current-page="currentPage"
-            background 
-            layout="prev, pager, next, jumper" 
-            :total="filteredTenders.length"
+            background
+            layout="prev, pager, next, jumper"
+            :total="totalCount"
             :page-size="pageSize"
           />
         </div>
@@ -314,21 +314,23 @@
 </template>
 
 <script setup lang="ts">
-import { 
+import {
   Search, Refresh, OfficeBuilding, ArrowRight, Location, HomeFilled,
-  Trophy, Document, Van, School // ✅ 引入新图标
-  , Star
+  Trophy, Document, Van, School, Star
 } from '@element-plus/icons-vue'
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 useHead({ title: '采购商机 - XRIPP全球公共采购服务平台' })
 
-const { tenders } = useMockData()
 const keyword = ref('')
 const activeTab = ref('all')
 const currentPage = ref(1)
 const pageSize = 10
+const tenders = ref<any[]>([])
+const loading = ref(false)
+const totalCount = ref(0)
 
 const heroImages = [
   '/images/procurement/procurement-1.jpg',
@@ -370,20 +372,9 @@ const persistFavorites = () => {
   localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteIds.value))
 }
 
-onMounted(() => {
-  loadFavorites()
-  startHeroAutoPlay()
-})
+const isFavorited = (id: string | number) => favoriteIds.value.includes(String(id))
 
-watch(favoriteIds, persistFavorites, { deep: true })
-
-onBeforeUnmount(() => {
-  if (heroTimer) clearInterval(heroTimer)
-})
-
-const isFavorited = (id: string) => favoriteIds.value.includes(String(id))
-
-const toggleFavorite = (id: string) => {
+const toggleFavorite = (id: string | number) => {
   const key = String(id)
   if (isFavorited(key)) {
     favoriteIds.value = favoriteIds.value.filter(v => v !== key)
@@ -396,13 +387,14 @@ const toggleFavorite = (id: string) => {
 
 const tabs = [
   { id: 'all', name: '全部商机' },
-  { id: 'un', name: '联合国采购' },
-  { id: 'gov', name: '国际政府采购' },
-  { id: 'org', name: '国际组织采购' },
-  { id: 'other', name: '其他采购' }
+  { id: 'medical', name: '医疗器械' },
+  { id: 'it', name: 'IT设备' },
+  { id: 'construction', name: '建筑工程' },
+  { id: 'office', name: '办公用品' },
+  { id: 'consulting', name: '咨询服务' },
+  { id: 'other', name: '其他' }
 ]
 
-// 相关服务推荐
 const relatedServices = [
   {
     icon: '📝',
@@ -424,65 +416,76 @@ const relatedServices = [
   }
 ]
 
-// 筛选逻辑
-const filteredTenders = computed(() => {
-  return tenders.filter(t => {
-    // Tab 筛选
-    let matchTab = true
-    if (activeTab.value === 'un') matchTab = t.type === '联合国采购'
-    if (activeTab.value === 'gov') matchTab = t.type === '国际政府采购'
-    if (activeTab.value === 'org') matchTab = t.type === '国际组织采购'
-    if (activeTab.value === 'other') matchTab = t.type === '其他采购'
+const loadTenders = async () => {
+  loading.value = true
+  try {
+    const params: Record<string, any> = { page: currentPage.value, page_size: pageSize }
+    if (keyword.value.trim()) params.keyword = keyword.value.trim()
+    if (activeTab.value !== 'all') params.category = activeTab.value
+    if (filters.value.country) params.country = filters.value.country
 
-    // 关键词
-    const k = keyword.value.toLowerCase()
-    const matchKeyword = !k || 
-      t.titleZh.toLowerCase().includes(k) || 
-      t.title.toLowerCase().includes(k) || 
-      t.country.toLowerCase().includes(k) ||
-      t.id.toLowerCase().includes(k)
+    const res = await apiRequest<any>('/v3/tenders', { params })
+    tenders.value = res.data?.items ?? []
+    totalCount.value = Number(res.data?.total ?? 0)
+  } catch {
+    ElMessage.error('标书数据加载失败，请稍后重试')
+    tenders.value = []
+    totalCount.value = 0
+  } finally {
+    loading.value = false
+  }
+}
 
-    // 国家
-    const matchCountry = !filters.value.country || t.country === filters.value.country
-
-    return matchTab && matchKeyword && matchCountry
-  })
+watch([activeTab, () => filters.value.country], () => {
+  currentPage.value = 1
+  loadTenders()
 })
 
-// 分页数据
-const paginatedTenders = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return filteredTenders.value.slice(start, end)
+watch(currentPage, () => { loadTenders() })
+
+watch(favoriteIds, persistFavorites, { deep: true })
+
+onMounted(() => {
+  loadFavorites()
+  startHeroAutoPlay()
+  loadTenders()
 })
 
-const handleSearch = () => { currentPage.value = 1 }
+onBeforeUnmount(() => {
+  if (heroTimer) clearInterval(heroTimer)
+})
+
+const handleSearch = () => {
+  currentPage.value = 1
+  loadTenders()
+}
 
 const resetFilters = () => {
   keyword.value = ''
   activeTab.value = 'all'
   filters.value = { status: '', country: '', date: [] }
   currentPage.value = 1
+  loadTenders()
 }
 
-const getTypeStyle = (type: string) => {
-  const styles = {
-    '联合国采购': 'bg-blue-50 text-blue-600 border-blue-200',
-    '国际政府采购': 'bg-indigo-50 text-indigo-600 border-indigo-200',
-    '国际组织采购': 'bg-purple-50 text-purple-600 border-purple-200',
-    '其他采购': 'bg-orange-50 text-orange-600 border-orange-200'
+const getTypeStyle = (category: string) => {
+  const styles: Record<string, string> = {
+    medical: 'bg-blue-50 text-blue-600 border-blue-200',
+    it: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+    construction: 'bg-orange-50 text-orange-600 border-orange-200',
+    office: 'bg-green-50 text-green-600 border-green-200',
+    consulting: 'bg-purple-50 text-purple-600 border-purple-200',
+    other: 'bg-slate-50 text-slate-600 border-slate-200'
   }
-  return styles[type as keyof typeof styles] || styles['其他采购']
+  return styles[category] ?? styles.other
 }
 
-const getTypeAbbr = (type: string) => {
-  const abbr = { 
-    '联合国采购': 'UN', 
-    '国际政府采购': 'GOV', 
-    '国际组织采购': 'ORG',
-    '其他采购': 'NGO' 
+const getTypeAbbr = (category: string) => {
+  const abbr: Record<string, string> = {
+    medical: 'MED', it: 'IT', construction: 'CON',
+    office: 'OFF', consulting: 'CST', other: 'OTH'
   }
-  return abbr[type as keyof typeof abbr] || 'N/A'
+  return abbr[category] ?? 'OTH'
 }
 
 const getDaysLeft = (deadline: string) => {
@@ -497,7 +500,7 @@ const getDeadlineIndicator = (deadline: string) => {
   return 'bg-green-500'
 }
 
-const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('zh-CN')
+const formatDate = (dateStr: string) => dateStr ? new Date(dateStr).toLocaleDateString('zh-CN') : ''
 </script>
 
 <style scoped>
