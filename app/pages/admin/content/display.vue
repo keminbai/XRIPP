@@ -23,6 +23,12 @@
         <!-- 1. 首页轮播图 -->
         <el-tab-pane label="首页轮播图" name="carousel">
           <div class="space-y-4 pt-4">
+            <el-alert
+              title="轮播图管理依赖文件上传服务（OSS），该功能尚未接入后端，当前操作不会持久化。"
+              type="warning"
+              :closable="false"
+              class="mb-4"
+            />
             <div class="flex justify-between items-center">
               <div class="text-xs text-slate-500">最多支持5张轮播图，建议尺寸1920x650px</div>
               <el-button type="primary" @click="handleCarouselUpload" :disabled="carouselList.length >= 5">
@@ -47,6 +53,14 @@
 
         <!-- 2. 广告位管理 -->
         <el-tab-pane label="广告位管理" name="ads">
+          <div class="space-y-4 pt-4">
+          <el-alert
+            title="广告位配置尚未接入后端存储，当前修改仅在页面内存中生效，刷新后重置。"
+            type="warning"
+            :closable="false"
+            class="mb-2"
+          />
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
             <div v-for="ad in adsList" :key="ad.id" class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
               <div class="flex justify-between items-start mb-3">
@@ -80,6 +94,7 @@
           
           <div class="pt-4">
             <el-alert title="来自各业务模块的首页推荐申请，审核通过后将自动加入轮播图或推荐位" type="info" show-icon :closable="false" class="mb-4" />
+            <el-alert title="显示申请尚未接入后端接口，当前数据为示例占位，操作不会持久化。" type="warning" :closable="false" class="mb-4" />
             
             <el-table :data="applicationList" stripe style="width: 100%">
               <el-table-column prop="submitTime" label="申请时间" width="160" />

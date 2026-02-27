@@ -93,9 +93,10 @@
 
       <!-- 需求列表表格 -->
       <div class="p-6">
-        <el-table 
-          :data="filteredDemandList" 
-          style="width: 100%" 
+        <el-table
+          :data="filteredDemandList"
+          v-loading="loading"
+          style="width: 100%"
           :header-cell-style="{background:'#f8fafc', color:'#64748b'}"
         >
           <el-table-column prop="demandNo" label="需求编号" width="150" />
@@ -250,8 +251,9 @@ import {
   Check, Close, View, Connection, Search,
   Briefcase, UserFilled, TrendCharts, CircleCheck
 } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -265,74 +267,49 @@ const filters = ref({
   industry: ''
 })
 
-const stats = [
-  { label: '累计需求', value: '342', icon: Briefcase, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
-  { label: '待审核', value: '15', icon: UserFilled, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
-  { label: '已发布', value: '298', icon: TrendCharts, bgClass: 'bg-green-50', textClass: 'text-green-600' },
-  { label: '对接成功', value: '156', icon: CircleCheck, bgClass: 'bg-purple-50', textClass: 'text-purple-600' }
-]
+const apiDemandList = ref<any[]>([])
+const loading = ref(false)
 
-const allDemandList = ref([
-  {
-    id: 1,
-    demandNo: 'DM202601280001',
-    title: '急需采购500吨医用防护服',
-    description: '用于医院采购，需符合ISO13485标准',
-    demandType: 'C2C',
-    industry: '医疗',
-    companyName: '上海宏大医疗',
-    contactPerson: '张经理',
-    contactPhone: '138****0001',
-    publishDate: '2026-01-28',
-    status: 'pending',
-    statusLabel: '待审核',
-    matchCount: 0
-  },
-  {
-    id: 2,
-    demandNo: 'DM202601270002',
-    title: '寻求IT系统集成服务商',
-    description: '智慧城市项目需要系统集成服务',
-    demandType: 'C2G',
-    industry: 'IT',
-    companyName: '深圳科技公司',
-    contactPerson: '李总',
-    contactPhone: '139****0002',
-    publishDate: '2026-01-27',
-    status: 'published',
-    statusLabel: '已发布',
-    matchCount: 12
-  }
+const stats = computed(() => [
+  { label: '累计需求', value: String(apiDemandList.value.length), icon: Briefcase, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+  { label: '待审核', value: String(apiDemandList.value.filter(i => i.status === 'pending').length), icon: UserFilled, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+  { label: '已发布', value: String(apiDemandList.value.filter(i => i.status === 'published').length), icon: TrendCharts, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+  { label: '对接成功', value: '0', icon: CircleCheck, bgClass: 'bg-purple-50', textClass: 'text-purple-600' }
 ])
 
-const pendingList = computed(() => allDemandList.value.filter(item => item.status === 'pending'))
-const publishedList = computed(() => allDemandList.value.filter(item => item.status === 'published'))
-const rejectedList = computed(() => allDemandList.value.filter(item => item.status === 'rejected'))
+const pendingList = computed(() => apiDemandList.value.filter(item => item.status === 'pending'))
+const publishedList = computed(() => apiDemandList.value.filter(item => item.status === 'published'))
+const rejectedList = computed(() => apiDemandList.value.filter(item => item.status === 'rejected'))
 
 const filteredDemandList = computed(() => {
-  let list = allDemandList.value
+  let list = apiDemandList.value
 
   if (activeTab.value === 'pending') list = pendingList.value
   else if (activeTab.value === 'published') list = publishedList.value
   else if (activeTab.value === 'rejected') list = rejectedList.value
 
   if (filters.value.keyword) {
+    const kw = filters.value.keyword.trim()
     list = list.filter(item =>
-      item.title.includes(filters.value.keyword) ||
-      item.companyName.includes(filters.value.keyword)
+      item.title.includes(kw) || item.companyName.includes(kw)
     )
-  }
-
-  if (filters.value.demandType) {
-    list = list.filter(item => item.demandType === filters.value.demandType)
-  }
-
-  if (filters.value.industry) {
-    list = list.filter(item => item.industry === filters.value.industry)
   }
 
   return list
 })
+
+const loadDemands = async () => {
+  loading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/demands?page=1&page_size=200')
+    apiDemandList.value = res?.data?.items || []
+  } catch (e: any) {
+    apiDemandList.value = []
+    ElMessage.error(e?.message || '读取需求列表失败')
+  } finally {
+    loading.value = false
+  }
+}
 
 const getStatusType = (status: string) => {
   const map: Record<string, string> = {
@@ -343,7 +320,7 @@ const getStatusType = (status: string) => {
   return map[status] || 'info'
 }
 
-const handleSearch = () => ElMessage.success('查询完成')
+const handleSearch = () => loadDemands()
 
 const handleViewDetail = (row: any) => {
   currentDetailItem.value = row
@@ -353,11 +330,18 @@ const handleViewDetail = (row: any) => {
 const handleApprove = (row: any) => {
   ElMessageBox.confirm(`确认通过 "${row.title}" 吗？`, '审核通过', {
     type: 'success'
-  }).then(() => {
-    row.status = 'published'
-    row.statusLabel = '已发布'
-    ElMessage.success('审核通过，需求已发布')
-    detailDialogVisible.value = false
+  }).then(async () => {
+    try {
+      await apiRequest(`/v3/admin/demands/${row.id}/review`, {
+        method: 'POST',
+        body: { action: 'approve', reason: '' }
+      })
+      ElMessage.success('审核通过，需求已发布')
+      detailDialogVisible.value = false
+      await loadDemands()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '审核失败')
+    }
   })
 }
 
@@ -365,16 +349,26 @@ const handleReject = (row: any) => {
   ElMessageBox.prompt('请输入驳回原因', '审核驳回', {
     inputType: 'textarea',
     inputValidator: (value) => value?.trim() ? true : '请输入驳回原因'
-  }).then(({ value }) => {
-    row.status = 'rejected'
-    row.statusLabel = '已驳回'
-    row.rejectReason = value
-    ElMessage.warning('已驳回申请')
-    detailDialogVisible.value = false
+  }).then(async ({ value }) => {
+    try {
+      await apiRequest(`/v3/admin/demands/${row.id}/review`, {
+        method: 'POST',
+        body: { action: 'reject', reason: value }
+      })
+      ElMessage.warning('已驳回申请')
+      detailDialogVisible.value = false
+      await loadDemands()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '驳回失败')
+    }
   })
 }
 
 const handleViewMatches = () => {
   ElMessage.info('对接记录功能开发中...')
 }
+
+onMounted(() => {
+  loadDemands()
+})
 </script>
