@@ -213,6 +213,13 @@ BEGIN TRY
       tender_status NVARCHAR(30) NOT NULL DEFAULT 'draft'
         CHECK (tender_status IN ('draft','published','closed','archived')),
 
+      /* ---- 扩展字段（TenderEntity 实际使用，DDL v1 漂移补录 2026-02-27） ---- */
+      category    NVARCHAR(50)     NULL,   -- medical/it/construction/office/consulting/other
+      summary     NVARCHAR(2000)   NULL,
+      price       DECIMAL(12,2)    NULL DEFAULT 0,
+      sales       INT              NULL DEFAULT 0,
+      is_top      BIT              NOT NULL DEFAULT 0,
+
       changed_by BIGINT NULL,
       changed_at DATETIME2 NULL,
       change_reason NVARCHAR(500) NULL,
@@ -223,7 +230,20 @@ BEGIN TRY
     );
 
     CREATE INDEX IX_tenders_status_time ON dbo.tenders(tender_status, updated_at DESC);
+    CREATE INDEX IX_tenders_category ON dbo.tenders(category, tender_status);
   END
+
+  /* ---- 兼容补丁：若 tenders 已存在但缺列（旧环境），逐列 ADD ---- */
+  IF COL_LENGTH('dbo.tenders', 'category') IS NULL
+    ALTER TABLE dbo.tenders ADD category NVARCHAR(50) NULL;
+  IF COL_LENGTH('dbo.tenders', 'summary') IS NULL
+    ALTER TABLE dbo.tenders ADD summary NVARCHAR(2000) NULL;
+  IF COL_LENGTH('dbo.tenders', 'price') IS NULL
+    ALTER TABLE dbo.tenders ADD price DECIMAL(12,2) NULL DEFAULT 0;
+  IF COL_LENGTH('dbo.tenders', 'sales') IS NULL
+    ALTER TABLE dbo.tenders ADD sales INT NULL DEFAULT 0;
+  IF COL_LENGTH('dbo.tenders', 'is_top') IS NULL
+    ALTER TABLE dbo.tenders ADD is_top BIT NOT NULL DEFAULT 0;
 
   /* =========================================================
      7) 兼容改造：member_profile 会员等级统一（P0）

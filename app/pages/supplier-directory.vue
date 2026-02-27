@@ -256,8 +256,9 @@ import {
   Search, Filter, Location, Calendar, View, Download,
   Reading, Plus, HomeFilled, ArrowRight, ArrowLeft, Loading
 } from '@element-plus/icons-vue'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 useHead({ title: '服务商名录库 - XRIPP全球公共采购服务平台' })
 
@@ -265,6 +266,7 @@ const filters = ref({ keyword: '', location: [], service: '', dateRange: [] })
 const dialogVisible = ref(false)
 const currentItem = ref<any>(null)
 const downloadingId = ref(0)
+const loading = ref(false)
 
 const currentPage = ref(1)
 const pageSize = 10
@@ -280,33 +282,63 @@ const cityOptions = [
   { value: 'hubei', label: '湖北省', children: [{ value: 'wuhan', label: '武汉市' }] }
 ]
 
-const { serviceProviders } = useServiceProviders()
+const rawSuppliers = ref<any[]>([])
 
-const suppliers = computed(() =>
-  serviceProviders.map((sp) => ({
-    id: sp.id,
-    name: sp.name,
-    mainBusiness: sp.category,
-    province: sp.province,
-    city: sp.city,
-    address: sp.address,
-    contact: sp.contact,
-    phone: sp.phone,
-    joinDate: sp.joinDate,
-    verified: true,
-    type: sp.type.includes('上市') || sp.type.includes('国有') ? 'strategic' : 'normal',
-    nature: sp.type.includes('国有') ? '国营' : (sp.type.includes('上市') ? '股份' : '民营'),
-    capitalType: sp.type.includes('上市') ? '上市' : '股份',
-    regCapital: '5000万元',
-    turnover: '2.5亿元',
-    factoryArea: '5000 平方米',
-    factoryType: '自有',
-    staffTotal: 300,
-    certs: 'ISO9001, ISO14001',
-    desc: sp.intro,
-    services: sp.services
-  }))
-)
+const parseServices = (json: string): string[] => {
+  try { return JSON.parse(json) } catch { return json ? [json] : [] }
+}
+
+const mapRow = (item: any) => ({
+  id: Number(item.id),
+  name: item.companyName || '未命名企业',
+  mainBusiness: parseServices(item.serviceTypesJson)[0] || '综合服务',
+  province: '',
+  city: item.cityName || '',
+  address: '',
+  contact: '',
+  phone: '',
+  joinDate: item.joinDate || '',
+  verified: true,
+  type: 'normal',
+  nature: '民营',
+  capitalType: '',
+  regCapital: '',
+  turnover: '',
+  factoryArea: '',
+  factoryType: '',
+  staffTotal: 0,
+  certs: '',
+  desc: '',
+  services: parseServices(item.serviceTypesJson)
+})
+
+const loadSuppliers = async () => {
+  loading.value = true
+  try {
+    const query: Record<string, any> = { page: 1, page_size: 200 }
+    if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
+    const loc = filters.value.location as string[]
+    if (loc?.length > 0) {
+      const city = loc[loc.length - 1]
+      const cityLabel = cityOptions
+        .flatMap(p => p.children)
+        .find(c => c.value === city)?.label || ''
+      if (cityLabel) query.city = cityLabel.replace(/[市省]/g, '')
+    }
+    const res: any = await apiRequest('/v3/suppliers', { query })
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    rawSuppliers.value = items.map(mapRow)
+  } catch (e: any) {
+    rawSuppliers.value = []
+    ElMessage.error(e?.message || '读取服务商列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadSuppliers)
+
+const suppliers = computed(() => rawSuppliers.value)
 
 const locationValueMap: Record<string, string> = {
   shanghai: '上海市',
@@ -363,14 +395,16 @@ watch(filteredSuppliers, () => {
   if (currentPage.value > maxPage) currentPage.value = 1
 })
 
-const handleSearch = () => {
+const handleSearch = async () => {
   currentPage.value = 1
+  await loadSuppliers()
   ElMessage.success('查询完成')
 }
 
-const resetFilters = () => {
+const resetFilters = async () => {
   filters.value = { keyword: '', location: [], service: '', dateRange: [] }
   currentPage.value = 1
+  await loadSuppliers()
   ElMessage.info('筛选已重置')
 }
 
@@ -381,11 +415,7 @@ const handleView = (item: any) => {
 
 const handleDownload = (item: any) => {
   if (!item) return
-  downloadingId.value = item.id
-  setTimeout(() => {
-    downloadingId.value = 0
-    ElMessage.success(`《${item.name}介绍.pdf》已下载`)
-  }, 1500)
+  ElMessage.warning('PDF 下载接口待后端接入，当前受控降级')
 }
 </script>
 

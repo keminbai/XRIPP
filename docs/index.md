@@ -5,7 +5,7 @@
 - 明确“当前权威文档”与“历史参考文档”
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-27（Claude Code 第二轮更新：公开标书接口落地、StateTransitionService 完成、supplier_onboarding 漂移补录）
+最后更新：2026-02-27（Claude Code 第四轮更新：contents 后端落地、supplier_onboarding 前端修正、标书 DDL 漂移补录、tender_download_logs 防重复扣减实现）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -58,10 +58,11 @@
 | `app/pages/admin/audit.vue` | 部分实现 | - | - | 服务商与内容审核已接入；采购需求审核写接口未接入（显式提示） |
 | `app/pages/admin/suppliers/list.vue` | 部分实现 | - | - | 已切真实列表；新增/编辑/资料上传写接口未接入，当前受控降级 |
 | `app/pages/admin/suppliers/audit.vue` | 部分实现 | - | - | 主数据与审核流已切真实接口；证书上传/下载接口未接入，受控降级 |
-| `app/pages/admin/suppliers/analysis.vue` | 部分实现 | - | - | 已改真实聚合统计（member-verifications口径）；待切换 suppliers 运营主表口径 |
-| `app/pages/admin/content/activities.vue` | 部分实现 | - | - | 已切真实列表（/v3/partner/publishes）；partner 新建已接真实接口；状态切换/展示申请/导出受控降级（后端无对应接口） |
-| `app/pages/admin/content/trainings.vue` | 部分实现 | - | - | 已切真实列表（临时复用 /v3/admin/tenders）；状态流转已接；发布/编辑/展示申请受控降级。待 /v3/contents 实现后替换 |
-| `app/pages/admin/content/media.vue` | 部分实现 | - | - | 已切真实列表（临时复用 /v3/admin/tenders）；状态流转已接；发布/编辑受控降级。待 /v3/contents 实现后替换 |
+| `app/pages/admin/suppliers/analysis.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/supplier-onboarding（1df2247）；入驻申请口径，非运营主表 suppliers |
+| `app/pages/admin/suppliers/list.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/supplier-onboarding（1df2247）；写操作受控降级 |
+| `app/pages/admin/content/activities.vue` | 部分实现 | - | - | 已切真实列表（/v3/partner/publishes）；partner 新建已接真实接口；状态切换/展示申请/导出受控降级 |
+| `app/pages/admin/content/trainings.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/contents?content_type=training（1df2247）；发布/编辑受控降级 |
+| `app/pages/admin/content/media.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/contents?content_type=media（1df2247）；发布/编辑受控降级 |
 
 ## 5. 功能状态矩阵（验收口径）
 
@@ -80,10 +81,10 @@
 | 媒体内容管理 | 已确认 | 同培训，已切真实列表，受控降级 | 同上 | 同上 |
 | 订单管理 | 已确认 | 列表已接真实 API | 已可用（列表+状态流转） | 可联调验收 |
 | 会员认证审核 | 已确认 | 主流程已接真实 API；证书上传受控降级 | 部分可用 | 可验收主审核流程 |
-| 标书防重复扣费 | 已确认 | 不涉及前端 | DDL 已补建（tender_download_logs），服务层**未实现** | ❌ 未可验收，核心商业规则缺口 |
-| 状态流转审计 | 已确认 | 不涉及前端 | StateTransitionService 已实现并注入 4 个 Controller（order/tender/member_verification），等待 DDL 在真实 DB 执行后即可验收 | ⚠️ 代码完整，DDL 尚未在目标 DB 执行 |
-| 供应商入库审核 | 已确认 | 借用 member_verifications 口径（漂移） | supplier_onboarding 后端**完全缺失**（无 Entity/Mapper/Service/Controller） | ❌ 未可验收，API 计划 Batch A P0 |
-| 内容管理（培训/媒体） | 已确认 | 借用 /v3/admin/tenders 口径（漂移） | contents 后端**完全缺失**（无 Entity/Mapper/Service/Controller） | ❌ 未可验收，待 /v3/contents 实现 |
+| 标书防重复扣费 | 已确认 | 不涉及前端 | ✅ DDL 已补建（tender_download_logs），TenderDownloadLogService + POST /v3/tenders/{id}/download 已实现（含 OrderEntity 写入） | ⚠️ 代码完整，DDL 需在目标 DB 执行 DDL_Phase2_Migration.sql |
+| 状态流转审计 | 已确认 | 不涉及前端 | ✅ StateTransitionService 已注入 5 个 Controller（order/tender/member_verification/content/supplier_onboarding） | ⚠️ 代码完整，DDL 需在目标 DB 执行 |
+| 供应商入库审核 | 已确认 | ✅ 已切换 /v3/admin/supplier-onboarding（1df2247） | ✅ 后端完整（Entity/Mapper/Service/Controller）（0280d7d） | ⚠️ 可联调验收，DDL 需先执行 |
+| 内容管理（培训/媒体） | 已确认 | ✅ 已切换 /v3/admin/contents（1df2247） | ✅ 后端完整（Entity/Mapper/Service/AdminContentsV3Controller）（1df2247） | ⚠️ 可联调验收，DDL 需先执行 |
 
 ## 6. AI 工具使用提示（Cursor / Continue.dev）
 

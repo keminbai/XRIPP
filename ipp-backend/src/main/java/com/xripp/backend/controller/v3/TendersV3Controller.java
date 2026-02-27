@@ -4,21 +4,30 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.entity.OrderEntity;
 import com.xripp.backend.entity.TenderEntity;
+import com.xripp.backend.security.SecurityContextHolder;
+import com.xripp.backend.service.IOrderService;
+import com.xripp.backend.service.ITenderDownloadLogService;
 import com.xripp.backend.service.ITenderService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/v3/tenders")
 @RequiredArgsConstructor
 public class TendersV3Controller {
 
     private final ITenderService tenderService;
+    private final ITenderDownloadLogService downloadLogService;
+    private final IOrderService orderService;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -68,6 +77,64 @@ public class TendersV3Controller {
         Map<String, Object> m = toItem(t);
         m.put("description", t.getSummary() == null ? "" : t.getSummary());
         return V3Response.success(m);
+    }
+
+    /**
+     * 标书下载（防重复扣减）。
+     *
+     * <p>业务规则：
+     * <ul>
+     *   <li>首次下载：写入 tender_download_logs + 创建 order 记录（biz_type=tender_download）</li>
+     *   <li>重复下载：跳过扣减，直接返回标书信息（is_duplicate=true）</li>
+     * </ul>
+     *
+     * <p>需要登录，不限角色（member/partner/admin 均可触发下载记录）。
+     */
+    @Transactional
+    @PostMapping("/{id}/download")
+    public V3Response<Map<String, Object>> download(@PathVariable Long id) {
+        Long userId = SecurityContextHolder.getCurrentUserId();
+        if (userId == null || userId <= 0) {
+            return V3Response.error("AUTH_UNAUTHORIZED", "login required");
+        }
+
+        TenderEntity t = tenderService.getById(id);
+        if (t == null || !"published".equals(t.getTenderStatus())) {
+            return V3Response.error("RESOURCE_NOT_FOUND", "tender not found");
+        }
+
+        boolean isFirstDownload = downloadLogService.tryLog(userId, t.getId());
+
+        if (isFirstDownload) {
+            // 首次下载：创建 order 记录（用于 /v3/member/benefits/usage 统计）
+            OrderEntity order = new OrderEntity();
+            order.setOrderNo(genOrderNo(userId, t.getId()));
+            order.setUserId(userId);
+            order.setOrderType("service");
+            order.setOrderStatus("completed");
+            order.setAmount(BigDecimal.ZERO);   // 权益扣减，金额为 0
+            order.setCurrencyCode("CNY");
+            order.setBizType("tender_download");
+            order.setBizId(t.getId());
+            Date now = new Date();
+            order.setCreatedAt(now);
+            order.setUpdatedAt(now);
+            orderService.save(order);
+            log.info("[TenderDownload] 首次下载 userId={} tenderId={} orderId={}", userId, t.getId(), order.getId());
+        } else {
+            log.debug("[TenderDownload] 重复下载 userId={} tenderId={}", userId, t.getId());
+        }
+
+        Map<String, Object> m = toItem(t);
+        m.put("description", t.getSummary() == null ? "" : t.getSummary());
+        m.put("isDuplicate", !isFirstDownload);
+        return V3Response.success(m);
+    }
+
+    /** 生成下载 order 编号：DL-{userId}-{tenderId}-{时间戳尾8位} */
+    private String genOrderNo(Long userId, Long tenderId) {
+        String ts = String.valueOf(System.currentTimeMillis());
+        return "DL-" + userId + "-" + tenderId + "-" + ts.substring(ts.length() - 8);
     }
 
     private Map<String, Object> toItem(TenderEntity t) {
