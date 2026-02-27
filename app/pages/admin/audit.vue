@@ -163,11 +163,11 @@ const pendingStats = computed(() => ({
 
 const pendingCount = computed(() => pendingStats.value.supplier + pendingStats.value.content + pendingStats.value.demand)
 
-const mapSupplierStatus = (s?: string) => {
-  if (s === 'under_review') return 'pending_level2'
-  if (s === 'submitted' || s === 'draft') return 'pending_level1'
-  if (s === 'approved') return 'approved'
-  if (s === 'rejected') return 'rejected'
+const mapOnboardingStatus = (s?: string) => {
+  if (s === 'submitted') return 'pending_level1'
+  if (s === 'precheck_passed') return 'pending_level2'
+  if (s === 'final_review_passed' || s === 'active') return 'approved'
+  if (s === 'precheck_failed' || s === 'final_review_failed' || s === 'inactive') return 'rejected'
   return 'pending_level1'
 }
 
@@ -175,45 +175,47 @@ const mapSupplierRow = (item: any) => ({
   id: item.id,
   rawId: item.id,
   company: item.companyName || '未命名企业',
-  contact: item.contactName || '-',
-  phone: item.phone || '-',
-  status: mapSupplierStatus(item.verificationStatus),
-  submitTime: item.submittedAt || item.createdAt || '-'
+  contact: '-',
+  phone: '-',
+  status: mapOnboardingStatus(item.onboardingStatus),
+  submitTime: item.updatedAt || item.createdAt || '-'
 })
 
 const mapContentStatus = (s?: string) => {
-  if (s === 'draft') return 'pending_level1'
+  if (s === 'pending_review') return 'pending_level1'
+  if (s === 'approved') return 'pending_level2'
   if (s === 'published') return 'approved'
-  if (s === 'archived') return 'rejected'
+  if (s === 'rejected' || s === 'offline') return 'rejected'
   return 'approved'
 }
 
-const mapContentType = (category?: string) => {
-  if (category === 'medical') return { type: 'activity', typeLabel: '医疗', typeColor: 'success' }
-  if (category === 'it') return { type: 'training', typeLabel: 'IT', typeColor: 'warning' }
-  if (category === 'construction') return { type: 'ad', typeLabel: '工程', typeColor: 'danger' }
-  return { type: 'activity', typeLabel: '标讯', typeColor: 'info' }
+const mapContentType = (contentType?: string) => {
+  if (contentType === 'activity') return { type: 'activity', typeLabel: '活动', typeColor: 'success' }
+  if (contentType === 'training') return { type: 'training', typeLabel: '培训', typeColor: 'warning' }
+  if (contentType === 'ad') return { type: 'ad', typeLabel: '广告', typeColor: 'danger' }
+  if (contentType === 'media') return { type: 'activity', typeLabel: '媒体', typeColor: 'info' }
+  return { type: 'activity', typeLabel: '内容', typeColor: 'info' }
 }
 
 const mapContentRow = (item: any) => {
-  const t = mapContentType(item.category)
+  const t = mapContentType(item.contentType)
   return {
     id: item.id,
     type: t.type,
     typeLabel: t.typeLabel,
     typeColor: t.typeColor,
     title: item.title || '未命名内容',
-    applicant: item.organization || '-',
+    applicant: '-',
     status: mapContentStatus(item.status),
-    submitTime: item.publishDate || '-',
-    content: item.description || ''
+    submitTime: item.publishDate || item.updatedAt || '-',
+    content: item.summary || ''
   }
 }
 
 const loadSupplierAudits = async () => {
   loading.supplier = true
   try {
-    const res = await apiRequest<any>('/v3/admin/member-verifications?page=1&page_size=100')
+    const res = await apiRequest<any>('/v3/admin/supplier-onboarding?page=1&page_size=100')
     const items = res.data?.items || []
     supplierAuditItems.value = items.map(mapSupplierRow)
   } catch (e: any) {
@@ -227,7 +229,7 @@ const loadSupplierAudits = async () => {
 const loadContentAudits = async () => {
   loading.content = true
   try {
-    const res = await apiRequest<any>('/v3/admin/tenders?page=1&page_size=100')
+    const res = await apiRequest<any>('/v3/admin/contents?page=1&page_size=100')
     const items = res.data?.items || []
     contentAuditItems.value = items.map(mapContentRow)
   } catch (e: any) {
@@ -249,15 +251,21 @@ const handleSupplierAudit = async (payload: any) => {
     return
   }
 
-  const action = payload?.action === 'approve' || payload?.action === 'pass' ? 'approve' : 'reject'
+  const isApprove = payload?.action === 'approve' || payload?.action === 'pass'
   const reason = String(payload?.comment || '')
 
+  // AUDIT_1: submitted → precheck_passed/precheck_failed
+  // AUDIT_2: precheck_passed → final_review_passed/final_review_failed
+  const toStatus = auditViewMode.value === 'AUDIT_1'
+    ? (isApprove ? 'precheck_passed' : 'precheck_failed')
+    : (isApprove ? 'final_review_passed' : 'final_review_failed')
+
   try {
-    await apiRequest(`/v3/admin/member-verifications/${id}/review`, {
+    await apiRequest(`/v3/admin/supplier-onboarding/${id}/transition`, {
       method: 'POST',
-      body: { action, reason }
+      body: { to_status: toStatus, reason }
     })
-    ElMessage.success(action === 'approve' ? '审核通过' : '已驳回')
+    ElMessage.success(isApprove ? '审核通过' : '已驳回')
     await fetchPendingStats()
   } catch (e: any) {
     ElMessage.error(e?.message || '审核失败')
@@ -271,18 +279,20 @@ const handleContentAudit = async (payload: any) => {
     return
   }
 
-  const action = payload?.action === 'approve' || payload?.action === 'pass' ? 'approve' : 'reject'
-  const toStatus = action === 'approve' ? 'published' : 'archived'
+  const isApprove = payload?.action === 'approve' || payload?.action === 'pass'
+
+  // AUDIT_1: pending_review → approved/rejected
+  // AUDIT_2: approved → published/rejected
+  const toStatus = auditViewMode.value === 'AUDIT_1'
+    ? (isApprove ? 'approved' : 'rejected')
+    : (isApprove ? 'published' : 'rejected')
 
   try {
-    await apiRequest(`/v3/admin/tenders/${id}/transition`, {
+    await apiRequest(`/v3/admin/contents/${id}/transition`, {
       method: 'POST',
-      body: {
-        to_status: toStatus,
-        reason: action === 'approve' ? 'content audit approve' : 'content audit reject'
-      }
+      body: { to_status: toStatus, reason: isApprove ? '审核通过' : '审核驳回' }
     })
-    ElMessage.success(action === 'approve' ? '内容审核通过' : '内容已驳回')
+    ElMessage.success(isApprove ? '内容审核通过' : '内容已驳回')
     await fetchPendingStats()
   } catch (e: any) {
     ElMessage.error(e?.message || '内容审核失败')
