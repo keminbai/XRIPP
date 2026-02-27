@@ -4,8 +4,8 @@
   版本: V1.5 (2026-02-27 收敛版)
 
   说明:
-  1. 主数据源切换为 /v3/admin/member-verifications。
-  2. 统计口径基于“服务商入驻审核申请”数据聚合。
+  1. 主数据源切换为 /v3/admin/supplier-onboarding。
+  2. 统计口径基于”服务商入驻申请”数据聚合。
   ========================================================================
 -->
 <template>
@@ -29,7 +29,7 @@
       </div>
 
       <el-alert
-        title="统计口径说明：当前图表基于服务商入驻审核申请数据（member-verifications），非最终 suppliers 运营主表。"
+        title="统计口径说明：当前图表基于服务商入驻申请数据（supplier-onboarding），非最终 suppliers 运营主表。"
         type="info"
         :closable="false"
         class="mb-4"
@@ -203,8 +203,8 @@ const toDate = (v: unknown) => {
 }
 
 const parseStatus = (s?: string): SupplierAggRow['status'] => {
-  if (s === 'approved') return 'approved'
-  if (s === 'rejected') return 'rejected'
+  if (s === 'active' || s === 'final_review_passed') return 'approved'
+  if (s === 'precheck_failed' || s === 'final_review_failed') return 'rejected'
   return 'pending'
 }
 
@@ -224,20 +224,20 @@ const loadList = async () => {
     const query: Record<string, any> = { page: 1, page_size: 500 }
     if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
 
-    const res = await apiRequest<any>('/v3/admin/member-verifications', { query })
+    const res = await apiRequest<any>('/v3/admin/supplier-onboarding', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
 
     allData.value = items.map((item: any) => {
-      const city = item.city || ''
+      const city = item.cityName || ''
       return {
         id: Number(item.id),
         name: item.companyName || '未命名企业',
-        industry: item.industry || '未分类',
+        industry: '未分类',
         city,
         province: inferProvince(city),
         country: '中国',
-        status: parseStatus(item.verificationStatus),
-        registerDate: toDate(item.submittedAt || item.createdAt)
+        status: parseStatus(item.onboardingStatus),
+        registerDate: toDate(item.createdAt)
       }
     })
   } catch (e: any) {

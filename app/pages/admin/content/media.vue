@@ -302,7 +302,7 @@ const mapCategory = (raw?: string): 'platform' | 'industry' | 'policy' => {
 const mapStatus = (raw?: string) => {
   const s = String(raw || '').toLowerCase()
   if (s === 'published') return { key: 'published', label: '已发布' }
-  if (s === 'archived') return { key: 'offline', label: '已下架' }
+  if (s === 'offline') return { key: 'offline', label: '已下架' }
   if (s === 'rejected') return { key: 'rejected', label: '已驳回' }
   return { key: 'auditing', label: '审核中' }
 }
@@ -311,7 +311,7 @@ const mapNewsRow = (item: any) => {
   const st = mapStatus(item?.status)
   return {
     id: item?.id,
-    newsNo: item?.tenderNo || `N-${item?.id || ''}`,
+    newsNo: item?.contentNo || `N-${item?.id || ''}`,
     title: item?.title || '未命名内容',
     summary: item?.description || '',
     category: mapCategory(item?.category),
@@ -331,7 +331,7 @@ const mapNewsRow = (item: any) => {
 const loadNews = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/tenders?page=1&page_size=200')
+    const res: any = await apiRequest('/v3/admin/contents?content_type=media&page=1&page_size=200')
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allNewsList.value = items.map(mapNewsRow)
   } catch (e: any) {
@@ -458,7 +458,7 @@ const handleApprove = (row: any) => {
   ElMessageBox.confirm(`确认通过 "${row.title}" 吗？`, '审核通过', { type: 'success' })
     .then(async () => {
       try {
-        await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+        await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
           method: 'POST',
           body: {
             to_status: 'published',
@@ -481,10 +481,10 @@ const handleReject = (row: any) => {
   })
     .then(async ({ value }) => {
       try {
-        await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+        await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
           method: 'POST',
           body: {
-            to_status: 'archived',
+            to_status: 'rejected',
             reason: String(value || 'content media reject')
           }
         })
@@ -502,8 +502,8 @@ const handleToggleStatus = (row: any) => {
   ElMessageBox.confirm(`确定${action}此内容吗？`, '提示', { type: 'warning' })
     .then(async () => {
       try {
-        const toStatus = row.status === 'published' ? 'archived' : 'published'
-        await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+        const toStatus = row.status === 'published' ? 'offline' : 'published'
+        await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
           method: 'POST',
           body: {
             to_status: toStatus,

@@ -11,7 +11,7 @@
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="text-lg font-bold text-slate-800">服务商名录库</h3>
-          <p class="text-xs text-slate-500 mt-1">数据来源：/v3/admin/member-verifications（真实接口）</p>
+          <p class="text-xs text-slate-500 mt-1">数据来源：/v3/admin/supplier-onboarding（真实接口）</p>
         </div>
         <div class="flex items-center gap-3">
           <el-tag type="warning" effect="plain">只读模式</el-tag>
@@ -37,9 +37,11 @@
           clearable
         />
         <el-select v-model="filters.status" placeholder="审核状态" class="w-40" clearable>
-          <el-option label="待审核" value="pending" />
-          <el-option label="已通过" value="approved" />
-          <el-option label="已驳回" value="rejected" />
+          <el-option label="待预审" value="submitted" />
+          <el-option label="预审通过" value="precheck_passed" />
+          <el-option label="终审通过/已激活" value="active" />
+          <el-option label="审核未通过" value="rejected" />
+          <el-option label="已停用" value="inactive" />
         </el-select>
         <el-date-picker
           v-model="filters.dateRange"
@@ -140,9 +142,9 @@ type SupplierRow = {
   phone: string
   partnerId: number | null
   industry: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: string
   statusLabel: string
-  statusTag: 'warning' | 'success' | 'danger' | 'info'
+  statusTag: 'warning' | 'success' | 'danger' | 'info' | 'primary'
   submitDate: string
   reviewedDate: string
   rejectReason: string
@@ -165,9 +167,14 @@ const filters = ref({
 })
 
 const statusMap = (s?: string) => {
-  if (s === 'approved') return { status: 'approved', label: '已通过', tag: 'success' as const }
-  if (s === 'rejected') return { status: 'rejected', label: '已驳回', tag: 'danger' as const }
-  return { status: 'pending', label: '待审核', tag: 'warning' as const }
+  if (s === 'active') return { status: 'active', label: '已激活', tag: 'success' as const }
+  if (s === 'final_review_passed') return { status: 'active', label: '终审通过', tag: 'success' as const }
+  if (s === 'precheck_passed') return { status: 'precheck_passed', label: '预审通过', tag: 'primary' as const }
+  if (s === 'precheck_failed') return { status: 'rejected', label: '预审未通过', tag: 'danger' as const }
+  if (s === 'final_review_failed') return { status: 'rejected', label: '终审未通过', tag: 'danger' as const }
+  if (s === 'inactive') return { status: 'inactive', label: '已停用', tag: 'info' as const }
+  if (s === 'submitted') return { status: 'submitted', label: '待预审', tag: 'warning' as const }
+  return { status: 'draft', label: '草稿', tag: 'info' as const }
 }
 
 const fmtDate = (v: unknown) => {
@@ -183,21 +190,21 @@ const fmtDate = (v: unknown) => {
 }
 
 const mapRow = (item: any): SupplierRow => {
-  const st = statusMap(item.verificationStatus)
+  const st = statusMap(item.onboardingStatus)
   return {
     id: Number(item.id),
-    applyNo: `MV${String(item.id).padStart(6, '0')}`,
+    applyNo: `SO${String(item.id).padStart(6, '0')}`,
     name: item.companyName || '未命名企业',
-    contact: item.contactName || '-',
-    phone: item.phone || '-',
+    contact: item.cityName || '-',
+    phone: item.onboardingStatusLabel || '-',
     partnerId: item.partnerId ?? null,
-    industry: item.industry || '',
+    industry: '',
     status: st.status,
     statusLabel: st.label,
     statusTag: st.tag,
-    submitDate: fmtDate(item.submittedAt || item.createdAt),
-    reviewedDate: fmtDate(item.reviewedAt),
-    rejectReason: item.changeReason || ''
+    submitDate: fmtDate(item.createdAt),
+    reviewedDate: fmtDate(item.updatedAt),
+    rejectReason: ''
   }
 }
 
@@ -210,17 +217,19 @@ const loadList = async () => {
     }
     if (filters.value.status) {
       const statusToApi: Record<string, string> = {
-        pending: 'submitted',
-        approved: 'approved',
-        rejected: 'rejected'
+        submitted: 'submitted',
+        precheck_passed: 'precheck_passed',
+        active: 'active',
+        rejected: 'precheck_failed',
+        inactive: 'inactive'
       }
-      query.verification_status = statusToApi[filters.value.status] || 'submitted'
+      query.onboarding_status = statusToApi[filters.value.status] || filters.value.status
     }
     if (filters.value.keyword.trim()) {
       query.keyword = filters.value.keyword.trim()
     }
 
-    const res = await apiRequest<any>('/v3/admin/member-verifications', { query })
+    const res = await apiRequest<any>('/v3/admin/supplier-onboarding', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     rawList.value = items.map(mapRow)
   } catch (e: any) {

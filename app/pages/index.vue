@@ -323,20 +323,36 @@
 
 <script setup lang="ts">
 import { ArrowRight, ArrowLeft, Trophy, Search, Link, Star, StarFilled, Calendar, Location } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
-// 1. 基础数据 (使用 useMockData 保证数据一致性，并补足数据量)
-const { tenders, activities } = useMockData()
+// 1. 活动数据暂用 mock（Activity 实体缺少 image/type/location 字段，待后端补全）
+const { activities } = useMockData()
 const searchQuery = ref('')
 const activeIndex = ref(0)
 
-// ✅ 构造10条显示数据（复用真实数据以保证点击跳转有效）
-// 如果 Mock 数据不够10条，循环填充，确保界面撑满5行
+// 标书真实数据（/v3/tenders 已 permitAll）
+const tenders = ref<any[]>([])
+
+const fmtDeadline = (v: string) => (v ? v.slice(0, 10) : '-')
+
+const mapTenderRow = (item: any) => ({
+  id: String(item.id),
+  type: item.categoryLabel || '国际采购',
+  titleZh: item.title || '未命名标书',
+  organization: item.organization || '-',
+  country: item.country || '-',
+  deadline: fmtDeadline(item.deadline)
+})
+
 const displayTenders = computed(() => {
-  const list = [...tenders]
+  const orig = tenders.value.map(mapTenderRow)
+  if (orig.length === 0) return []
+  const list = [...orig]
+  // 数据不足时循环填充，保证界面最少展示 10 条
   while (list.length < 10) {
-    list.push({ ...tenders[list.length % tenders.length], id: `TMP-${Math.random()}` }) // 临时填充
+    list.push({ ...orig[list.length % orig.length], id: `TMP-${Math.random()}` })
   }
   return list.slice(0, 10)
 })
@@ -400,6 +416,18 @@ const scrollMembers = (direction: 'left' | 'right') => {
   const scrollAmount = 320
   memberScrollRef.value.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' })
 }
+
+// 首页标书数据加载
+onMounted(async () => {
+  try {
+    const res: any = await apiRequest('/v3/tenders?page=1&page_size=20')
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    tenders.value = items
+  } catch {
+    // 加载失败时 displayTenders 返回空列表，页面保持静默
+    tenders.value = []
+  }
+})
 
 // 友情链接
 const friendlyLinks = [

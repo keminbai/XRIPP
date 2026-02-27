@@ -856,7 +856,7 @@ const fmtDate = (v: any) => {
 const mapStatus = (raw?: string) => {
   const s = String(raw || '').toLowerCase()
   if (s === 'published') return { key: 'published', label: '已发布' }
-  if (s === 'archived') return { key: 'offline', label: '已下架' }
+  if (s === 'offline') return { key: 'offline', label: '已下架' }
   if (s === 'rejected') return { key: 'rejected', label: '已驳回' }
   return { key: 'auditing', label: '审核中' }
 }
@@ -879,7 +879,7 @@ const mapTrainingRow = (item: any) => {
     subType: tp.subType,
     subTypeLabel: tp.subTypeLabel,
     subTypeTag: tp.subTypeTag,
-    code: item?.tenderNo || `TRN-${item?.id || ''}`,
+    code: item?.contentNo || `TRN-${item?.id || ''}`,
     title: item?.title || '未命名培训',
     cities: ['全国'],
     status: st.key,
@@ -905,7 +905,7 @@ const mapTrainingRow = (item: any) => {
 const loadTrainings = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/tenders?page=1&page_size=200')
+    const res: any = await apiRequest('/v3/admin/contents?content_type=training&page=1&page_size=200')
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allTrainingList.value = items.map(mapTrainingRow)
   } catch (e: any) {
@@ -1018,7 +1018,7 @@ const handleApprove = (row: any) => {
     type: 'success'
   }).then(async () => {
     try {
-      await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+      await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
         method: 'POST',
         body: { to_status: 'published', reason: 'training approve' }
       })
@@ -1038,9 +1038,9 @@ const handleReject = (row: any) => {
     inputValidator: (value) => value?.trim() ? true : '请输入驳回原因'
   }).then(async ({ value }) => {
     try {
-      await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+      await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
         method: 'POST',
-        body: { to_status: 'archived', reason: String(value || 'training reject') }
+        body: { to_status: 'rejected', reason: String(value || 'training reject') }
       })
       ElMessage.warning('已驳回申请')
       await loadTrainings()
@@ -1100,8 +1100,8 @@ const handleToggleStatus = (row: any) => {
   ElMessageBox.confirm(`确定${action}此培训吗？`, '提示', { type: 'warning' })
     .then(async () => {
       try {
-        const toStatus = row.status === 'published' ? 'archived' : 'published'
-        await apiRequest(`/v3/admin/tenders/${row.id}/transition`, {
+        const toStatus = row.status === 'published' ? 'offline' : 'published'
+        await apiRequest(`/v3/admin/contents/${row.id}/transition`, {
           method: 'POST',
           body: { to_status: toStatus, reason: toStatus === 'published' ? 'training up' : 'training down' }
         })
