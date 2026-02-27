@@ -80,6 +80,58 @@ public class AdminContentsV3Controller {
     }
 
     @Transactional
+    @PostMapping
+    public V3Response<Map<String, Object>> create(@RequestBody Map<String, Object> body) {
+        if (!SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        String title = str(String.valueOf(body.getOrDefault("title", "")));
+        String contentType = str(String.valueOf(body.getOrDefault("content_type", "")));
+        if (title.isEmpty()) {
+            return V3Response.error("VALIDATION_ERROR", "title required");
+        }
+        if (contentType.isEmpty() || !List.of("activity", "media", "ad", "training").contains(contentType)) {
+            return V3Response.error("VALIDATION_ERROR", "content_type must be activity|media|ad|training");
+        }
+
+        ContentEntity c = new ContentEntity();
+        c.setTitle(title);
+        c.setContentType(contentType);
+        c.setSummary(str(String.valueOf(body.getOrDefault("summary", ""))));
+        c.setBody(str(String.valueOf(body.getOrDefault("body", ""))));
+        c.setCityName(str(String.valueOf(body.getOrDefault("city_name", ""))));
+        c.setPublishStatus("draft");
+
+        Object isPaidObj = body.get("is_paid");
+        c.setIsPaid(Boolean.TRUE.equals(isPaidObj) || "true".equals(String.valueOf(isPaidObj)));
+
+        Object feeObj = body.get("fee");
+        try {
+            c.setFee(feeObj != null ? new BigDecimal(String.valueOf(feeObj)) : BigDecimal.ZERO);
+        } catch (NumberFormatException ignored) {
+            c.setFee(BigDecimal.ZERO);
+        }
+
+        Date now = new Date();
+        c.setCreatedAt(now);
+        c.setUpdatedAt(now);
+
+        Long userId = SecurityContextHolder.getCurrentUserId();
+        if (userId != null && userId > 0) {
+            c.setCreatedBy(userId);
+        }
+
+        contentService.save(c);
+
+        return V3Response.success(Map.of(
+                "id", c.getId(),
+                "contentNo", toItem(c).get("contentNo"),
+                "status", "draft"
+        ));
+    }
+
+    @Transactional
     @PostMapping("/{id}/transition")
     public V3Response<Map<String, Object>> transition(
             @PathVariable Long id,

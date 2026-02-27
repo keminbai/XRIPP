@@ -5,7 +5,7 @@
 - 明确“当前权威文档”与“历史参考文档”
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-27（Claude Code 第四轮更新：contents 后端落地、supplier_onboarding 前端修正、标书 DDL 漂移补录、tender_download_logs 防重复扣减实现）
+最后更新：2026-02-27（Claude Code 第八轮更新：demands 后端全栈、admin orders API、partner publishes review、activities/services/audit 全面脱 mock、采购需求审核 Tab 接入真实 API）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -55,7 +55,7 @@
 |---|---|---|---|---|
 | `app/pages/admin/tenders/reference.vue` | 部分实现 | - | - | 已切真实列表；“引用提交/抓取/删除”写接口未接入，当前只读 |
 | `app/pages/admin/members/un-audit.vue` | 部分实现 | - | - | 已切真实审核主流程；证书上传接口未接入 |
-| `app/pages/admin/audit.vue` | 部分实现 | - | - | 服务商与内容审核已接入；采购需求审核写接口未接入（显式提示） |
+| `app/pages/admin/audit.vue` | 部分实现 | - | - | 服务商、内容、采购需求三 Tab 均已接入真实 API（ad8ddbc）；需求审核已闭环 |
 | `app/pages/admin/suppliers/list.vue` | 部分实现 | - | - | 已切真实列表；新增/编辑/资料上传写接口未接入，当前受控降级 |
 | `app/pages/admin/suppliers/audit.vue` | 部分实现 | - | - | 主数据与审核流已切真实接口；证书上传/下载接口未接入，受控降级 |
 | `app/pages/admin/suppliers/analysis.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/supplier-onboarding（1df2247）；入驻申请口径，非运营主表 suppliers |
@@ -75,25 +75,36 @@
 | 服务商名录 | 已确认 | 列表真实、写操作受控降级 | 写接口未完成 | 仅可验收查询/导出 |
 | 服务商审核 | 已确认 | 主页面与子页均已接真实审核流，证书能力受控降级 | 部分可用 | 可验收审核主流程 |
 | 服务商统计 | 已确认 | 已改真实聚合统计（审核申请口径） | 部分可用 | 可验收统计展示，口径需注明 |
-| 采购需求审核 | 已确认 | 入口保留+显式待接入 | 写接口未完成 | 暂不可验收 |
-| 活动管理 | 已确认 | 已切真实列表；partner 新建已接；审核/下架/导出受控降级 | 列表/新建部分可用，缺 admin 管理接口 | 可验收 partner 发布流程 |
-| 培训内容管理 | 已确认 | 已切真实列表（临时借用 tenders 口径）；状态流转已接 | 无专用 /v3/contents 接口，用 tenders 临时代替 | 暂不可正式验收，待 /v3/contents 实现 |
-| 媒体内容管理 | 已确认 | 同培训，已切真实列表，受控降级 | 同上 | 同上 |
-| 订单管理 | 已确认 | 列表已接真实 API | 已可用（列表+状态流转） | 可联调验收 |
+| 采购需求审核 | 已确认 | ✅ 已接入 DemandAuditList + /v3/admin/demands list/review（ad8ddbc） | ✅ GET list + POST review 已实现（0d8df57） | 可联调验收审核主流程 |
+| 商机对接管理 | 已确认 | ✅ business.vue 已接入 /v3/admin/demands（0d8df57） | ✅ GET list + POST review 已实现 | 可联调验收 |
+| 展示位管理 | 已确认 | display.vue 三 Tab 已添加待接入 alert；写操作受控降级 | 无对应 DDL/接口（OSS 依赖未就绪） | 暂不可验收写操作 |
+| 活动管理 | 已确认 | ✅ 列表+partner新建+审核 approve/reject 均已接真实 API（8470688） | ✅ 列表/新建/审核完整；下架/导出受控降级 | 可联调验收主流程 |
+| 培训内容管理 | 已确认 | ✅ 已切 /v3/admin/contents?content_type=training；状态流转已接；发布/编辑受控降级 | ✅ /v3/admin/contents 已实现；缺 POST create endpoint（Week2 DoD 阻塞） | 可验收查询/状态切换，创建待实现 |
+| 媒体内容管理 | 已确认 | ✅ 已切 /v3/admin/contents?content_type=media；受控降级 | 同培训 | 同培训 |
+| 订单管理 | 已确认 | ✅ 已接 /v3/admin/orders（8470688 修正） | ✅ GET list + POST transition 已实现 | 可联调验收 |
+| 服务商前台展示 | 已确认 | ✅ services.vue 供应商区块已接 /v3/suppliers（f0e818f） | ✅ SuppliersV3Controller 已实现 | 可联调验收 |
 | 会员认证审核 | 已确认 | 主流程已接真实 API；证书上传受控降级 | 部分可用 | 可验收主审核流程 |
 | 标书防重复扣费 | 已确认 | 不涉及前端 | ✅ DDL 已补建（tender_download_logs），TenderDownloadLogService + POST /v3/tenders/{id}/download 已实现（含 OrderEntity 写入） | ⚠️ 代码完整，DDL 需在目标 DB 执行 DDL_Phase2_Migration.sql |
 | 状态流转审计 | 已确认 | 不涉及前端 | ✅ StateTransitionService 已注入 5 个 Controller（order/tender/member_verification/content/supplier_onboarding） | ⚠️ 代码完整，DDL 需在目标 DB 执行 |
 | 供应商入库审核 | 已确认 | ✅ 已切换 /v3/admin/supplier-onboarding（1df2247） | ✅ 后端完整（Entity/Mapper/Service/Controller）（0280d7d） | ⚠️ 可联调验收，DDL 需先执行 |
 | 内容管理（培训/媒体） | 已确认 | ✅ 已切换 /v3/admin/contents（1df2247） | ✅ 后端完整（Entity/Mapper/Service/AdminContentsV3Controller）（1df2247） | ⚠️ 可联调验收，DDL 需先执行 |
 
-## 6. AI 工具使用提示（Cursor / Continue.dev）
+## 6. ⚠️ 致命风险提醒（优先处理）
+
+| 风险 | 说明 | 动作 |
+|---|---|---|
+| DDL_Phase2_Migration.sql 执行状态未知 | 9 张 Phase 2 表（contents/tenders/state_transition_logs 等）若未在目标 DB 执行，后端 100% 运行时崩溃 | 在目标 DB 手动执行 `docs/DDL_Phase2_Migration.sql`，脚本已幂等（IF OBJECT_ID IS NULL），可安全重复执行 |
+| contents POST create 缺失 | `POST /v3/admin/contents` 未实现，trainings.vue/media.vue 创建内容只能提示"受控降级" | 实现 POST 端点（Week2 DoD 阻塞项） |
+| DDL_Gap_Report_v1.md 为空模板 | 该文件占位符未填写真实值，作为参考无意义 | 以 DDL_Phase2_Migration.sql 为权威差异文档，Gap Report 可标注"以 Phase2_Migration.sql 为准" |
+
+## 7. AI 工具使用提示（Cursor / Continue.dev）
 
 - 优先参考“当前权威文档”生成代码或核实逻辑。
 - 涉及历史需求比对时，再引用 `docs/requirements`。
 - 权限相关问题必须遵守第 3 节路由权限基线与 `SecurityContextHolder` 约束。
 - 回答建议格式：先列符合/冲突点，再给修改方案（必要时附最小 diff）。
 
-## 7. 维护建议
+## 8. 维护建议
 
 - 每次新增/删除文档后，同步更新本索引。
 - 文档命名统一使用 UTF-8 编码与稳定路径，避免中英文混排重命名导致失链。

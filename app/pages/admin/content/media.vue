@@ -440,11 +440,49 @@ const openPublishDialog = () => {
   }
   imageFileList.value = []
   publishDialogVisible.value = true
-  ElMessage.warning('发布接口未接入，当前为受控降级模式')
 }
 
-const handlePublish = () => {
-  ElMessage.warning('发布/编辑接口未接入，暂不支持写入')
+const handlePublish = async () => {
+  if (isEdit.value) {
+    ElMessage.warning('编辑接口未接入，当前为受控降级模式')
+    return
+  }
+
+  if (!form.value.title?.trim()) {
+    return ElMessage.warning('请填写新闻标题')
+  }
+
+  submitLoading.value = true
+  try {
+    const extraBody = JSON.stringify({
+      category: form.value.category,
+      coverImage: form.value.coverImage,
+      content: form.value.content,
+      source: form.value.source,
+      author: form.value.author
+    })
+
+    await apiRequest('/v3/admin/contents', {
+      method: 'POST',
+      body: {
+        title: form.value.title.trim(),
+        content_type: 'media',
+        summary: form.value.summary || '',
+        body: extraBody,
+        city_name: '',
+        is_paid: false,
+        fee: 0
+      }
+    })
+
+    ElMessage.success('新闻已创建（草稿），可在列表中发布')
+    publishDialogVisible.value = false
+    await loadNews()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建失败')
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 const handleEdit = (row: any) => {

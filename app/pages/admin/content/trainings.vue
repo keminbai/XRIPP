@@ -1091,8 +1091,56 @@ const openPublishDialog = () => {
   publishDialogVisible.value = true 
 }
 
-const handlePublish = () => {
-  ElMessage.warning('发布/编辑接口未接入，当前为受控降级模式')
+const handlePublish = async () => {
+  if (isEdit.value) {
+    ElMessage.warning('编辑接口未接入，当前为受控降级模式')
+    return
+  }
+
+  if (!form.value.title?.trim()) {
+    return ElMessage.warning('请填写培训标题')
+  }
+
+  submitLoading.value = true
+  try {
+    const extraBody = JSON.stringify({
+      subType: form.value.subType,
+      coverImage: form.value.coverImage,
+      videoUrl: form.value.videoUrl,
+      hasVideo: form.value.hasVideo,
+      teamIntro: form.value.teamIntro,
+      courseChapters: form.value.courseChapters,
+      expertInfo: form.value.expertInfo,
+      date: form.value.date,
+      maxLimit: form.value.maxLimit,
+      feeItemId: form.value.feeItemId,
+      feeItemName: form.value.feeItemName,
+      feeType: form.value.feeType,
+      frontModule: form.value.frontModule,
+      frontPosition: form.value.frontPosition
+    })
+
+    await apiRequest('/v3/admin/contents', {
+      method: 'POST',
+      body: {
+        title: form.value.title.trim(),
+        content_type: 'training',
+        summary: form.value.summary || '',
+        body: extraBody,
+        city_name: (form.value.cities && form.value.cities.length > 0) ? form.value.cities[0] : '',
+        is_paid: (form.value.price || 0) > 0,
+        fee: form.value.price || 0
+      }
+    })
+
+    ElMessage.success('培训已创建（草稿），可在列表中上架发布')
+    publishDialogVisible.value = false
+    await loadTrainings()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建失败')
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 const handleToggleStatus = (row: any) => {
