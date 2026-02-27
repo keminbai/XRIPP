@@ -119,13 +119,13 @@
           </template>
 
           <div class="p-6">
-            <el-alert
-              title="采购需求审核写接口尚未接入，当前模块处于只读占位状态。"
-              type="warning"
-              :closable="false"
-              class="mb-6"
+            <DemandAuditList
+              :role="auditViewMode"
+              :items="demandAuditItems"
+              :loading="loading.demand"
+              @audit="handleDemandAudit"
+              @refresh="loadDemandAudits"
             />
-            <el-empty description="暂无可处理数据（待后端接口接入）" />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -141,6 +141,7 @@ import { apiRequest } from '@/utils/request'
 
 import SupplierAuditList from './components/SupplierAuditList.vue'
 import ActivityAuditList from './components/ActivityAuditList.vue'
+import DemandAuditList from './components/DemandAuditList.vue'
 
 definePageMeta({ layout: 'admin' })
 
@@ -149,16 +150,18 @@ const activeTab = ref<'supplier' | 'content' | 'demand'>('supplier')
 
 const supplierAuditItems = ref<any[]>([])
 const contentAuditItems = ref<any[]>([])
+const demandAuditItems = ref<any[]>([])
 
 const loading = reactive({
   supplier: false,
-  content: false
+  content: false,
+  demand: false
 })
 
 const pendingStats = computed(() => ({
   supplier: supplierAuditItems.value.filter(i => i.status === 'pending_level1' || i.status === 'pending_level2').length,
   content: contentAuditItems.value.filter(i => i.status === 'pending_level1' || i.status === 'pending_level2').length,
-  demand: 0
+  demand: demandAuditItems.value.filter(i => i.status === 'pending_level1').length
 }))
 
 const pendingCount = computed(() => pendingStats.value.supplier + pendingStats.value.content + pendingStats.value.demand)
@@ -240,8 +243,48 @@ const loadContentAudits = async () => {
   }
 }
 
+const mapDemandRow = (item: any) => ({
+  id: item.id,
+  title: item.title || '未命名需求',
+  company: item.companyName || '-',
+  budget: '-',
+  status: item.status === 'pending' ? 'pending_level1' : item.status === 'published' ? 'approved' : 'rejected',
+  submitTime: item.publishDate || '-'
+})
+
+const loadDemandAudits = async () => {
+  loading.demand = true
+  try {
+    const res = await apiRequest<any>('/v3/admin/demands?page=1&page_size=100')
+    const items = res.data?.items || []
+    demandAuditItems.value = items.map(mapDemandRow)
+  } catch (e: any) {
+    demandAuditItems.value = []
+    ElMessage.error(e?.message || '读取需求审核列表失败')
+  } finally {
+    loading.demand = false
+  }
+}
+
+const handleDemandAudit = async (payload: any) => {
+  const id = payload?.row?.id
+  if (!id) { ElMessage.error('缺少需求ID'); return }
+
+  const isApprove = payload?.action === 'approve' || payload?.action === 'pass'
+  try {
+    await apiRequest(`/v3/admin/demands/${id}/review`, {
+      method: 'POST',
+      body: { action: isApprove ? 'approve' : 'reject', reason: payload?.comment || '' }
+    })
+    ElMessage.success(isApprove ? '需求审核通过' : '需求已驳回')
+    await loadDemandAudits()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '需求审核失败')
+  }
+}
+
 const fetchPendingStats = async () => {
-  await Promise.all([loadSupplierAudits(), loadContentAudits()])
+  await Promise.all([loadSupplierAudits(), loadContentAudits(), loadDemandAudits()])
 }
 
 const handleSupplierAudit = async (payload: any) => {
