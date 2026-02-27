@@ -319,6 +319,30 @@ BEGIN TRY
     CREATE INDEX IX_tender_dl_user ON dbo.tender_download_logs(user_id, downloaded_at DESC);
   END
 
+  /* =========================================================
+     10) activities 展示字段扩展（首页/services 页必需）
+         activities 表在 Phase 1 已建，此处仅补列，兼容旧环境。
+     ========================================================= */
+  -- 活动类型标签（亨嘉之会 / 公益行 / 出海考察 / 行业沙龙 / 其他）
+  IF COL_LENGTH('dbo.activities', 'activity_type') IS NULL
+    ALTER TABLE dbo.activities ADD activity_type NVARCHAR(50) NULL;
+
+  -- 活动城市/地点展示名称（如"上海"、"线上直播"）
+  IF COL_LENGTH('dbo.activities', 'city_name') IS NULL
+    ALTER TABLE dbo.activities ADD city_name NVARCHAR(100) NULL;
+
+  -- 封面图 URL（外部图床或内部 OSS 地址）
+  IF COL_LENGTH('dbo.activities', 'image_url') IS NULL
+    ALTER TABLE dbo.activities ADD image_url NVARCHAR(500) NULL;
+
+  -- 活动简介（100-300 字）
+  IF COL_LENGTH('dbo.activities', 'summary') IS NULL
+    ALTER TABLE dbo.activities ADD summary NVARCHAR(2000) NULL;
+
+  -- 审计时间戳（Phase 1 建表时未包含）
+  IF COL_LENGTH('dbo.activities', 'updated_at') IS NULL
+    ALTER TABLE dbo.activities ADD updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME();
+
   COMMIT TRAN;
 END TRY
 BEGIN CATCH

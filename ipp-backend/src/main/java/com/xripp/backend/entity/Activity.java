@@ -28,6 +28,24 @@ public class Activity {
     @TableField("audit_status")
     private Integer auditStatus;
 
+    /** 活动类型标签（亨嘉之会 / 公益行 / 出海考察 / 行业沙龙 / 其他）*/
+    @TableField("activity_type")
+    private String activityType;
+
+    /** 活动城市/地点展示名称 */
+    @TableField("city_name")
+    private String cityName;
+
+    /** 封面图 URL */
+    @TableField("image_url")
+    private String imageUrl;
+
+    /** 活动简介 */
+    private String summary;
+
     @TableField("created_at")
     private Date createdAt;
+
+    @TableField("updated_at")
+    private Date updatedAt;
 }

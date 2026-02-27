@@ -327,10 +327,11 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
 
-// 1. 活动数据暂用 mock（Activity 实体缺少 image/type/location 字段，待后端补全）
-const { activities } = useMockData()
 const searchQuery = ref('')
 const activeIndex = ref(0)
+
+// 活动真实数据（/v3/activities 已 permitAll，audit_status=20 的已审核活动）
+const activities = ref<any[]>([])
 
 // 标书真实数据（/v3/tenders 已 permitAll）
 const tenders = ref<any[]>([])
@@ -417,16 +418,17 @@ const scrollMembers = (direction: 'left' | 'right') => {
   memberScrollRef.value.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' })
 }
 
-// 首页标书数据加载
+// 首页数据并发加载
 onMounted(async () => {
-  try {
-    const res: any = await apiRequest('/v3/tenders?page=1&page_size=20')
-    const items = Array.isArray(res?.data?.items) ? res.data.items : []
-    tenders.value = items
-  } catch {
-    // 加载失败时 displayTenders 返回空列表，页面保持静默
-    tenders.value = []
-  }
+  await Promise.allSettled([
+    apiRequest('/v3/tenders?page=1&page_size=20').then((res: any) => {
+      tenders.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    }).catch(() => { tenders.value = [] }),
+
+    apiRequest('/v3/activities?page=1&page_size=4').then((res: any) => {
+      activities.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    }).catch(() => { activities.value = [] })
+  ])
 })
 
 // 友情链接
