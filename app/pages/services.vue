@@ -771,7 +771,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getLoginUser } from '@/utils/request'
+import { getLoginUser, apiRequest } from '@/utils/request'
 
 useHead({ title: '平台服务 - XRIPP全球公共采购服务平台' })
 
@@ -908,6 +908,7 @@ const recentActivities = computed(() => apiActivities.value)
 
 onMounted(() => {
   loadActivities()
+  loadLatestSuppliers()
 })
 
 const trainingCourses = [
@@ -1116,56 +1117,83 @@ const hasSearched = ref(false)
 const supplierDetailVisible = ref(false)
 const currentSupplier = ref<any>({})
 
-const { serviceProviders } = useServiceProviders()
+const suppliersLoading = ref(false)
+const latestSuppliers = ref<any[]>([])
 
-// ✅ 最新服务商(取前10条)
-const latestSuppliers = computed(() =>
-  [...serviceProviders].sort((a, b) => (a.joinDate < b.joinDate ? 1 : -1)).slice(0, 10)
-)
+// 将 API 返回的 supplier_onboarding 记录归一化为模板字段
+const mapSupplierItem = (item: any) => {
+  let services: string[] = []
+  try { services = JSON.parse(item.serviceTypesJson || '[]') } catch { services = [] }
+  return {
+    id: item.id,
+    name: item.companyName || '未命名企业',
+    city: item.cityName || '-',
+    category: services[0] || '综合服务',
+    services,
+    joinDate: item.joinDate || '',
+    verified: true,
+    icon: '🏢',
+    type: '服务商',
+    phone: '-',
+    intro: item.intro || ''
+  }
+}
 
-const searchSupplier = () => {
+const loadLatestSuppliers = async () => {
+  suppliersLoading.value = true
+  try {
+    const res: any = await apiRequest('/v3/suppliers?page=1&page_size=10')
+    latestSuppliers.value = (res?.data?.items || []).map(mapSupplierItem)
+  } catch {
+    latestSuppliers.value = []
+  } finally {
+    suppliersLoading.value = false
+  }
+}
+
+// 省份 → 城市关键词映射（与 API city 参数对应）
+const provinceCityMap: Record<string, string> = {
+  '上海市': '上海', '北京市': '北京', '广东省': '深圳',
+  '河南省': '郑州', '浙江省': '杭州', '江苏省': '苏州',
+  '四川省': '成都', '湖北省': '武汉'
+}
+
+// 服务类型 → 关键词映射（用于 API keyword 搜索）
+const serviceTypeKwMap: Record<string, string> = {
+  'bid_writing': '标书', 'export_consulting': '咨询',
+  'certification': '认证', 'logistics': '物流'
+}
+
+const searchSupplier = async () => {
   hasSearched.value = true
-  let results = [...serviceProviders]
-  
-  // 省份筛选
-  if (supplierFilters.value.province) {
-    const cityMap: any = { 
-      '上海市': ['上海'], 
-      '北京市': ['北京'],
-      '广东省': ['深圳', '广州'], 
-      '河南省': ['郑州'],
-      '浙江省': ['杭州'],
-      '江苏省': ['苏州', '南京'],
-      '四川省': ['成都'],
-      '湖北省': ['武汉']
+  suppliersLoading.value = true
+  try {
+    const params: Record<string, string> = { page: '1', page_size: '50' }
+
+    if (supplierFilters.value.province) {
+      const city = provinceCityMap[supplierFilters.value.province]
+      if (city) params.city = city
     }
-    const cities = cityMap[supplierFilters.value.province] || []
-    results = results.filter(s => cities.includes(s.city))
-  }
-  
-  // 关键词筛选
-  if (supplierFilters.value.keyword) {
-    results = results.filter(s => 
-      s.name.includes(supplierFilters.value.keyword) || 
-      s.category.includes(supplierFilters.value.keyword)
-    )
-  }
-  
-  // 服务类型筛选
-  if (supplierFilters.value.serviceType) {
-    const serviceMap: any = {
-      'bid_writing': '标书代写',
-      'export_consulting': '出海咨询',
-      'certification': '认证服务',
-      'logistics': '物流报关'
+
+    let kw = supplierFilters.value.keyword.trim()
+    if (!kw && supplierFilters.value.serviceType) {
+      kw = serviceTypeKwMap[supplierFilters.value.serviceType] || ''
     }
-    const serviceName = serviceMap[supplierFilters.value.serviceType]
-    results = results.filter(s => s.services.includes(serviceName))
+    if (kw) params.keyword = kw
+
+    const qs = new URLSearchParams(params).toString()
+    const res: any = await apiRequest(`/v3/suppliers?${qs}`)
+    const items = (res?.data?.items || []).map(mapSupplierItem)
+    supplierList.value = items
+
+    if (items.length > 0) ElMessage.success(`找到 ${items.length} 家符合条件的服务商`)
+    else ElMessage.info('未找到符合条件的服务商，请调整筛选条件')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '查询失败')
+    supplierList.value = []
+  } finally {
+    suppliersLoading.value = false
   }
-  
-  supplierList.value = results
-  if (results.length > 0) ElMessage.success(`找到 ${results.length} 家符合条件的服务商`)
-  else ElMessage.info('未找到符合条件的服务商,请调整筛选条件')
 }
 
 const clearSearch = () => {
