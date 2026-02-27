@@ -5,7 +5,7 @@
 - 明确“当前权威文档”与“历史参考文档”
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-27（Claude Code 全量审查后更新）
+最后更新：2026-02-27（Claude Code 第二轮更新：公开标书接口落地、StateTransitionService 完成、supplier_onboarding 漂移补录）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -81,7 +81,9 @@
 | 订单管理 | 已确认 | 列表已接真实 API | 已可用（列表+状态流转） | 可联调验收 |
 | 会员认证审核 | 已确认 | 主流程已接真实 API；证书上传受控降级 | 部分可用 | 可验收主审核流程 |
 | 标书防重复扣费 | 已确认 | 不涉及前端 | DDL 已补建（tender_download_logs），服务层**未实现** | ❌ 未可验收，核心商业规则缺口 |
-| 状态流转审计 | 已确认 | 不涉及前端 | state_transition_logs 表已建，服务层**未写入** | ❌ 未可验收，审计链为空 |
+| 状态流转审计 | 已确认 | 不涉及前端 | StateTransitionService 已实现并注入 4 个 Controller（order/tender/member_verification），等待 DDL 在真实 DB 执行后即可验收 | ⚠️ 代码完整，DDL 尚未在目标 DB 执行 |
+| 供应商入库审核 | 已确认 | 借用 member_verifications 口径（漂移） | supplier_onboarding 后端**完全缺失**（无 Entity/Mapper/Service/Controller） | ❌ 未可验收，API 计划 Batch A P0 |
+| 内容管理（培训/媒体） | 已确认 | 借用 /v3/admin/tenders 口径（漂移） | contents 后端**完全缺失**（无 Entity/Mapper/Service/Controller） | ❌ 未可验收，待 /v3/contents 实现 |
 
 ## 6. AI 工具使用提示（Cursor / Continue.dev）
 
