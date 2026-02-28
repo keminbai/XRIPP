@@ -16,18 +16,31 @@ function getLevelFromLocal(): MemberLevel {
 
 type UsageMap = Partial<Record<BenefitType, number>>
 
+type QuotaInfo = {
+  memberLevel?: string
+  tenderDownloadTotalQuota?: number
+  tenderDownloadRemaining?: number
+  smsQuotaTotal?: number
+  smsQuotaRemaining?: number
+}
+
 type BenefitUsageResponse = {
   usage?: Partial<Record<BenefitType, number>>
+  quota?: QuotaInfo
 }
 
 export function useMemberBenefitModel() {
   const currentLevel = ref<MemberLevel>(getLevelFromLocal())
   const loading = ref(false)
+  const quota = ref<QuotaInfo>({})
 
   const rightsByType = computed(() => {
     const map = {} as Record<BenefitType, number>
     for (const item of benefitPolicy) {
       map[item.type] = item.defaultByLevel[currentLevel.value]
+    }
+    if (quota.value.tenderDownloadTotalQuota != null) {
+      map.tender_download = quota.value.tenderDownloadTotalQuota
     }
     return map
   })
@@ -48,6 +61,7 @@ export function useMemberBenefitModel() {
     try {
       const res = await apiRequest<BenefitUsageResponse>('/v3/member/benefits/usage')
       const usage = res.data?.usage || {}
+      quota.value = res.data?.quota || {}
       usageByType.value = {
         tender_download: Number(usage.tender_download || 0),
         sms_quota: Number(usage.sms_quota || 0),
@@ -80,6 +94,9 @@ export function useMemberBenefitModel() {
     for (const key of Object.keys(rights) as BenefitType[]) {
       map[key] = Math.max(0, rights[key] - (usage[key] || 0))
     }
+    if (quota.value.tenderDownloadRemaining != null) {
+      map.tender_download = quota.value.tenderDownloadRemaining
+    }
     return map
   })
 
@@ -88,6 +105,7 @@ export function useMemberBenefitModel() {
     rightsByType,
     usageByType,
     remainingByType,
+    quota,
     loading,
     refreshUsage
   }

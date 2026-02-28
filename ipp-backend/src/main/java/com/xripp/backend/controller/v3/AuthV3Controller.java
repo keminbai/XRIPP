@@ -45,9 +45,7 @@ public class AuthV3Controller {
         }
 
         String stored = user.getPasswordHash() == null ? "" : user.getPasswordHash();
-        boolean ok = stored.startsWith("$2")
-                ? passwordEncoder.matches(password, stored)
-                : password.equals(stored); // 兼容历史明文，后续建议全部迁移 BCrypt
+        boolean ok = passwordEncoder.matches(password, stored);
 
         if (!ok) {
             return V3Response.error("AUTH_UNAUTHORIZED", "invalid credentials");

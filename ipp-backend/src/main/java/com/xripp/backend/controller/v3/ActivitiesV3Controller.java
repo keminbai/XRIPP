@@ -31,8 +31,8 @@ public class ActivitiesV3Controller {
             @RequestParam(name = "is_paid", required = false) Boolean isPaid
     ) {
         QueryWrapper<Activity> qw = new QueryWrapper<>();
-        // 只返回审核通过（audit_status=20）的活动
-        qw.eq("audit_status", 20);
+        // 只返回审核通过（audit_status=30 APPROVED）的活动
+        qw.eq("audit_status", 30);
         if (isPaid != null) {
             qw.eq("is_free", !isPaid);
         }

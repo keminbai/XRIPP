@@ -34,6 +34,15 @@ public class ActivityRegistration {
     @TableField("paid_at")
     private Date paidAt;
 
+    @TableField("changed_by")
+    private Long changedBy;
+
+    @TableField("changed_at")
+    private Date changedAt;
+
+    @TableField("change_reason")
+    private String changeReason;
+
     @TableField("created_at")
     private Date createdAt;
 

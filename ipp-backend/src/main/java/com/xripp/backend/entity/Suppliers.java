@@ -42,6 +42,9 @@ public class Suppliers implements Serializable {
     @TableField("submit_time")
     private Date submitTime;
 
+    @TableField("onboarding_status")
+    private String onboardingStatus;
+
     @TableField("created_at")
     private Date createdAt;
 }

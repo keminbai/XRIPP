@@ -24,12 +24,12 @@ public class TenderDownloadLogServiceImpl
      */
     @Override
     public boolean tryLog(Long userId, Long tenderId) {
-        TenderDownloadLog log = new TenderDownloadLog();
-        log.setUserId(userId);
-        log.setTenderId(tenderId);
-        log.setDownloadedAt(new Date());
+        TenderDownloadLog entry = new TenderDownloadLog();
+        entry.setUserId(userId);
+        entry.setTenderId(tenderId);
+        entry.setDownloadedAt(new Date());
         try {
-            save(log);
+            save(entry);
             return true; // 首次下载
         } catch (DuplicateKeyException e) {
             return false; // 已下载过，跳过扣减

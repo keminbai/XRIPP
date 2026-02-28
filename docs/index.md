@@ -5,7 +5,7 @@
 - 明确“当前权威文档”与“历史参考文档”
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-27（Claude Code 第八轮更新：demands 后端全栈、admin orders API、partner publishes review、activities/services/audit 全面脱 mock、采购需求审核 Tab 接入真实 API）
+最后更新：2026-02-28（第九轮更新：全面系统审计 → 详见 AUDIT_Full_System_2026-02-28.md）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -20,6 +20,7 @@
 - [DDL_Phase1_Final.sql](./DDL_Phase1_Final.sql)
 - [DDL_Phase2_Migration.sql](./DDL_Phase2_Migration.sql)
 - [API_Implementation_Plan_v1.md](./API_Implementation_Plan_v1.md)
+- [AUDIT_Full_System_2026-02-28.md](./AUDIT_Full_System_2026-02-28.md)（全面系统审计报告）
 
 ## 2. 历史需求与参考文档（用于追溯，不直接覆盖权威契约）
 
@@ -63,6 +64,14 @@
 | `app/pages/admin/content/activities.vue` | 部分实现 | - | - | 已切真实列表（/v3/partner/publishes）；partner 新建已接真实接口；状态切换/展示申请/导出受控降级 |
 | `app/pages/admin/content/trainings.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/contents?content_type=training（1df2247）；发布/编辑受控降级 |
 | `app/pages/admin/content/media.vue` | 部分实现 | - | - | ✅ 已切换 /v3/admin/contents?content_type=media（1df2247）；发布/编辑受控降级 |
+| `member/orders.vue` | ✅ 已完成 | - | 2026-02-28 | 已删除 mock 数组，接入 /v3/orders API |
+| **系统级：7 张 Phase1 表无 Entity** | **阻塞** | - | - | partners/member_profile/partner_benefit_pool/benefit_grant_logs/audit_logs/sys_dict/state_transition_logs → 合伙人管理 + 权益分发全线阻塞 |
+| **系统级：order_type 枚举不一致** | **风险** | - | - | DDL CHECK 是小写 (activity/service/tender/report/other)，代码写入 MEMBER_ORDER/tender_download 等 → INSERT 时 CHECK 违反 |
+| **系统级：活动审核仅单级** | **偏差** | - | - | 需求要求双级 (一审+二审)，实际 PartnerPublishesV3Controller 为 0→30 单步 |
+| **安全：SupplierOnboarding scope** | **致命** | - | - | V3Controller 用 userId 替代 partnerId（scope 违规）|
+| **安全：Tenders PUT 绕过状态机** | **致命** | - | - | AdminTendersV3Controller PUT 可直接改 tender_status |
+| **已修复：ActivitiesV3Controller** | ✅ | - | 2026-02-28 | audit_status 过滤值从 20 修正为 30 |
+| **已修复：OrdersV3Controller** | ✅ | - | 2026-02-28 | 增加 user_id 隔离 + 字段映射 |
 
 ## 5. 功能状态矩阵（验收口径）
 
@@ -93,9 +102,12 @@
 
 | 风险 | 说明 | 动作 |
 |---|---|---|
-| DDL_Phase2_Migration.sql 执行状态未知 | 9 张 Phase 2 表（contents/tenders/state_transition_logs 等）若未在目标 DB 执行，后端 100% 运行时崩溃 | 在目标 DB 手动执行 `docs/DDL_Phase2_Migration.sql`，脚本已幂等（IF OBJECT_ID IS NULL），可安全重复执行 |
-| contents POST create 缺失 | `POST /v3/admin/contents` 未实现，trainings.vue/media.vue 创建内容只能提示"受控降级" | 实现 POST 端点（Week2 DoD 阻塞项） |
-| DDL_Gap_Report_v1.md 为空模板 | 该文件占位符未填写真实值，作为参考无意义 | 以 DDL_Phase2_Migration.sql 为权威差异文档，Gap Report 可标注"以 Phase2_Migration.sql 为准" |
+| DDL_Phase2_Migration.sql 执行状态未知 | 9 张 Phase 2 表若未在目标 DB 执行，后端 100% 运行时崩溃 | 在目标 DB 执行 `docs/DDL_Phase2_Migration.sql`（幂等，可安全重复执行）|
+| ~~contents POST create 缺失~~ | ~~`POST /v3/admin/contents` 未实现~~ | ✅ 已实现 (978cf74) |
+| 7 张 Phase1 表无 Entity | partners/member_profile 等核心表无 Entity/Mapper/Service → 合伙人管理 + 权益分发 + 会员画像全线阻塞 | 创建 7 组 Entity + Mapper + IService（Phase A1 优先执行）|
+| order_type 枚举全线不一致 | DDL CHECK 允许小写、代码写大写 → INSERT 崩溃 | 统一枚举值 或 修改 DDL CHECK（Phase A3）|
+| 安全漏洞 ×4 | SupplierOnboarding scope 违规 + Tenders PUT 绕过状态机 + 明文密码 + action 空校验 | Phase A4 优先修复 |
+| DDL_Gap_Report_v1.md 为空模板 | 占位符未填写 | 以 DDL_Phase2_Migration.sql + AUDIT_Full_System_2026-02-28.md 为权威参考 |
 
 ## 7. AI 工具使用提示（Cursor / Continue.dev）
 

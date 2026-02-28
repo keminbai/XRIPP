@@ -23,9 +23,9 @@ public class SupplierOnboardingV3Controller {
     @Transactional
     @PostMapping
     public V3Response<Map<String, Object>> submit(@RequestBody Map<String, Object> body) {
-        Long partnerId = SecurityContextHolder.getCurrentUserId();
+        Long partnerId = SecurityContextHolder.getCurrentPartnerId();
         if (partnerId == null || partnerId <= 0) {
-            return V3Response.error("AUTH_UNAUTHORIZED", "login required");
+            return V3Response.error("AUTH_FORBIDDEN", "partner context required");
         }
 
         String companyName = str(body.get("company_name"));
@@ -64,9 +64,9 @@ public class SupplierOnboardingV3Controller {
 
     @GetMapping
     public V3Response<List<Map<String, Object>>> myList() {
-        Long partnerId = SecurityContextHolder.getCurrentUserId();
+        Long partnerId = SecurityContextHolder.getCurrentPartnerId();
         if (partnerId == null || partnerId <= 0) {
-            return V3Response.error("AUTH_UNAUTHORIZED", "login required");
+            return V3Response.error("AUTH_FORBIDDEN", "partner context required");
         }
 
         List<SupplierOnboarding> list = service.list(

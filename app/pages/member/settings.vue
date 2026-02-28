@@ -113,25 +113,60 @@
 
 <script setup lang="ts">
 import { Key } from '@element-plus/icons-vue'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'member' })
 
 const form = ref({
-  name: '张伟',
-  phone: '138****5678',
-  company: '上海宏大进出口贸易有限公司',
-  industry: 'trade',
-  city: 'shanghai',
-  inviteCode: '' 
+  name: '',
+  phone: '',
+  company: '',
+  industry: '',
+  city: '',
+  inviteCode: ''
 })
 
-const handleSave = () => {
-  // 简单的必填校验
-  if (!form.value.name || !form.value.company || !form.value.industry || !form.value.city) {
+const loading = ref(false)
+
+async function loadProfile() {
+  try {
+    const res = await apiRequest<any>('/v3/member/profile')
+    const p = res.data || {}
+    form.value.name = p.contactPerson || ''
+    form.value.company = p.companyName || ''
+    form.value.phone = p.contactPhone || ''
+    form.value.industry = p.industry || ''
+    form.value.city = p.city || ''
+    form.value.inviteCode = p.invitationCode || ''
+  } catch {
+    // keep empty form
+  }
+}
+
+onMounted(loadProfile)
+
+const handleSave = async () => {
+  if (!form.value.name || !form.value.company || !form.value.industry) {
     return ElMessage.warning('请补全所有带 * 的必填信息')
   }
-  ElMessage.success('资料保存成功！权益已更新')
+  loading.value = true
+  try {
+    await apiRequest('/v3/member/profile', {
+      method: 'PUT',
+      body: {
+        contact_person: form.value.name,
+        company_name: form.value.company,
+        industry: form.value.industry,
+        contact_phone: form.value.phone
+      }
+    })
+    ElMessage.success('资料保存成功！权益已更新')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    loading.value = false
+  }
 }
 </script>

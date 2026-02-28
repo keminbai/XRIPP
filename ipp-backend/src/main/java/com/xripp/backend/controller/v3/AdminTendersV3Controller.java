@@ -195,6 +195,11 @@ public class AdminTendersV3Controller {
             if (!Set.of("draft", "published", "archived").contains(status)) {
                 return V3Response.error("VALIDATION_ERROR", "invalid tender_status");
             }
+            String currentStatus = safeOr(t.getTenderStatus(), "draft");
+            if (!currentStatus.equals(status) && !isAllowedTransition(currentStatus, status)) {
+                return V3Response.error("STATE_INVALID_TRANSITION",
+                        "cannot transition from " + currentStatus + " to " + status);
+            }
             t.setTenderStatus(status);
         }
 

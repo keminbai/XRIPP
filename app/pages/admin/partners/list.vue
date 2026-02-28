@@ -138,7 +138,7 @@
           v-model:page-size="pageSize"
           background
           layout="total, prev, pager, next, sizes"
-          :total="filteredList.length"
+          :total="total"
           :page-sizes="[10, 20, 50]"
           @current-change="handlePageChange"
           @size-change="handleSizeChange"
@@ -202,8 +202,9 @@
 
 <script setup lang="ts">
 import { Plus, Search, ArrowDown } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -211,6 +212,8 @@ definePageMeta({ layout: 'admin' })
 const filters = ref({ keyword: '', city: '', level: '', country: '' })
 const dialogVisible = ref(false)
 const isEdit = ref(false)
+const total = ref(0)
+const tableLoading = ref(false)
 
 // 表单数据
 const form = ref({
@@ -225,38 +228,30 @@ const form = ref({
   expireDate: ''
 })
 
-// 模拟数据 (补充字段 Row 36)
-const partnerList = ref([
-  { 
-    id: 1, name: '张三', avatar: '', phone: '138****0001', idCode: '310101****', 
-    country: 'China', city: '上海', memberCount: 156, revenue: 68500, stars: 5, 
-    status: 'active', statusLabel: '在职', joinDate: '2024-01-15', expireDate: '2025-01-15', 
-    invitationCode: 'SH888' 
-  },
-  { 
-    id: 2, name: '李四', avatar: '', phone: '139****0002', idCode: '110101****', 
-    country: 'China', city: '北京', memberCount: 142, revenue: 62300, stars: 5, 
-    status: 'active', statusLabel: '在职', joinDate: '2024-02-20', expireDate: '2025-02-20', 
-    invitationCode: 'BJ666' 
-  },
-  { 
-    id: 3, name: '王五', avatar: '', phone: '137****0003', idCode: '440301****', 
-    country: 'China', city: '深圳', memberCount: 128, revenue: 58900, stars: 4, 
-    status: 'expired', statusLabel: '已过期', joinDate: '2023-03-10', expireDate: '2024-03-10', 
-    invitationCode: 'SZ999' 
-  }
-])
+// 列表数据 (从API加载)
+const partnerList = ref<any[]>([])
+const pagedList = ref<any[]>([])
 
-// 过滤逻辑
-const filteredList = computed(() => {
-  return partnerList.value.filter(item => {
-    const matchKeyword = !filters.value.keyword || item.name.includes(filters.value.keyword) || item.invitationCode.includes(filters.value.keyword)
-    const matchCity = !filters.value.city || item.city === filters.value.city
-    const matchLevel = !filters.value.level || item.stars === Number(filters.value.level)
-    const matchCountry = !filters.value.country || item.country === filters.value.country
-    return matchKeyword && matchCity && matchLevel && matchCountry
-  })
-})
+function mapPartnerItem(item: any) {
+  const isActive = item.status === true || item.status === 1 || item.status === 'active'
+  return {
+    id: item.id,
+    name: item.contactPerson || item.partnerName || '',
+    avatar: item.avatar || '',
+    phone: item.contactPhone || '',
+    idCode: item.idCode || '',
+    country: item.countryName || item.country || 'China',
+    city: item.cityName || item.city || '',
+    memberCount: item.memberCount || 0,
+    revenue: item.revenue || 0,
+    stars: item.stars || 0,
+    status: isActive ? 'active' : 'expired',
+    statusLabel: isActive ? '在职' : '已过期',
+    joinDate: (item.createdAt || item.joinDate || '').substring(0, 10),
+    expireDate: (item.expireDate || '').substring(0, 10),
+    invitationCode: item.invitationCode || ''
+  }
+}
 
 const getStatusType = (status: string) => {
   return status === 'active' ? 'success' : status === 'expired' ? 'warning' : 'info'
@@ -266,14 +261,34 @@ const getStatusType = (status: string) => {
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredList.value.slice(start, start + pageSize.value)
-})
+async function loadPartners() {
+  tableLoading.value = true
+  try {
+    const params = new URLSearchParams()
+    params.set('page', String(currentPage.value))
+    params.set('page_size', String(pageSize.value))
+    if (filters.value.keyword) params.set('keyword', filters.value.keyword)
 
-const handlePageChange = () => {}
+    const res = await apiRequest<any>(`/v3/admin/partners?${params.toString()}`)
+    const data = res.data || {}
+    const items = data.items || data.records || []
+    partnerList.value = items.map(mapPartnerItem)
+    pagedList.value = partnerList.value
+    total.value = data.total || items.length
+  } catch (e: any) {
+    partnerList.value = []
+    pagedList.value = []
+    total.value = 0
+    ElMessage.error(e.message || '加载合伙人列表失败')
+  } finally {
+    tableLoading.value = false
+  }
+}
+
+const handlePageChange = () => { loadPartners() }
 const handleSizeChange = () => {
   currentPage.value = 1
+  loadPartners()
 }
 
 // ---------------------------
@@ -282,13 +297,13 @@ const handleSizeChange = () => {
 
 const handleSearch = () => {
   currentPage.value = 1
-  ElMessage.success('查询完成')
+  loadPartners()
 }
 
 const handleReset = () => {
   filters.value = { keyword: '', city: '', level: '', country: '' }
   currentPage.value = 1
-  ElMessage.info('已重置筛选条件')
+  loadPartners()
 }
 
 const openAddDialog = () => {
@@ -303,43 +318,65 @@ const handleEdit = (row: any) => {
   dialogVisible.value = true
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!form.value.name || !form.value.phone) return ElMessage.warning('请补全信息')
-  
-  dialogVisible.value = false
-  if (isEdit.value) {
-    ElMessage.success('保存成功')
-  } else {
-    // 新增合伙人逻辑 (Row 32: 发放初始密码)
-    const newPartner = {
-      ...form.value,
-      id: Date.now(),
-      invitationCode: 'NEW' + Math.floor(Math.random() * 1000),
-      status: 'active',
-      statusLabel: '在职',
-      joinDate: new Date().toISOString().split('T')[0],
-      expireDate: '2026-12-31',
-      revenue: 0,
-      memberCount: 0,
-      avatar: ''
+
+  try {
+    if (isEdit.value) {
+      await apiRequest(`/v3/admin/partners/${form.value.id}`, {
+        method: 'PUT',
+        body: {
+          partner_name: form.value.name,
+          contact_person: form.value.name,
+          contact_phone: form.value.phone,
+          city_name: form.value.city
+        }
+      })
+      dialogVisible.value = false
+      ElMessage.success('保存成功')
+      loadPartners()
+    } else {
+      const res = await apiRequest<any>('/v3/admin/partners', {
+        method: 'POST',
+        body: {
+          partner_name: form.value.name,
+          contact_person: form.value.name,
+          contact_phone: form.value.phone,
+          city_name: form.value.city
+        }
+      })
+      dialogVisible.value = false
+      const created = res.data || {}
+      ElMessageBox.alert(
+        `合伙人 ${form.value.name} 入驻成功！\n\n合伙人编号：${created.partner_no || created.partnerNo || '-'}\n邀请码：${created.invitation_code || created.invitationCode || '-'}\n初始登录密码为：123456\n请通知合伙人尽快修改密码。`,
+        '发放资格成功',
+        { confirmButtonText: '复制并关闭' }
+      )
+      loadPartners()
     }
-    partnerList.value.unshift(newPartner)
-    
-    // 弹窗提示初始密码
-    ElMessageBox.alert(
-      `合伙人 ${form.value.name} 入驻成功！\n\n初始登录密码为：123456\n请通知合伙人尽快修改密码。`,
-      '发放资格成功',
-      { confirmButtonText: '复制并关闭' }
-    )
+  } catch (e: any) {
+    ElMessage.error(e.message || '操作失败')
   }
 }
 
 // 更多操作 (Row 34)
-const handleCommand = (cmd: string, row: any) => {
+const handleCommand = async (cmd: string, row: any) => {
   switch (cmd) {
-    case 'extension':
-      ElMessageBox.confirm('确认将该合伙人资格延长一年吗？', '资格延期').then(() => ElMessage.success('延期成功'))
+    case 'extension': {
+      try {
+        await ElMessageBox.confirm('确认将该合伙人资格延长一年吗？', '资格延期')
+        const oneYearLater = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]
+        await apiRequest(`/v3/admin/partners/${row.id}/renew`, {
+          method: 'POST',
+          body: { expire_date: oneYearLater }
+        })
+        ElMessage.success('延期成功')
+        loadPartners()
+      } catch (e: any) {
+        if (e !== 'cancel' && e?.toString() !== 'cancel') ElMessage.error(e.message || '延期失败')
+      }
       break
+    }
     case 'welfare':
       ElMessageBox.prompt('请输入福利金额或积分', '发放福利').then(({ value }) => ElMessage.success(`已发放：${value}`))
       break
@@ -347,17 +384,22 @@ const handleCommand = (cmd: string, row: any) => {
       ElMessage.success('请选择文件上传证书...')
       break
     case 'reentry':
-      ElMessageBox.confirm('确认重新入驻该合伙人？将重置状态。', '重新入驻').then(() => {
-        row.status = 'active'
-        row.statusLabel = '在职'
-        ElMessage.success('重新入驻成功')
-      })
+    case 'disable': {
+      try {
+        const action = cmd === 'disable'
+          ? (row.status === 'active' ? '禁用' : '启用')
+          : '重新入驻'
+        await ElMessageBox.confirm(`确认${action}该合伙人？`, action)
+        await apiRequest(`/v3/admin/partners/${row.id}/toggle-status`, { method: 'POST' })
+        ElMessage.success(`${action}成功`)
+        loadPartners()
+      } catch (e: any) {
+        if (e !== 'cancel' && e?.toString() !== 'cancel') ElMessage.error(e.message || '操作失败')
+      }
       break
-    case 'disable':
-      row.status = row.status === 'active' ? 'disabled' : 'active'
-      row.statusLabel = row.status === 'active' ? '在职' : '已禁用'
-      ElMessage.success('状态已变更')
-      break
+    }
   }
 }
+
+onMounted(loadPartners)
 </script>

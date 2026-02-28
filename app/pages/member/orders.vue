@@ -30,9 +30,9 @@
     </div>
 
     <!-- 2. 订单列表 -->
-    <div class="space-y-4">
+    <div class="space-y-4" v-loading="loading">
       <!-- 空状态 -->
-      <div v-if="filteredOrders.length === 0" class="bg-white rounded-xl border border-slate-200 p-16 text-center">
+      <div v-if="!loading && filteredOrders.length === 0" class="bg-white rounded-xl border border-slate-200 p-16 text-center">
         <div class="w-20 h-20 mx-auto bg-slate-50 rounded-full flex items-center justify-center mb-4 text-4xl">📦</div>
         <h3 class="text-slate-900 font-bold mb-1">暂无相关订单</h3>
         <p class="text-slate-500 text-sm">您可以前往服务中心查看更多服务</p>
@@ -63,7 +63,7 @@
             <!-- 图标与信息 -->
             <div class="flex-grow flex items-start gap-4 w-full">
               <div class="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-3xl flex-shrink-0">
-                {{ getTypeIcon(order.type) }}
+                {{ getTypeIcon(order.category) }}
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -72,7 +72,7 @@
                   </span>
                   <h4 class="font-bold text-slate-900 text-base">{{ order.title }}</h4>
                 </div>
-                <p class="text-sm text-slate-500 line-clamp-2">{{ order.description }}</p>
+                <p class="text-sm text-slate-500 line-clamp-2">{{ order.bizType || order.orderType || '-' }}</p>
               </div>
             </div>
 
@@ -105,43 +105,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'member' })
 
 const activeCategory = ref('all')
 const activeStatus = ref('all')
+const loading = ref(false)
 
 const categories = [
   { label: '全部订单', value: 'all' },
-  { label: '会员订单', value: 'member' }, 
-  { label: '服务订单', value: 'service' } 
+  { label: '会员订单', value: 'member' },
+  { label: '服务订单', value: 'service' }
 ]
 
-// 模拟数据：增加了 category 字段用于区分业务类型
-const orders = ref([
-  {
-    id: 1, orderNo: '25120000001', createTime: '2025-12-26 14:30', status: 'pending', 
-    category: 'member', type: 'vip', title: 'SVIP超级会员 (1年)', 
-    description: '包含200次标书查看、5次联合国协助投标', amount: '19,999.00'
-  },
-  {
-    id: 2, orderNo: '25120000002', createTime: '2025-12-25 10:20', status: 'paid', 
-    category: 'service', type: 'supplier', title: '战略服务商入库费', 
-    description: '战略级入库1年，含首页推广位', amount: '20,000.00'
-  },
-  {
-    id: 3, orderNo: '25120000003', createTime: '2025-12-24 16:45', status: 'paid', 
-    category: 'service', type: 'offline', title: '出海落地咨询服务 (线下)', 
-    description: '马来西亚建厂选址咨询服务费预付', amount: '5,000.00'
-  },
-  {
-    id: 4, orderNo: '25120000004', createTime: '2025-12-20 09:15', status: 'paid',
-    category: 'service', type: 'un_entry', title: '联合国供应商注册协助',
-    description: 'UNGM 级别1注册服务费', amount: '1,500.00'
+const orders = ref<any[]>([])
+
+const loadOrders = async () => {
+  loading.value = true
+  try {
+    const res: any = await apiRequest('/v3/orders?page=1&page_size=100')
+    orders.value = Array.isArray(res?.data?.items) ? res.data.items : []
+  } catch (e: any) {
+    orders.value = []
+    ElMessage.error(e?.message || '读取订单失败')
+  } finally {
+    loading.value = false
   }
-])
+}
 
 const filteredOrders = computed(() => {
   return orders.value.filter(o => {
@@ -153,13 +146,15 @@ const filteredOrders = computed(() => {
 
 const getStatusType = (status: string) => ({ pending: 'warning', paid: 'success', cancelled: 'info' }[status] || 'info')
 const getStatusText = (status: string) => ({ pending: '待支付', paid: '已完成', cancelled: '已取消' }[status] || status)
-const getTypeIcon = (type: string) => ({ vip: '👑', supplier: '🏢', offline: '🤝', un_entry: '🇺🇳' }[type] || '📦')
+const getTypeIcon = (category: string) => ({ member: '👑', service: '🏢', tender: '📄', activity: '🎯' }[category] || '📦')
 
 // 交互逻辑
 const handleInvoice = (order: any) => ElMessage.success(`已为订单 ${order.orderNo} 申请电子发票，请留意邮箱`)
-const handleConsult = (order: any) => navigateTo('/member/feedback') // 跳转到客服工单
+const handleConsult = (_order: any) => navigateTo('/member/feedback')
 const handleDelete = (order: any) => {
-  ElMessageBox.confirm('确定删除该订单吗？', '提示', { type: 'warning' })
-    .then(() => ElMessage.success('订单已删除'))
+  ElMessageBox.confirm('确定删除该订单记录吗？', '提示', { type: 'warning' })
+    .then(() => ElMessage.warning('订单删除功能待后端接入'))
 }
+
+onMounted(loadOrders)
 </script>

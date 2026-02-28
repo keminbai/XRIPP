@@ -5,13 +5,17 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.OrderEntity;
+import com.xripp.backend.entity.TenderDownloadLog;
 import com.xripp.backend.entity.TenderEntity;
 import com.xripp.backend.security.SecurityContextHolder;
+import com.xripp.backend.entity.MemberProfile;
+import com.xripp.backend.service.IMemberProfileService;
 import com.xripp.backend.service.IOrderService;
 import com.xripp.backend.service.ITenderDownloadLogService;
 import com.xripp.backend.service.ITenderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +32,8 @@ public class TendersV3Controller {
     private final ITenderService tenderService;
     private final ITenderDownloadLogService downloadLogService;
     private final IOrderService orderService;
+    private final IMemberProfileService memberProfileService;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -103,6 +109,12 @@ public class TendersV3Controller {
             return V3Response.error("RESOURCE_NOT_FOUND", "tender not found");
         }
 
+        // Quota check: skip for admin and duplicate downloads
+        if (!SecurityContextHolder.isAdmin()) {
+            V3Response<Map<String, Object>> quotaError = checkDownloadQuota(userId, t.getId());
+            if (quotaError != null) return quotaError;
+        }
+
         boolean isFirstDownload = downloadLogService.tryLog(userId, t.getId());
 
         if (isFirstDownload) {
@@ -129,6 +141,55 @@ public class TendersV3Controller {
         m.put("description", t.getSummary() == null ? "" : t.getSummary());
         m.put("isDuplicate", !isFirstDownload);
         return V3Response.success(m);
+    }
+
+    /**
+     * Check download quota. Returns null if OK, or error response if exceeded.
+     * Skips check if the user already downloaded this specific tender (duplicate).
+     */
+    private V3Response<Map<String, Object>> checkDownloadQuota(Long userId, Long tenderId) {
+        // Skip check if already downloaded (duplicate)
+        QueryWrapper<TenderDownloadLog> dlQw = new QueryWrapper<>();
+        dlQw.eq("user_id", userId).eq("tender_id", tenderId);
+        if (downloadLogService.count(dlQw) > 0) {
+            return null; // already downloaded, allow re-download
+        }
+
+        // Determine base quota from member_level
+        int baseQuota = 0;
+        QueryWrapper<MemberProfile> mpQw = new QueryWrapper<>();
+        mpQw.eq("user_id", userId);
+        MemberProfile mp = memberProfileService.getOne(mpQw);
+        if (mp != null && mp.getMemberLevel() != null) {
+            baseQuota = switch (mp.getMemberLevel()) {
+                case "vip" -> 50;
+                case "svip" -> 200;
+                default -> 0;
+            };
+        }
+
+        // Granted extra from benefit_grant_logs
+        Integer grantedExtra = jdbcTemplate.queryForObject(
+                "SELECT ISNULL(SUM(amount), 0) FROM benefit_grant_logs " +
+                "WHERE member_id = ? AND benefit_type = 'tender_download'",
+                Integer.class, userId
+        );
+        int totalQuota = baseQuota + (grantedExtra == null ? 0 : grantedExtra);
+
+        // Count downloads this year
+        Integer usedThisYear = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM tender_download_logs " +
+                "WHERE user_id = ? AND downloaded_at >= DATEFROMPARTS(YEAR(GETUTCDATE()), 1, 1)",
+                Integer.class, userId
+        );
+        int used = usedThisYear == null ? 0 : usedThisYear;
+
+        if (used >= totalQuota) {
+            return V3Response.error("QUOTA_EXCEEDED",
+                    "download quota exceeded: used=" + used + ", total=" + totalQuota);
+        }
+
+        return null;
     }
 
     /** 生成下载 order 编号：DL-{userId}-{tenderId}-{时间戳尾8位} */

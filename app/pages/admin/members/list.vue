@@ -193,12 +193,12 @@
         <div class="mt-4 flex justify-between items-center">
           <div class="text-sm text-slate-500">
           已选择 <span class="text-blue-600 font-bold">{{ selectedRows.length }}</span> 项，
-            共 <span class="text-slate-900 font-bold">{{ filteredMemberList.length }}</span> 条数据
+            共 <span class="text-slate-900 font-bold">{{ total }}</span> 条数据
           </div>
           <el-pagination 
             background 
             layout="total, prev, pager, next, jumper" 
-            :total="filteredMemberList.length"
+            :total="total"
             :page-size="pageSize"
             :current-page="currentPage"
             @current-change="handlePageChange"
@@ -376,11 +376,12 @@
 
 <script setup lang="ts">
 import { Plus, Search, View, Edit, Download, Key, Present, ArrowDown } from '@element-plus/icons-vue'
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { benefitPolicy, getBenefitPolicy } from '@/composables/useBenefitPolicy'
 import type { BenefitType, MemberLevel } from '@/composables/useBenefitPolicy'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -471,60 +472,56 @@ watch(
   }
 )
 
-// 模拟数据源
-const allMemberList = ref([
-  {
-    id: 1,
-    companyName: '上海宏大医疗科技有限公司',
-    contactPerson: '张经理',
-    contactPhone: '138****0001',
-    email: 'zhang@hongda.com',
-    industry: '制造业',
-    invitationCode: 'SH8801',
-    level: 'SVIP',
-    city: '上海',
-    province: '上海',
-    isInternational: false,
-    status: 'active',
-    statusLabel: '正常',
-    registerDate: '2025-01-15',
-    expireDate: '2027-01-15'
-  },
-  {
-    id: 2,
-    companyName: '北京科技创新有限公司',
-    contactPerson: '李总',
-    contactPhone: '139****0002',
-    email: 'li@beijing.com',
-    industry: '互联网',
-    invitationCode: 'BJ9902',
-    level: 'VIP',
-    city: '北京',
-    province: '北京',
-    isInternational: false,
-    status: 'active',
-    statusLabel: '正常',
-    registerDate: '2025-03-20',
-    expireDate: '2026-03-20'
-  },
-  {
-    id: 3,
-    companyName: '深圳国际贸易公司',
-    contactPerson: '王经理',
-    contactPhone: '137****0003',
-    email: 'wang@shenzhen.com',
-    industry: '贸易',
-    invitationCode: 'SZ7703',
-    level: 'NORMAL',
-    city: '深圳',
-    province: '广东',
-    isInternational: true,
-    status: 'expired',
-    statusLabel: '已过期',
-    registerDate: '2024-06-10',
-    expireDate: '2025-06-10'
+const total = ref(0)
+const tableLoading = ref(false)
+
+function mapMemberItem(item: any) {
+  const level = (item.memberLevel || item.level || 'normal').toUpperCase()
+  return {
+    id: item.id || item.userId,
+    userId: item.userId || item.id,
+    companyName: item.companyName || '',
+    contactPerson: item.contactPerson || '',
+    contactPhone: item.contactPhone || '',
+    email: item.email || '',
+    industry: item.industry || '',
+    invitationCode: item.invitationCode || '',
+    level,
+    city: item.city || '',
+    province: item.province || '',
+    isInternational: item.isInternational || false,
+    status: item.status || 'active',
+    statusLabel: item.status === 'expired' ? '已过期' : item.status === 'disabled' ? '已禁用' : '正常',
+    registerDate: (item.createdAt || item.registerDate || '').substring(0, 10),
+    expireDate: (item.vipExpireTime || item.expireDate || '').substring(0, 10)
   }
-])
+}
+
+// 数据源（从API加载）
+const allMemberList = ref<any[]>([])
+
+async function loadMembers() {
+  tableLoading.value = true
+  try {
+    const params = new URLSearchParams()
+    params.set('page', String(currentPage.value))
+    params.set('page_size', String(pageSize.value))
+    if (filters.value.keyword) params.set('keyword', filters.value.keyword)
+    if (filters.value.level) params.set('member_level', filters.value.level.toLowerCase())
+
+    const res = await apiRequest<any>(`/v3/admin/members?${params.toString()}`)
+    const data = res.data || {}
+    const items = data.items || data.records || []
+    allMemberList.value = items.map(mapMemberItem)
+    total.value = data.total || items.length
+  } catch (e: any) {
+    allMemberList.value = []
+    total.value = 0
+    ElMessage.error(e.message || '加载会员列表失败')
+  } finally {
+    tableLoading.value = false
+  }
+}
 
 // ----------------------------------------------------
 // 逻辑处理
@@ -675,8 +672,8 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 const pagedMemberList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredMemberList.value.slice(start, start + pageSize.value)
+  // Server-side pagination: filteredMemberList applies client-side filters to the API-loaded page
+  return filteredMemberList.value
 })
 
 const clearSelection = () => {
@@ -690,11 +687,13 @@ const handleSelectionChange = (rows: any[]) => {
 const handlePageChange = (page: number) => {
   currentPage.value = page
   clearSelection()
+  loadMembers()
 }
 
 const handleSizeChange = (size: number) => {
   pageSize.value = size
   currentPage.value = 1
+  loadMembers()
 }
 
 // ----------------------------------------------------
@@ -704,14 +703,14 @@ const handleSizeChange = (size: number) => {
 const handleSearch = () => {
   currentPage.value = 1
   clearSelection()
-  ElMessage.success('查询完成')
+  loadMembers()
 }
 
 const handleReset = () => {
   filters.value = { keyword: '', invitationCode: '', industry: '', level: '', status: '', city: '', province: '', international: '', dateRange: [] }
   currentPage.value = 1
   clearSelection()
-  ElMessage.info('已重置筛选条件')
+  loadMembers()
 }
 
 const csvEscape = (val: any) => {
@@ -769,23 +768,35 @@ const openWelfareDialog = (row: any) => {
   welfareDialog.form = { benefitType: '', amount: 1, remark: '' }
 }
 
-// 🆕 确认发放福利 (清洗后：仅调用API)
+// 🆕 确认发放福利 (调用后端 benefit-pool API)
 const handleConfirmWelfare = async () => {
   if (!welfareFormRef.value) return
-  
-  await welfareFormRef.value.validate((valid) => {
-    if (!valid) return
-    
-    welfareDialog.submitting = true
-    
-    // 模拟后端 API 调用
-    setTimeout(() => {
-      // 实际开发替换为: await api.partner.grantBenefit(...)
-      ElMessage.success('福利发放成功 (已调用后端接口)')
-      welfareDialog.visible = false
-      welfareDialog.submitting = false
-    }, 1000)
-  })
+
+  try {
+    await welfareFormRef.value.validate()
+  } catch {
+    return
+  }
+
+  welfareDialog.submitting = true
+  try {
+    const partnerId = 0 // admin platform grant: partnerId=0 means no pool deduction
+    await apiRequest(`/v3/admin/partners/${partnerId}/benefit-pool/grant`, {
+      method: 'POST',
+      body: {
+        benefit_type: welfareDialog.form.benefitType,
+        amount: welfareDialog.form.amount,
+        member_id: welfareDialog.currentMemberId,
+        remark: welfareDialog.form.remark || ''
+      }
+    })
+    ElMessage.success('福利发放成功')
+    welfareDialog.visible = false
+  } catch (e: any) {
+    ElMessage.error(e.message || '福利发放失败')
+  } finally {
+    welfareDialog.submitting = false
+  }
 }
 
 // 更多操作 (真实删除/禁用)
@@ -812,4 +823,6 @@ const handleMoreAction = (command: string, row: any) => {
     })
   }
 }
+
+onMounted(loadMembers)
 </script>

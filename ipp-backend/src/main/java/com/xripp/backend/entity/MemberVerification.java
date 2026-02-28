@@ -23,6 +23,9 @@ public class MemberVerification {
     private String phone;
     private String industry;
 
+    @TableField("documents_json")
+    private String documentsJson;
+
     @TableField("verification_status")
     private String verificationStatus;
 
@@ -31,6 +34,12 @@ public class MemberVerification {
 
     @TableField("reviewed_at")
     private Date reviewedAt;
+
+    @TableField("changed_by")
+    private Long changedBy;
+
+    @TableField("changed_at")
+    private Date changedAt;
 
     @TableField("change_reason")
     private String changeReason;

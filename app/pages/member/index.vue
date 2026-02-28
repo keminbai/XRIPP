@@ -201,8 +201,9 @@ import {
   User, Monitor, Headset, Service, StarFilled, InfoFilled,
   Medal, Tickets
 } from '@element-plus/icons-vue'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useMemberBenefitModel } from '@/composables/useMemberBenefitModel'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'member' })
 
@@ -214,20 +215,52 @@ const tenderTotal = computed(() => rightsByType.value.tender_download || 0)
 const tenderRemaining = computed(() => remainingByType.value.tender_download || 0)
 const smsRemaining = computed(() => remainingByType.value.sms_quota || 0)
 
-const recentOrders = [
-  { 
-    id: '25120000001', title: 'SVIP超级会员 (1年)', date: '2025-12-26', amount: '19,999.00', 
-    status: '待支付', statusClass: 'bg-orange-50 text-orange-600', icon: '👑', iconBg: 'bg-orange-100' 
-  },
-  { 
-    id: '25120000002', title: '联合国供应商注册协助', date: '2025-12-20', amount: '1,500.00', 
-    status: '服务中', statusClass: 'bg-blue-50 text-blue-600', icon: '🇺🇳', iconBg: 'bg-blue-100' 
-  },
-  { 
-    id: '25120000003', title: '标书下载 (5份)', date: '2025-12-18', amount: '0.00', 
-    status: '已完成', statusClass: 'bg-green-50 text-green-600', icon: '📄', iconBg: 'bg-green-100' 
+const recentOrders = ref<any[]>([])
+
+const statusMap: Record<string, { label: string; cls: string }> = {
+  pending: { label: '待支付', cls: 'bg-orange-50 text-orange-600' },
+  paid: { label: '已支付', cls: 'bg-blue-50 text-blue-600' },
+  processing: { label: '服务中', cls: 'bg-blue-50 text-blue-600' },
+  completed: { label: '已完成', cls: 'bg-green-50 text-green-600' },
+  cancelled: { label: '已取消', cls: 'bg-slate-50 text-slate-500' },
+  refunded: { label: '已退款', cls: 'bg-red-50 text-red-600' }
+}
+
+const categoryIconMap: Record<string, { icon: string; bg: string }> = {
+  membership: { icon: '👑', bg: 'bg-orange-100' },
+  un_register: { icon: '🇺🇳', bg: 'bg-blue-100' },
+  tender_download: { icon: '📄', bg: 'bg-green-100' },
+  tender_custom: { icon: '📝', bg: 'bg-purple-100' },
+  ad: { icon: '📢', bg: 'bg-pink-100' }
+}
+
+function mapOrderToDisplay(order: any) {
+  const st = statusMap[order.status] || { label: order.status, cls: 'bg-slate-50 text-slate-500' }
+  const cat = categoryIconMap[order.category] || { icon: '📦', bg: 'bg-slate-100' }
+  const amount = order.amount != null ? Number(order.amount).toLocaleString('zh-CN', { minimumFractionDigits: 2 }) : '0.00'
+  return {
+    id: order.orderNo || order.id,
+    title: order.title || '订单',
+    date: (order.createTime || '').substring(0, 10),
+    amount,
+    status: st.label,
+    statusClass: st.cls,
+    icon: cat.icon,
+    iconBg: cat.bg
   }
-]
+}
+
+async function loadRecentOrders() {
+  try {
+    const res = await apiRequest<any>('/v3/orders?page=1&page_size=3')
+    const items = res.data?.items || res.data?.records || []
+    recentOrders.value = items.map(mapOrderToDisplay)
+  } catch {
+    recentOrders.value = []
+  }
+}
+
+onMounted(loadRecentOrders)
 
 // ✅ 常用工具列表 (已包含短信、证书、单据)
 const tools = [
