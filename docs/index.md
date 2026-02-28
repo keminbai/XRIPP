@@ -23,7 +23,8 @@
 | 2 | [DDL_Phase2_Migration.sql](./DDL_Phase2_Migration.sql) | 7 张业务扩展表 + 列扩展（幂等） |
 | 3 | [DDL_Phase3_Partners_Extension.sql](./DDL_Phase3_Partners_Extension.sql) | partners 生命周期字段（幂等） |
 | 4 | [DDL_Phase4_ScheduledTasks.sql](./DDL_Phase4_ScheduledTasks.sql) | partners.renewal_reminder_sent |
-| 5 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 5 | [DDL_Phase5_Suppliers_Extension.sql](./DDL_Phase5_Suppliers_Extension.sql) | suppliers 扩展列（service_type/contact等） |
+| 6 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)

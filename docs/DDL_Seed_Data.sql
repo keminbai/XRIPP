@@ -1,10 +1,11 @@
 -- =====================================================
 -- XRIPP 种子数据（测试/演示环境）
--- 执行前提：DDL_Phase1_Final.sql + DDL_Phase2_Migration.sql
+-- 执行前提：DDL_Phase1_Pure.sql + DDL_Phase2_Migration.sql
 --           + DDL_Phase3_Partners_Extension.sql
---           + DDL_Phase4_ScheduledTasks.sql 均已执行
+--           + DDL_Phase4_ScheduledTasks.sql
+--           + DDL_Phase5_Suppliers_Extension.sql 均已执行
 -- 执行顺序：本脚本最后执行
--- 策略：幂等（先 DELETE 再 INSERT，SET IDENTITY_INSERT ON）
+-- 策略：幂等（IF NOT EXISTS 守卫，SET IDENTITY_INSERT ON）
 -- =====================================================
 
 SET NOCOUNT ON;
@@ -112,20 +113,23 @@ GO
 -- 4. 合伙人权益池（partner_benefit_pool）
 -- =====================================================
 SET IDENTITY_INSERT dbo.partner_benefit_pool ON;
-IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 1 AND benefit_type = N'标书下载')
+-- NOTE: benefit_type must match DDL CHECK: tender_download/activity_free/report_download/supplier_quota
+-- NOTE: columns are total_amount/used_amount (not total_quota/used_quota)
+SET QUOTED_IDENTIFIER ON;
+IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 1 AND benefit_type = 'tender_download')
 BEGIN
-    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_quota, used_quota)
-    VALUES (1, 1, N'标书下载', 100, 5);
+    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_amount, used_amount)
+    VALUES (1, 1, 'tender_download', 100, 5);
 END
-IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 1 AND benefit_type = N'培训名额')
+IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 1 AND benefit_type = 'activity_free')
 BEGIN
-    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_quota, used_quota)
-    VALUES (2, 1, N'培训名额', 50, 2);
+    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_amount, used_amount)
+    VALUES (2, 1, 'activity_free', 50, 2);
 END
-IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 2 AND benefit_type = N'标书下载')
+IF NOT EXISTS (SELECT 1 FROM dbo.partner_benefit_pool WHERE partner_id = 2 AND benefit_type = 'tender_download')
 BEGIN
-    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_quota, used_quota)
-    VALUES (3, 2, N'标书下载', 80, 0);
+    INSERT INTO dbo.partner_benefit_pool (id, partner_id, benefit_type, total_amount, used_amount)
+    VALUES (3, 2, 'tender_download', 80, 0);
 END
 SET IDENTITY_INSERT dbo.partner_benefit_pool OFF;
 GO
@@ -134,26 +138,27 @@ GO
 -- 5. 服务商（suppliers）
 -- =====================================================
 SET IDENTITY_INSERT dbo.suppliers ON;
-IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE id = 1)
+-- NOTE: supplier_no is NOT NULL, partner_id required for DataScope
+IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE supplier_no = 'SUP-0000001')
 BEGIN
-    INSERT INTO dbo.suppliers (id, company_name, service_type, contact_person,
-        contact_phone, city_name, audit_status, created_at)
-    VALUES (1, N'环球法律事务所', N'法律咨询', N'刘明',
-        '13500135001', N'北京市', 30, GETDATE());
+    INSERT INTO dbo.suppliers (id, supplier_no, company_name, service_type, contact_person,
+        contact_phone, city_name, partner_id, audit_status, created_at)
+    VALUES (1, 'SUP-0000001', N'环球法律事务所', N'法律咨询', N'刘明',
+        '13500135001', N'北京市', 1, 30, GETDATE());
 END
-IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE id = 2)
+IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE supplier_no = 'SUP-0000002')
 BEGIN
-    INSERT INTO dbo.suppliers (id, company_name, service_type, contact_person,
-        contact_phone, city_name, audit_status, created_at)
-    VALUES (2, N'中信物流国际有限公司', N'物流服务', N'赵磊',
-        '13400134001', N'上海市', 30, GETDATE());
+    INSERT INTO dbo.suppliers (id, supplier_no, company_name, service_type, contact_person,
+        contact_phone, city_name, partner_id, audit_status, created_at)
+    VALUES (2, 'SUP-0000002', N'中信物流国际有限公司', N'物流服务', N'赵磊',
+        '13400134001', N'上海市', 2, 30, GETDATE());
 END
-IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE id = 3)
+IF NOT EXISTS (SELECT 1 FROM dbo.suppliers WHERE supplier_no = 'SUP-0000003')
 BEGIN
-    INSERT INTO dbo.suppliers (id, company_name, service_type, contact_person,
-        contact_phone, city_name, audit_status, created_at)
-    VALUES (3, N'华夏翻译有限公司', N'翻译服务', N'孙芳',
-        '13300133001', N'广州市', 0, GETDATE());
+    INSERT INTO dbo.suppliers (id, supplier_no, company_name, service_type, contact_person,
+        contact_phone, city_name, partner_id, audit_status, created_at)
+    VALUES (3, 'SUP-0000003', N'华夏翻译有限公司', N'翻译服务', N'孙芳',
+        '13300133001', N'广州市', 1, 0, GETDATE());
 END
 SET IDENTITY_INSERT dbo.suppliers OFF;
 GO
