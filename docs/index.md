@@ -173,7 +173,7 @@
 | ~~DDL 执行状态未知~~ | ~~🔴~~ ✅ 已解决 | Phase 1-5 + 种子数据已通过 sqlcmd 执行确认（2026-02-28） |
 | ~~无测试用户数据~~ | ~~🔴~~ ✅ 已解决 | 账号可用：admin/admin123, p1001/p1001, p2001/p1001, m1001/m1001, m2001/m1001 |
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
-| 未提交代码 | 🟡 及时 | Partner 数据隔离修复（3 文件）+ docs/index.md 更新尚未 commit |
+| API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
 ## 8. 后端 Controller 清单（21 个）
 

@@ -219,24 +219,24 @@ GO
 SET IDENTITY_INSERT dbo.tenders ON;
 IF NOT EXISTS (SELECT 1 FROM dbo.tenders WHERE id = 1)
 BEGIN
-    INSERT INTO dbo.tenders (id, title, org_name, tender_status,
-        deadline, created_at, category, summary, price, sales)
+    INSERT INTO dbo.tenders (id, title, organization_name, tender_status,
+        deadline_at, created_at, category, summary, price, sales)
     VALUES (1, N'UNICEF 办公家具采购招标', N'联合国儿童基金会', 'published',
         DATEADD(DAY, 60, GETDATE()), GETDATE(),
         N'办公设备', N'采购办公桌椅、文件柜等办公家具', 0, 0);
 END
 IF NOT EXISTS (SELECT 1 FROM dbo.tenders WHERE id = 2)
 BEGIN
-    INSERT INTO dbo.tenders (id, title, org_name, tender_status,
-        deadline, created_at, category, summary, price, sales)
+    INSERT INTO dbo.tenders (id, title, organization_name, tender_status,
+        deadline_at, created_at, category, summary, price, sales)
     VALUES (2, N'WHO 医疗设备维护服务招标', N'世界卫生组织', 'published',
         DATEADD(DAY, 45, GETDATE()), GETDATE(),
         N'医疗健康', N'为WHO亚太区域办事处提供医疗设备维护服务', 99.00, 3);
 END
 IF NOT EXISTS (SELECT 1 FROM dbo.tenders WHERE id = 3)
 BEGIN
-    INSERT INTO dbo.tenders (id, title, org_name, tender_status,
-        deadline, created_at, category, summary, price, sales)
+    INSERT INTO dbo.tenders (id, title, organization_name, tender_status,
+        deadline_at, created_at, category, summary, price, sales)
     VALUES (3, N'ADB 信息系统开发招标', N'亚洲开发银行', 'draft',
         DATEADD(DAY, 90, GETDATE()), GETDATE(),
         N'信息技术', N'开发亚洲开发银行内部项目管理信息系统', 199.00, 0);

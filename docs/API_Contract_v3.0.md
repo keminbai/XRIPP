@@ -1,5 +1,17 @@
 # API Contract v3.0
 
+> **⚠️ 文档时效警告（2026-02-28）**
+>
+> 本文档为早期 API 设计契约，部分端点定义已与代码实现不一致。
+> **以代码（Controller 实际实现）为准，本文档仅作历史参考。**
+>
+> 已知漂移：
+> - §5.4 供应商审核：文档 `POST /review` → 代码 `POST /transition`（to_status/reason）
+> - §8.4-8.5 内容审核/发布/下线：文档 3 个端点 → 代码统一为 `POST /transition`
+> - §9.3-9.4 标书发布/关闭：文档 2 个端点 → 代码统一为 `POST /transition`
+>
+> 当前权威接口来源：`docs/index.md` 第 8 节 Controller 清单 + 各 Controller 源码。
+
 ## 1. 版本与原则
 - Base URL: `/api/v3`
 - 所有响应遵循统一结构
