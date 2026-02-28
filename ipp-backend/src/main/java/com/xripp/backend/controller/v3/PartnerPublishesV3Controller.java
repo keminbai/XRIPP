@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.Activity;
+import com.xripp.backend.entity.AuditLog;
 import com.xripp.backend.security.SecurityContextHolder;
+import com.xripp.backend.service.IAuditLogService;
 import com.xripp.backend.service.IActivityService;
 import com.xripp.backend.service.StateTransitionService;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class PartnerPublishesV3Controller {
 
     private final IActivityService activityService;
     private final StateTransitionService stateTransitionService;
+    private final IAuditLogService auditLogService;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -148,6 +151,17 @@ public class PartnerPublishesV3Controller {
                 String.valueOf(curr), String.valueOf(newStatus),
                 action, reason.isBlank() ? null : reason
         );
+
+        AuditLog auditLog = new AuditLog();
+        auditLog.setTargetType("activity");
+        auditLog.setTargetId(a.getId());
+        auditLog.setOperatorId(com.xripp.backend.security.SecurityContextHolder.getCurrentUserId());
+        auditLog.setAction(action);
+        auditLog.setPrevStatus((byte) curr.intValue());
+        auditLog.setCurrStatus((byte) newStatus);
+        auditLog.setComment(reason.isBlank() ? null : reason);
+        auditLog.setCreatedAt(new Date());
+        auditLogService.save(auditLog);
 
         return V3Response.success(null);
     }

@@ -38,32 +38,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String auth = request.getHeader("Authorization");
+            String token = null;
             if (auth != null && auth.startsWith("Bearer ")) {
-                String token = auth.substring(7).trim();
-                if (jwtUtil.validateToken(token)) {
-                    Long userId = jwtUtil.getUserIdFromToken(token);
-                    String username = jwtUtil.getUsernameFromToken(token);
-                    String role = jwtUtil.getRoleFromToken(token);
-                    Long partnerId = jwtUtil.getPartnerIdFromToken(token);
-
-                    if (role == null || role.isBlank()) {
-                        role = "member";
+                token = auth.substring(7).trim();
+            } else {
+                // Fallback: read from cookie (for el-upload browser POST)
+                if (request.getCookies() != null) {
+                    for (var cookie : request.getCookies()) {
+                        if ("xripp_token".equals(cookie.getName())) {
+                            token = cookie.getValue();
+                            break;
+                        }
                     }
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    username,
-                                    null,
-                                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                            );
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                    com.xripp.backend.security.SecurityContextHolder.setContext(
-                            new com.xripp.backend.security.SecurityContextHolder.UserContext(
-                                    userId, username, role.toLowerCase(), partnerId
-                            )
-                    );
                 }
+            }
+
+            if (token != null && !token.isBlank() && jwtUtil.validateToken(token)) {
+                Long userId = jwtUtil.getUserIdFromToken(token);
+                String username = jwtUtil.getUsernameFromToken(token);
+                String role = jwtUtil.getRoleFromToken(token);
+                Long partnerId = jwtUtil.getPartnerIdFromToken(token);
+
+                if (role == null || role.isBlank()) {
+                    role = "member";
+                }
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                username,
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                        );
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                com.xripp.backend.security.SecurityContextHolder.setContext(
+                        new com.xripp.backend.security.SecurityContextHolder.UserContext(
+                                userId, username, role.toLowerCase(), partnerId
+                        )
+                );
             }
             filterChain.doFilter(request, response);
         } finally {

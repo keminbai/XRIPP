@@ -17,6 +17,13 @@ spring:
   application:
     name: xripp-backend
 
+  # 文件上传配置
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 60MB
+
   # 数据源配置（SQL Server 2022）
   datasource:
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver

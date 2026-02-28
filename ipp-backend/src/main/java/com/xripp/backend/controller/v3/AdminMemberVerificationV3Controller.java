@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.entity.AuditLog;
 import com.xripp.backend.entity.MemberVerification;
+import com.xripp.backend.service.IAuditLogService;
 import com.xripp.backend.service.IMemberVerificationService;
 import com.xripp.backend.service.StateTransitionService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class AdminMemberVerificationV3Controller {
 
     private final IMemberVerificationService service;
     private final StateTransitionService stateTransitionService;
+    private final IAuditLogService auditLogService;
 
     @GetMapping
     public V3Response<V3PageData<MemberVerification>> list(
@@ -66,7 +69,11 @@ public class AdminMemberVerificationV3Controller {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
-        String action = body.get("action"); // approve|reject
+        String action = body.get("action");
+        if (action == null || action.trim().isEmpty()) {
+            return V3Response.error("VALIDATION_ERROR", "action required (approve|reject)");
+        }
+        action = action.trim();
         String reason = body.getOrDefault("reason", "");
 
         MemberVerification mv = service.getById(id);
@@ -96,9 +103,23 @@ public class AdminMemberVerificationV3Controller {
         stateTransitionService.log(
                 "member_verification", mv.getId(),
                 curr, newStatus,
-                action,                              // "approve" 或 "reject"
+                action,
                 reason.isBlank() ? null : reason
         );
+
+        // Map string status to numeric for audit_logs
+        byte prevNum = "submitted".equals(curr) ? (byte) 0 : (byte) 10;
+        byte currNum = "approved".equals(newStatus) ? (byte) 30 : (byte) 40;
+        AuditLog auditLog = new AuditLog();
+        auditLog.setTargetType("member_verification");
+        auditLog.setTargetId(mv.getId());
+        auditLog.setOperatorId(com.xripp.backend.security.SecurityContextHolder.getCurrentUserId());
+        auditLog.setAction(action);
+        auditLog.setPrevStatus(prevNum);
+        auditLog.setCurrStatus(currNum);
+        auditLog.setComment(reason.isBlank() ? null : reason);
+        auditLog.setCreatedAt(new Date());
+        auditLogService.save(auditLog);
 
         return V3Response.success(null);
     }

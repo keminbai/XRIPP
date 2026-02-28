@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.entity.AuditLog;
 import com.xripp.backend.entity.ContentEntity;
 import com.xripp.backend.security.SecurityContextHolder;
+import com.xripp.backend.service.IAuditLogService;
 import com.xripp.backend.service.IContentService;
 import com.xripp.backend.service.StateTransitionService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +20,7 @@ import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/v3/admin/contents")
 @RequiredArgsConstructor
@@ -23,6 +28,8 @@ public class AdminContentsV3Controller {
 
     private final IContentService contentService;
     private final StateTransitionService stateTransitionService;
+    private final IAuditLogService auditLogService;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -162,6 +169,31 @@ public class AdminContentsV3Controller {
                     "invalid transition: " + fromStatus + " -> " + toStatus);
         }
 
+        // Different-actor rule: approved → published must be done by a different user
+        // than whoever did the preceding approval transition
+        Long currentUserId = SecurityContextHolder.getCurrentUserId();
+        if ("approved".equals(fromStatus) && "published".equals(toStatus)) {
+            try {
+                List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                        "SELECT TOP 1 changed_by FROM state_transition_logs " +
+                        "WHERE target_type = 'content' AND target_id = ? AND to_status = 'approved' " +
+                        "ORDER BY id DESC",
+                        id
+                );
+                if (!rows.isEmpty()) {
+                    Object approver = rows.get(0).get("changed_by");
+                    if (approver != null && currentUserId != null
+                            && currentUserId.equals(Long.valueOf(approver.toString()))) {
+                        return V3Response.error("AUDIT_SAME_ACTOR",
+                                "content cannot be published by the same user who approved it");
+                    }
+                }
+            } catch (Exception e) {
+                // Log but don't block — state_transition_logs may not exist yet
+                log.warn("[Content] different-actor check failed: {}", e.getMessage());
+            }
+        }
+
         Date now = new Date();
         c.setPublishStatus(toStatus);
         c.setUpdatedAt(now);
@@ -181,6 +213,20 @@ public class AdminContentsV3Controller {
                 toStatus,
                 reason.isEmpty() ? null : reason
         );
+
+        // Map content string status to numeric for audit_logs
+        byte prevNum = mapContentStatusToNum(fromStatus);
+        byte currNum = mapContentStatusToNum(toStatus);
+        AuditLog auditLog = new AuditLog();
+        auditLog.setTargetType("content");
+        auditLog.setTargetId(c.getId());
+        auditLog.setOperatorId(currentUserId);
+        auditLog.setAction(toStatus);
+        auditLog.setPrevStatus(prevNum);
+        auditLog.setCurrStatus(currNum);
+        auditLog.setComment(reason.isEmpty() ? null : reason);
+        auditLog.setCreatedAt(now);
+        auditLogService.save(auditLog);
 
         return V3Response.success(Map.of(
                 "id", c.getId(),
@@ -268,5 +314,17 @@ public class AdminContentsV3Controller {
     private String fmtDate(Date date) {
         if (date == null) return "";
         return new SimpleDateFormat("yyyy-MM-dd").format(date);
+    }
+
+    private byte mapContentStatusToNum(String status) {
+        return switch (status) {
+            case "draft" -> (byte) 0;
+            case "pending_review" -> (byte) 10;
+            case "approved" -> (byte) 20;
+            case "published" -> (byte) 30;
+            case "rejected" -> (byte) 40;
+            case "offline" -> (byte) 50;
+            default -> (byte) 0;
+        };
     }
 }

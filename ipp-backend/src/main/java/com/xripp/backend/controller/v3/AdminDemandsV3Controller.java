@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.entity.AuditLog;
 import com.xripp.backend.entity.Demand;
 import com.xripp.backend.security.SecurityContextHolder;
+import com.xripp.backend.service.IAuditLogService;
 import com.xripp.backend.service.IDemandService;
 import com.xripp.backend.service.StateTransitionService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class AdminDemandsV3Controller {
 
     private final IDemandService demandService;
     private final StateTransitionService stateTransitionService;
+    private final IAuditLogService auditLogService;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -96,6 +99,17 @@ public class AdminDemandsV3Controller {
                 String.valueOf(curr), String.valueOf(newStatus),
                 action, reason.isBlank() ? null : reason
         );
+
+        AuditLog auditLog = new AuditLog();
+        auditLog.setTargetType("demand");
+        auditLog.setTargetId(demand.getId());
+        auditLog.setOperatorId(SecurityContextHolder.getCurrentUserId());
+        auditLog.setAction(action);
+        auditLog.setPrevStatus((byte) curr.intValue());
+        auditLog.setCurrStatus((byte) newStatus);
+        auditLog.setComment(reason.isBlank() ? null : reason);
+        auditLog.setCreatedAt(new Date());
+        auditLogService.save(auditLog);
 
         return V3Response.success(null);
     }
