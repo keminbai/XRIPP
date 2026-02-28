@@ -29,11 +29,21 @@ public class AdminSupplierOnboardingV3Controller {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(name = "page_size", defaultValue = "20") long pageSize
     ) {
-        if (!SecurityContextHolder.isAdmin()) {
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         QueryWrapper<SupplierOnboarding> qw = new QueryWrapper<>();
+
+        // Partner data scope: only see supplier onboarding under own partner_id
+        if (SecurityContextHolder.isPartner()) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            if (partnerId == null) {
+                return V3Response.error("AUTH_FORBIDDEN", "invalid partner context");
+            }
+            qw.eq("partner_id", partnerId);
+        }
+
         if (onboardingStatus != null && !onboardingStatus.isBlank()) {
             qw.eq("onboarding_status", onboardingStatus.trim());
         }
@@ -58,13 +68,21 @@ public class AdminSupplierOnboardingV3Controller {
 
     @GetMapping("/{id}")
     public V3Response<Map<String, Object>> detail(@PathVariable Long id) {
-        if (!SecurityContextHolder.isAdmin()) {
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         SupplierOnboarding so = service.getById(id);
         if (so == null) {
             return V3Response.error("RESOURCE_NOT_FOUND", "supplier onboarding not found");
+        }
+
+        // Partner scope check
+        if (SecurityContextHolder.isPartner()) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            if (!partnerId.equals(so.getPartnerId())) {
+                return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+            }
         }
 
         Map<String, Object> m = toListItem(so);
@@ -142,15 +160,23 @@ public class AdminSupplierOnboardingV3Controller {
 
     @GetMapping("/stats")
     public V3Response<Map<String, Long>> stats() {
-        if (!SecurityContextHolder.isAdmin()) {
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         Map<String, Long> data = new LinkedHashMap<>();
         for (String s : List.of("submitted", "precheck_passed", "precheck_failed",
                 "final_review_passed", "final_review_failed", "active", "inactive", "draft")) {
-            data.put(s, service.count(new QueryWrapper<SupplierOnboarding>()
-                    .eq("onboarding_status", s)));
+            QueryWrapper<SupplierOnboarding> sq = new QueryWrapper<SupplierOnboarding>()
+                    .eq("onboarding_status", s);
+            // Partner data scope
+            if (SecurityContextHolder.isPartner()) {
+                Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+                if (partnerId != null) {
+                    sq.eq("partner_id", partnerId);
+                }
+            }
+            data.put(s, service.count(sq));
         }
         return V3Response.success(data);
     }

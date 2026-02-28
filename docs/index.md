@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-28（第十轮更新：Phase D 完成 + 种子数据 + 全面状态刷新）
+最后更新：2026-02-28（第十一轮：Partner 数据隔离修复 + DDL/种子已执行确认 + 全面审计刷新）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -19,7 +19,7 @@
 ### DDL 脚本（按顺序执行）
 | 序号 | 文件 | 说明 |
 |---|---|---|
-| 1 | [DDL_Phase1_Final.sql](./DDL_Phase1_Final.sql) | 10 张核心表 + sys_dict 种子 |
+| 1 | [DDL_Phase1_Pure.sql](./DDL_Phase1_Pure.sql) | 10 张核心表 + sys_dict 种子（可执行版；DDL_Phase1_Final.sql 为 Markdown 参考） |
 | 2 | [DDL_Phase2_Migration.sql](./DDL_Phase2_Migration.sql) | 7 张业务扩展表 + 列扩展（幂等） |
 | 3 | [DDL_Phase3_Partners_Extension.sql](./DDL_Phase3_Partners_Extension.sql) | partners 生命周期字段（幂等） |
 | 4 | [DDL_Phase4_ScheduledTasks.sql](./DDL_Phase4_ScheduledTasks.sql) | partners.renewal_reminder_sent |
@@ -54,8 +54,8 @@
 3. 若文档与代码冲突：先以代码实际行为为准，补充文档修订记录后再统一。
 4. 路由权限基线：
    - `member` -> `/member`
-   - `partner` -> `/admin/partner-publish`
-   - `admin` -> `/admin`
+   - `partner` -> `/admin/partner-publish`、`/admin/members`（只读本partner下会员）、`/admin/suppliers`（只读本partner下服务商）
+   - `admin` -> `/admin`（全量数据）
 5. 所有用户身份必须来自 `SecurityContextHolder`，禁止从请求参数透传 `user_id` 作为权限依据。
 6. v3 统一响应字段：`code/message/data/request_id/timestamp`，不使用 `msg` 作为 v3 标准字段。
 7. 会员等级统一枚举：`NORMAL | VIP | SVIP`。
@@ -92,6 +92,14 @@
 - ✅ AdminMembersV3Controller 统一使用 StateTransitionService.log()
 - ✅ 内容发布 different-actor 规则（approved→published 不允许同一人操作）
 
+### Phase E — Partner 数据隔离 + DDL 全量执行（2026-02-28 ✅）
+- ✅ AdminMembersV3Controller 开放 partner 角色（list/detail 按 sys_user.partner_id 隔离）
+- ✅ AdminSupplierOnboardingV3Controller 开放 partner 角色（list/detail/stats 按 partner_id 隔离）
+- ✅ AdminMemberVerificationV3Controller 开放 partner 角色（list 按 sys_user.partner_id 隔离）
+- ✅ 写操作（set-level/transition/review）保持 admin-only
+- ✅ DDL Phase 1-5 + 种子数据已通过 sqlcmd 全量执行确认
+- ✅ BCrypt 密码修复（原 plaintext "123456" 全部替换为 BCrypt hash）
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -99,28 +107,32 @@
 | 页面 | 状态 | 说明 |
 |---|---|---|
 | `admin/tenders/reference.vue` | 部分实现 | 列表真实；写操作（引用提交/抓取/删除）未接入 |
+| `admin/tenders/orders.vue` | ✅ 已接入 | 调用 /v3/admin/orders 真实数据 |
 | `admin/members/un-audit.vue` | 部分实现 | 审核主流程真实；证书上传依赖文件上传（Phase D 已就绪） |
-| `admin/audit.vue` | 部分实现 | 三 Tab 均已接入真实 API；需求审核已闭环 |
-| `admin/suppliers/list.vue` | 部分实现 | 列表真实（/v3/admin/supplier-onboarding）；新增/编辑受控降级 |
-| `admin/suppliers/audit.vue` | 部分实现 | 主审核流真实；证书上传/下载受控降级 |
-| `admin/suppliers/analysis.vue` | 部分实现 | 入驻申请口径统计 |
+| `admin/members/list.vue` | ✅ 已接入 | admin + partner 均可访问（partner 按 partner_id 隔离） |
+| `admin/audit.vue` | ✅ 已接入 | 三 Tab 均已接入真实 API；需求审核已闭环 |
+| `admin/suppliers/list.vue` | ✅ 已接入 | 列表真实；admin + partner 均可访问（partner 隔离）；新增/编辑受控降级 |
+| `admin/suppliers/audit.vue` | 部分实现 | 主审核流真实（admin + partner 可查看）；证书上传/下载受控降级 |
+| `admin/suppliers/analysis.vue` | ✅ 已接入 | 入驻申请口径统计（admin + partner 隔离） |
+| `admin/partner-publish.vue` | ✅ 已接入 | 合伙人发布管理（list/create/delete 真实） |
 | `admin/content/activities.vue` | 部分实现 | 列表+新建+审核真实；下架/导出受控降级 |
 | `admin/content/trainings.vue` | 部分实现 | 列表+状态流转+创建真实；编辑受控降级 |
 | `admin/content/media.vue` | 部分实现 | 同培训 |
 | `admin/content/display.vue` | 未实现 | 三 Tab 均为占位提示；需 OSS 依赖 |
 | `admin/overseas/*.vue` | 未实现 | 海外服务模块无后端 API |
-| `admin/dashboard.vue` | 未实现 | 仪表盘统计为 mock/静态（低优先级） |
+| `admin/index.vue` | 未实现 | 仪表盘统计为静态数据（低优先级） |
 
 ### 系统级待办
 
 | 事项 | 优先级 | 说明 |
 |---|---|---|
-| 种子数据执行 | P0 | `docs/DDL_Seed_Data.sql` 已创建，需在 SSMS 中执行 |
-| DDL 执行验证 | P0 | Phase 2/3/4 DDL 须确认已在目标 DB 执行 |
+| ~~种子数据执行~~ | ~~P0~~ | ✅ 已执行（2026-02-28 sqlcmd 确认） |
+| ~~DDL 执行验证~~ | ~~P0~~ | ✅ Phase 1-5 + 种子数据已全量执行确认 |
 | 活动审核仅单级 | P2 | 需求要求双级审核（一审+二审），需 operator/auditor 子角色 |
 | 微信支付集成 | P2 | 需商户号审批，当前无支付回调 |
 | SMS 短信服务 | P2 | 需第三方短信服务商接入 |
 | 限流 / CORS 细化 | P3 | 当前无 rate limiting，CORS 使用默认配置 |
+| 清理空 stub controller | P3 | SuppliersController.java / SysUserController.java 为空壳，可删除 |
 
 ## 6. 功能状态矩阵（验收口径）
 
@@ -128,7 +140,7 @@
 
 | 模块 | 后端 API | 前端接入 | 验收状态 |
 |---|---|---|---|
-| 用户登录/注册 | ✅ BCrypt-only 认证 | ✅ 已接入 | ✅ 可验收（需先执行种子数据） |
+| 用户登录/注册 | ✅ BCrypt-only 认证 | ✅ 已接入 | ✅ 可验收（种子数据已执行） |
 | 标书发布/管理 | ✅ CRUD + 状态机 | ✅ 已接入 | ✅ 可验收 |
 | 标书引用 | 读接口完成，写未实现 | 只读降级 | 仅读操作可验收 |
 | 标书防重复扣费 | ✅ tender_download_logs + dedup | 不涉及前端 | ✅ 可验收 |
@@ -158,10 +170,10 @@
 
 | 风险 | 严重性 | 动作 |
 |---|---|---|
-| DDL 执行状态未知 | 🔴 致命 | 确认 Phase 1-4 DDL 已在 SSMS 中按顺序执行 |
-| 无测试用户数据 | 🔴 致命 | 执行 `docs/DDL_Seed_Data.sql`（账号：admin/admin123, p1001/p1001, m1001/m1001） |
+| ~~DDL 执行状态未知~~ | ~~🔴~~ ✅ 已解决 | Phase 1-5 + 种子数据已通过 sqlcmd 执行确认（2026-02-28） |
+| ~~无测试用户数据~~ | ~~🔴~~ ✅ 已解决 | 账号可用：admin/admin123, p1001/p1001, p2001/p1001, m1001/m1001, m2001/m1001 |
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
-| DDL_Gap_Report_v1.md 为空模板 | 🟢 低 | 以 DDL_Phase2_Migration.sql + AUDIT 报告为权威参考 |
+| 未提交代码 | 🟡 及时 | Partner 数据隔离修复（3 文件）+ docs/index.md 更新尚未 commit |
 
 ## 8. 后端 Controller 清单（21 个）
 

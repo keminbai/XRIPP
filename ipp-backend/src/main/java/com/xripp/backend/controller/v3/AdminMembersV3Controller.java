@@ -32,11 +32,21 @@ public class AdminMembersV3Controller {
             @RequestParam(name = "member_level", required = false) String memberLevel,
             @RequestParam(required = false) String keyword
     ) {
-        if (!SecurityContextHolder.isAdmin()) {
-            return V3Response.error("AUTH_FORBIDDEN", "admin only");
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         QueryWrapper<MemberProfile> qw = new QueryWrapper<>();
+
+        // Partner data scope: only see members whose sys_user.partner_id matches
+        if (SecurityContextHolder.isPartner()) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            if (partnerId == null) {
+                return V3Response.error("AUTH_FORBIDDEN", "invalid partner context");
+            }
+            qw.inSql("user_id", "SELECT id FROM sys_user WHERE partner_id = " + partnerId);
+        }
+
         if (memberLevel != null && !memberLevel.isBlank()) {
             qw.eq("member_level", memberLevel.trim());
         }
@@ -63,13 +73,22 @@ public class AdminMembersV3Controller {
 
     @GetMapping("/{id}")
     public V3Response<Map<String, Object>> detail(@PathVariable Long id) {
-        if (!SecurityContextHolder.isAdmin()) {
-            return V3Response.error("AUTH_FORBIDDEN", "admin only");
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         MemberProfile mp = memberProfileService.getById(id);
         if (mp == null) {
             return V3Response.error("RESOURCE_NOT_FOUND", "member profile not found");
+        }
+
+        // Partner scope check: verify the member belongs to this partner
+        if (SecurityContextHolder.isPartner() && mp.getUserId() != null) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            SysUser memberUser = sysUserService.getById(mp.getUserId());
+            if (memberUser == null || !partnerId.equals(memberUser.getPartnerId())) {
+                return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+            }
         }
 
         // Enrich with sys_user username

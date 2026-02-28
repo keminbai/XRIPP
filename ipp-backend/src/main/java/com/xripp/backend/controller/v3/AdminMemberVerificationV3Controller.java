@@ -32,11 +32,21 @@ public class AdminMemberVerificationV3Controller {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(name = "page_size", defaultValue = "20") long pageSize
     ) {
-        if (!com.xripp.backend.security.SecurityContextHolder.isAdmin()) {
+        if (!com.xripp.backend.security.SecurityContextHolder.isAdmin()
+                && !com.xripp.backend.security.SecurityContextHolder.isPartner()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         QueryWrapper<MemberVerification> qw = new QueryWrapper<>();
+
+        // Partner data scope: only see verifications from members under own partner_id
+        if (com.xripp.backend.security.SecurityContextHolder.isPartner()) {
+            Long partnerId = com.xripp.backend.security.SecurityContextHolder.getCurrentPartnerId();
+            if (partnerId == null) {
+                return V3Response.error("AUTH_FORBIDDEN", "invalid partner context");
+            }
+            qw.inSql("user_id", "SELECT id FROM sys_user WHERE partner_id = " + partnerId);
+        }
 
         if (verificationStatus != null && !verificationStatus.isBlank()) {
             qw.eq("verification_status", verificationStatus);
