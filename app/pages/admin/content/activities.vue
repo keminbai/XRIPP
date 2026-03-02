@@ -880,10 +880,16 @@ const loadActivities = async () => {
   try {
     // partner/publishes 通过 DataScope 自动隔离：admin 可见全量，partner 仅见自身
     const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
-    // 状态筛选可映射到 audit_status（published=1, auditing=0, rejected=2, offline=3）
-    const statusMap: Record<string, number> = { published: 1, auditing: 0, rejected: 2, offline: 3 }
+    // 状态筛选可映射到 audit_status（published=30, auditing=0, rejected=40, offline=50）
+    const statusMap: Record<string, number> = { published: 30, auditing: 0, rejected: 40, offline: 50 }
     if (filters.value.status && statusMap[filters.value.status] !== undefined) {
       query.audit_status = statusMap[filters.value.status]
+    }
+    if (filters.value.keyword) {
+      query.keyword = filters.value.keyword
+    }
+    if (filters.value.publisher) {
+      query.publisher = filters.value.publisher
     }
     const res: any = await apiRequest('/v3/partner/publishes', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
@@ -901,26 +907,8 @@ const loadActivities = async () => {
 // 报名列表（详情弹窗用，由 loadSignups 按需填充；当前后端无导出接口，受控降级）
 const signupList = ref<any[]>([])
 
-const filteredActivityList = computed(() => {
-  let list = allActivityList.value
-  
-  if (filters.value.keyword) {
-    list = list.filter(item => 
-      item.title.includes(filters.value.keyword) || 
-      item.code.includes(filters.value.keyword)
-    )
-  }
-  
-  if (filters.value.status) {
-    list = list.filter(item => item.status === filters.value.status)
-  }
-  
-  if (filters.value.publisher) {
-    list = list.filter(item => item.publisher === filters.value.publisher)
-  }
-  
-  return list
-})
+// All filtering is now server-side (keyword, audit_status, publisher passed as API params)
+const filteredActivityList = computed(() => allActivityList.value)
 
 // 工具函数
 const getStatusColor = (status: string) => {

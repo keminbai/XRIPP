@@ -355,34 +355,36 @@ const filters = ref({
 })
 
 const favoriteIds = ref<string[]>([])
-const FAVORITE_KEY = 'procurementFavorites'
+const tokenCookie = useCookie('xripp_token')
 
-const loadFavorites = () => {
-  if (!process.client) return
-  const raw = localStorage.getItem(FAVORITE_KEY)
-  if (!raw) return
+const loadFavorites = async () => {
+  if (!tokenCookie.value) return
   try {
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed)) favoriteIds.value = parsed.map(String)
+    const res: any = await apiRequest('/v3/member/favorites/ids', { query: { target_type: 'tender' } })
+    if (Array.isArray(res?.data?.ids)) {
+      favoriteIds.value = res.data.ids.map(String)
+    }
   } catch {}
-}
-
-const persistFavorites = () => {
-  if (!process.client) return
-  localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteIds.value))
 }
 
 const isFavorited = (id: string | number) => favoriteIds.value.includes(String(id))
 
-const toggleFavorite = (id: string | number) => {
+const toggleFavorite = async (id: string | number) => {
+  if (!tokenCookie.value) { ElMessage.warning('请先登录'); return }
   const key = String(id)
   if (isFavorited(key)) {
-    favoriteIds.value = favoriteIds.value.filter(v => v !== key)
-    ElMessage.success('已取消收藏')
+    try {
+      await apiRequest('/v3/member/favorites', { method: 'DELETE', query: { target_type: 'tender', target_id: key } })
+      favoriteIds.value = favoriteIds.value.filter(v => v !== key)
+      ElMessage.success('已取消收藏')
+    } catch {}
     return
   }
-  favoriteIds.value = [...favoriteIds.value, key]
-  ElMessage.success('收藏成功')
+  try {
+    await apiRequest('/v3/member/favorites', { method: 'POST', body: { target_type: 'tender', target_id: Number(key) } })
+    favoriteIds.value = [...favoriteIds.value, key]
+    ElMessage.success('收藏成功')
+  } catch {}
 }
 
 const tabs = [
@@ -442,8 +444,6 @@ watch([activeTab, () => filters.value.country], () => {
 })
 
 watch(currentPage, () => { loadTenders() })
-
-watch(favoriteIds, persistFavorites, { deep: true })
 
 onMounted(() => {
   loadFavorites()

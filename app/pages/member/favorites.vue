@@ -169,25 +169,27 @@
     </div>
 
     <!-- 分页 -->
-    <div class="flex justify-center" v-if="filteredFavorites.length > 10">
+    <div class="flex justify-center" v-if="totalItems > pageSize">
       <el-pagination
         v-model:current-page="currentPage"
-        :page-size="10"
+        :page-size="pageSize"
         background
         layout="prev, pager, next"
-        :total="filteredFavorites.length"
+        :total="totalItems"
+        @current-change="loadFavorites"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { 
-  Search, Delete, Clock, Timer, Location, Money, OfficeBuilding, 
-  Warning, Star, Document, Calendar 
+import {
+  Search, Delete, Clock, Timer, Location, Money, OfficeBuilding,
+  Warning, Star, Document, Calendar
 } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '~/utils/request'
 
 definePageMeta({ layout: 'member' })
 
@@ -195,116 +197,59 @@ const keyword = ref('')
 const filterType = ref('')
 const filterTime = ref('')
 const currentPage = ref(1)
-const selectedItems = ref([])
+const pageSize = ref(20)
+const totalItems = ref(0)
+const selectedItems = ref<number[]>([])
 
-const stats = [
-  { label: '全部收藏', value: '28', icon: Star, bgClass: 'bg-yellow-50 group-hover:bg-yellow-100', textClass: 'text-yellow-600' },
-  { label: '标书收藏', value: '18', icon: Document, bgClass: 'bg-blue-50 group-hover:bg-blue-100', textClass: 'text-blue-600' },
-  { label: '活动收藏', value: '7', icon: Calendar, bgClass: 'bg-purple-50 group-hover:bg-purple-100', textClass: 'text-purple-600' },
-  { label: '即将截止', value: '3', icon: Warning, bgClass: 'bg-red-50 group-hover:bg-red-100', textClass: 'text-red-600' },
-]
-
-const favorites = ref([
-  {
-    id: 1,
-    type: 'tender',
-    title: '肯尼亚教育部 - 数字化教学设备采购项目 (第1期)',
-    description: '为肯尼亚农村地区小学供应5000台加固型平板电脑及配套教学软件系统',
-    organization: 'UNICEF (联合国儿童基金会)',
-    location: '肯尼亚',
-    deadline: '2026-02-15',
-    amount: '$750,000',
-    favoriteTime: '2026-01-10 14:30',
-    isExpired: false
-  },
-  {
-    id: 2,
-    type: 'tender',
-    title: '马来西亚能源部 - 50MW太阳能发电站二期建设工程',
-    description: '马来西亚槟城50MW太阳能农场的EPC总承包合同',
-    organization: '马来西亚能源部',
-    location: '马来西亚',
-    deadline: '2026-03-01',
-    amount: '$45,000,000',
-    favoriteTime: '2026-01-08 09:15',
-    isExpired: false
-  },
-  {
-    id: 3,
-    type: 'tender',
-    title: '应急野战医院医疗设备供应项目',
-    description: '为苏丹达尔富尔地区部署的野战医院采购X光机、呼吸机、手术台等医疗设备',
-    organization: 'UNOPS (联合国项目事务署)',
-    location: '苏丹',
-    deadline: '2026-01-20',
-    amount: '$2,500,000',
-    favoriteTime: '2025-12-28 16:45',
-    isExpired: false
-  },
-  {
-    id: 4,
-    type: 'activity',
-    title: '2025全球公共采购高峰论坛',
-    description: '汇聚联合国采购官、国际组织代表，解读2025年全球公共采购趋势',
-    organization: 'XRIPP Global',
-    location: '上海',
-    deadline: '2026-02-28',
-    amount: null,
-    favoriteTime: '2026-01-05 11:20',
-    isExpired: false
-  },
-  {
-    id: 5,
-    type: 'supplier',
-    title: '德国施耐德电气（中国）有限公司',
-    description: '全球能源管理和自动化领域数字化转型专家',
-    organization: null,
-    location: '上海',
-    deadline: null,
-    amount: null,
-    favoriteTime: '2025-12-20 08:30',
-    isExpired: false
-  },
-  {
-    id: 6,
-    type: 'tender',
-    title: '越南水利部 - 湄公河三角洲水净化设备采购',
-    description: '用于越南湄公河三角洲洪水救援行动的移动水净化装置',
-    organization: '国际红十字会',
-    location: '越南',
-    deadline: '2025-12-31',
-    amount: '$1,200,000',
-    favoriteTime: '2025-12-15 10:10',
-    isExpired: true
-  },
+const stats = ref([
+  { label: '全部收藏', value: '0', icon: Star, bgClass: 'bg-yellow-50 group-hover:bg-yellow-100', textClass: 'text-yellow-600' },
+  { label: '标书收藏', value: '0', icon: Document, bgClass: 'bg-blue-50 group-hover:bg-blue-100', textClass: 'text-blue-600' },
+  { label: '活动收藏', value: '0', icon: Calendar, bgClass: 'bg-purple-50 group-hover:bg-purple-100', textClass: 'text-purple-600' },
+  { label: '即将截止', value: '0', icon: Warning, bgClass: 'bg-red-50 group-hover:bg-red-100', textClass: 'text-red-600' },
 ])
 
-const filteredFavorites = computed(() => {
-  return favorites.value.filter(item => {
-    const matchKeyword = !keyword.value || 
-      item.title.toLowerCase().includes(keyword.value.toLowerCase()) ||
-      (item.description && item.description.includes(keyword.value))
-    
-    const matchType = !filterType.value || item.type === filterType.value
-    
-    // 时间筛选逻辑（简化版）
-    const matchTime = !filterTime.value // 这里可以根据实际需求实现
+const favorites = ref<any[]>([])
 
-    return matchKeyword && matchType && matchTime
-  })
+const loadFavorites = async () => {
+  try {
+    const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
+    if (filterType.value) query.target_type = filterType.value
+    const res: any = await apiRequest('/v3/member/favorites', { query })
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    favorites.value = items
+    totalItems.value = Number(res?.data?.total ?? 0)
+    updateStats()
+  } catch (e: any) {
+    favorites.value = []
+    totalItems.value = 0
+  }
+}
+
+const updateStats = () => {
+  const all = favorites.value
+  stats.value[0].value = String(totalItems.value)
+  stats.value[1].value = String(all.filter((f: any) => f.type === 'tender').length)
+  stats.value[2].value = String(all.filter((f: any) => f.type === 'activity').length)
+  stats.value[3].value = String(all.filter((f: any) => f.isExpired === false && f.deadline).length)
+}
+
+// Client-side keyword filter (applied after API fetch; keyword search is simple text matching)
+const filteredFavorites = computed(() => {
+  if (!keyword.value) return favorites.value
+  const kw = keyword.value.toLowerCase()
+  return favorites.value.filter((item: any) =>
+    (item.title || '').toLowerCase().includes(kw) ||
+    (item.description || '').toLowerCase().includes(kw)
+  )
 })
 
 const getIcon = (type: string) => {
-  const icons = {
-    tender: '📄',
-    activity: '📅',
-    supplier: '🏢'
-  }
+  const icons: Record<string, string> = { tender: '📄', activity: '📅', supplier: '🏢' }
   return icons[type] || '📋'
 }
 
 const getIconBg = (type: string) => {
-  const bgs = {
+  const bgs: Record<string, string> = {
     tender: 'bg-blue-50 text-blue-600',
     activity: 'bg-purple-50 text-purple-600',
     supplier: 'bg-green-50 text-green-600'
@@ -313,7 +258,7 @@ const getIconBg = (type: string) => {
 }
 
 const getTypeClass = (type: string) => {
-  const classes = {
+  const classes: Record<string, string> = {
     tender: 'bg-blue-50 text-blue-700 border border-blue-200',
     activity: 'bg-purple-50 text-purple-700 border border-purple-200',
     supplier: 'bg-green-50 text-green-700 border border-green-200'
@@ -322,11 +267,7 @@ const getTypeClass = (type: string) => {
 }
 
 const getTypeText = (type: string) => {
-  const texts = {
-    tender: '标书',
-    activity: '活动',
-    supplier: '服务商'
-  }
+  const texts: Record<string, string> = { tender: '标书', activity: '活动', supplier: '服务商' }
   return texts[type] || '其他'
 }
 
@@ -338,43 +279,46 @@ const isExpiringSoon = (deadline: string) => {
 
 const handleSearch = () => {
   currentPage.value = 1
-  ElMessage.success('搜索完成')
+  loadFavorites()
 }
 
 const handleViewDetail = (item: any) => {
+  const targetId = item.targetId ?? item.id
   if (item.type === 'tender') {
-    navigateTo('/procurement/' + item.id)
+    navigateTo(`/procurement/${targetId}`)
+  } else if (item.type === 'activity') {
+    ElMessage.info('查看活动: ' + item.title)
   } else {
     ElMessage.info('查看详情: ' + item.title)
   }
 }
 
-const handleDelete = (item: any) => {
-  ElMessageBox.confirm(
-    '确定要取消收藏吗？',
-    '提示',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    ElMessage.success('已取消收藏: ' + item.title)
-  }).catch(() => {})
+const handleDelete = async (item: any) => {
+  try {
+    await ElMessageBox.confirm('确定要取消收藏吗？', '提示', { type: 'warning' })
+    await apiRequest(`/v3/member/favorites/${item.id}`, { method: 'DELETE' })
+    ElMessage.success('已取消收藏')
+    loadFavorites()
+  } catch (e: any) {
+    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
+  }
 }
 
-const handleBatchDelete = () => {
-  ElMessageBox.confirm(
-    `确定要删除选中的 ${selectedItems.value.length} 条收藏吗？`,
-    '批量删除',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
+const handleBatchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedItems.value.length} 条收藏吗？`, '批量删除', { type: 'warning' })
+    for (const id of selectedItems.value) {
+      await apiRequest(`/v3/member/favorites/${id}`, { method: 'DELETE' })
     }
-  ).then(() => {
     ElMessage.success(`已删除 ${selectedItems.value.length} 条收藏`)
     selectedItems.value = []
-  }).catch(() => {})
+    loadFavorites()
+  } catch (e: any) {
+    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
+  }
 }
+
+onMounted(() => {
+  loadFavorites()
+})
 </script>

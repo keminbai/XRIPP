@@ -41,7 +41,9 @@ public class PartnerPublishesV3Controller {
     public V3Response<V3PageData<Map<String, Object>>> list(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(name = "page_size", defaultValue = "20") long pageSize,
-            @RequestParam(name = "audit_status", required = false) Integer auditStatus
+            @RequestParam(name = "audit_status", required = false) Integer auditStatus,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String publisher
     ) {
         if (!SecurityContextHolder.isPartner() && !SecurityContextHolder.isAdmin()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
@@ -57,6 +59,14 @@ public class PartnerPublishesV3Controller {
         }
         if (auditStatus != null) {
             qw.eq("audit_status", auditStatus);
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            qw.like("title", keyword.trim());
+        }
+        if ("总部".equals(publisher)) {
+            qw.and(w -> w.isNull("partner_id").or().eq("partner_id", 0));
+        } else if ("合伙人".equals(publisher)) {
+            qw.isNotNull("partner_id").gt("partner_id", 0);
         }
         qw.orderByDesc("created_at");
 

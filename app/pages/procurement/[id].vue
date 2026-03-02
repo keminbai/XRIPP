@@ -315,34 +315,37 @@ const handleDownload = async () => {
   }
 }
 
-// --- Favorites (localStorage until user_favorites API is built) ---
-const FAVORITE_KEY = 'procurementFavorites'
+// --- Favorites (backend API) ---
 const favoriteIds = ref<string[]>([])
 
-onMounted(() => {
+onMounted(async () => {
+  if (!tokenCookie.value) return
   try {
-    const raw = localStorage.getItem(FAVORITE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) favoriteIds.value = parsed.map(String)
+    const res: any = await apiRequest('/v3/member/favorites/ids', { query: { target_type: 'tender' } })
+    if (Array.isArray(res?.data?.ids)) {
+      favoriteIds.value = res.data.ids.map(String)
     }
   } catch {}
 })
 
 const isFavorited = computed(() => favoriteIds.value.includes(String(tenderId.value)))
 
-const toggleFavorite = () => {
+const toggleFavorite = async () => {
+  if (isGuest.value) { ElMessage.warning('请先登录'); return }
   const key = String(tenderId.value)
   if (isFavorited.value) {
-    favoriteIds.value = favoriteIds.value.filter(v => v !== key)
-    ElMessage.success('已取消收藏')
+    try {
+      await apiRequest('/v3/member/favorites', { method: 'DELETE', query: { target_type: 'tender', target_id: key } })
+      favoriteIds.value = favoriteIds.value.filter(v => v !== key)
+      ElMessage.success('已取消收藏')
+    } catch {}
   } else {
-    favoriteIds.value = [...favoriteIds.value, key]
-    ElMessage.success('收藏成功')
+    try {
+      await apiRequest('/v3/member/favorites', { method: 'POST', body: { target_type: 'tender', target_id: Number(key) } })
+      favoriteIds.value = [...favoriteIds.value, key]
+      ElMessage.success('收藏成功')
+    } catch {}
   }
-  try {
-    localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteIds.value))
-  } catch {}
 }
 
 useHead({ title: computed(() => tender.value ? `${tender.value.title} - XRIPP` : '标书详情 - XRIPP') })

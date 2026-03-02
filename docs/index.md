@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-02（第十二轮：P0 安全/数据/分页修复 + 标书详情页接入 + Demand 字段补齐）
+最后更新：2026-03-02（第十三轮：P1 订单管理 API 接入 + 收藏系统全栈实现 + activities 搜索修正）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -25,7 +25,8 @@
 | 4 | [DDL_Phase4_ScheduledTasks.sql](./DDL_Phase4_ScheduledTasks.sql) | partners.renewal_reminder_sent |
 | 5 | [DDL_Phase5_Suppliers_Extension.sql](./DDL_Phase5_Suppliers_Extension.sql) | suppliers 扩展列（service_type/contact等） |
 | 6 | [DDL_Phase6_Demands_Extension.sql](./DDL_Phase6_Demands_Extension.sql) | demands 表字段扩展（8 列，幂等） |
-| 7 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 7 | [DDL_Phase7_Favorites.sql](./DDL_Phase7_Favorites.sql) | user_favorites 收藏表（幂等） |
+| 8 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -113,6 +114,18 @@
   - admin/content: activities, trainings
   - supplier-directory.vue
 
+### Phase G — P1 订单/收藏/活动搜索修正（2026-03-02 ✅）
+- ✅ activities.vue 搜索修正：keyword/publisher 传后端，移除客户端过滤，statusMap 修正（{1,0,2,3}→{30,0,40,50}）
+- ✅ PartnerPublishesV3Controller 增加 keyword/publisher 查询参数（LIKE title + partner_id 过滤）
+- ✅ AdminOrdersV3Controller 增强：member_profile JOIN（companyName/contactPerson/contactPhone/industry）
+- ✅ AdminOrdersV3Controller 新增：GET /stats（按状态聚合统计）+ POST /（管理员创建订单）
+- ✅ admin/members/orders.vue 接入真实 API（列表/统计/创建/完成/取消全链路）
+- ✅ DDL Phase 7：user_favorites 表 + 唯一约束 + 索引
+- ✅ UserFavoritesV3Controller 新建：GET list + GET /ids + POST add + DELETE remove（支持 tender/activity/supplier 三类）
+- ✅ member/favorites.vue 从硬编码 mock 改为 API 接入
+- ✅ procurement/index.vue + [id].vue 从 localStorage 改为后端 API 收藏
+- ✅ DDL Phase 6 执行确认（demands 8 列已在数据库中存在）
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -121,6 +134,7 @@
 |---|---|---|
 | `admin/tenders/reference.vue` | 部分实现 | 列表真实+服务端分页；写操作（引用提交/抓取/删除）未接入 |
 | `admin/tenders/orders.vue` | ✅ 已接入 | 调用 /v3/admin/orders 真实数据+服务端分页 |
+| `admin/members/orders.vue` | ✅ 已接入 | 列表/统计/创建/完成/取消全链路真实 API |
 | `admin/members/un-audit.vue` | 部分实现 | 审核主流程真实；证书上传依赖文件上传（Phase D 已就绪） |
 | `admin/members/list.vue` | ✅ 已接入 | admin + partner 均可访问（partner 按 partner_id 隔离） |
 | `admin/audit.vue` | ✅ 已接入 | 三 Tab 均已接入真实 API；需求审核已闭环 |
@@ -170,6 +184,7 @@
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
 | 合伙人管理 | ✅ list + detail | ✅ 已接入 | ✅ 可验收 |
+| 会员收藏 | ✅ UserFavoritesV3Controller | ✅ 已接入 | ✅ 可验收（三类收藏） |
 | 权益池管理 | ✅ BenefitPoolV3Controller | 待接入 | 后端可验收 |
 | 文件上传 | ✅ POST /common/upload | 14 页面引用 | ✅ 可验收（Cookie 认证） |
 | 定时任务 | ✅ 续期提醒 + 自动降级 | 不涉及前端 | ✅ 可验收（查看日志） |
@@ -188,7 +203,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（22 个）
+## 8. 后端 Controller 清单（23 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -213,6 +228,7 @@
 | AdminContentsV3Controller | /v3/admin/contents | 内容管理 |
 | AdminMemberVerificationV3Controller | /v3/admin/member-verifications | 会员认证审核 |
 | AdminSupplierOnboardingV3Controller | /v3/admin/supplier-onboarding | 供应商入库审核 |
+| UserFavoritesV3Controller | /v3/member/favorites | 会员收藏（CRUD + ids） |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）

@@ -53,7 +53,7 @@
             <template #label>
               <span class="flex items-center gap-2">
                 全部订单
-                <el-tag size="small" type="info" effect="plain" round>{{ allOrders.length }}</el-tag>
+                <el-tag size="small" type="info" effect="plain" round>{{ totalItems }}</el-tag>
               </span>
             </template>
           </el-tab-pane>
@@ -282,7 +282,7 @@
             v-model:page-size="pageSize"
             background 
             layout="total, sizes, prev, pager, next" 
-            :total="filteredOrderList.length"
+            :total="totalItems"
             :page-sizes="[10, 20, 50, 100]"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
@@ -473,20 +473,23 @@
 </template>
 
 <script setup lang="ts">
-import { 
+import {
   ShoppingCart, Wallet, Timer, CircleCheck, CircleClose,
   Plus, Search, RefreshLeft, Download, View, Check, Close, Key, Upload
 } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
+import { apiRequest } from '~/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
 // 状态管理
 const activeTab = ref('all')
-const currentPage = ref(1) // 新增：当前页
-const pageSize = ref(10)   // 新增：页容量
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalItems = ref(0)
+const apiLoading = ref(false)
 const createServiceOrderDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const submitLoading = ref(false)
@@ -530,133 +533,108 @@ const formRules = {
   contactPhone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
 }
 
-const memberOptions = ref([
-  { id: 'M001', companyName: '上海宏大贸易有限公司', contactPerson: '张经理', phone: '138****0001', industry: '贸易' },
-  { id: 'M002', companyName: '苏州精密制造股份公司', contactPerson: '李总', phone: '139****0002', industry: '制造业' }
+// 会员选项（从后端加载）
+const memberOptions = ref<any[]>([])
+
+// --- 统计数据（从后端加载）---
+const stats = ref([
+  { label: '订单总数', value: '0', subLabel: '累计金额 ¥0', type: 'all', icon: ShoppingCart, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+  { label: '待支付', value: '0', subLabel: '¥0', type: '待支付', icon: Wallet, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+  { label: '进行中', value: '0', subLabel: '¥0', type: '进行中', icon: Timer, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
+  { label: '已完成', value: '0', subLabel: '¥0', type: '已完成', icon: CircleCheck, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+  { label: '已取消', value: '0', subLabel: '¥0', type: '已取消', icon: CircleClose, bgClass: 'bg-red-50', textClass: 'text-red-600' }
 ])
 
-// 统计数据
-const stats = [
-  { label: '订单总数', value: '1,258', subLabel: '累计金额 ¥3.2M', type: 'all', icon: ShoppingCart, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
-  { label: '待支付', value: '23', subLabel: '¥45.8K', type: '待支付', icon: Wallet, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
-  { label: '进行中', value: '87', subLabel: '¥182.5K', type: '进行中', icon: Timer, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
-  { label: '已完成', value: '1,102', subLabel: '¥2.9M', type: '已完成', icon: CircleCheck, bgClass: 'bg-green-50', textClass: 'text-green-600' },
-  { label: '已取消', value: '46', subLabel: '¥72.1K', type: '已取消', icon: CircleClose, bgClass: 'bg-red-50', textClass: 'text-red-600' }
-]
+const fmtAmount = (n: number) => {
+  if (n >= 1e6) return `¥${(n / 1e6).toFixed(1)}M`
+  if (n >= 1e3) return `¥${(n / 1e3).toFixed(1)}K`
+  return `¥${n}`
+}
 
-// Mock数据 (修复数据格式)
-const allOrders = ref([
-  {
-    id: 1,
-    orderNo: 'ORD202601280001',
-    source: 'frontend',
-    orderType: '会员购买',
-    orderTitle: 'VIP会员年费',
-    companyName: '上海宏大贸易有限公司',
-    contactPerson: '张经理',
-    contactPhone: '138****0001',
-    industry: '贸易',
-    amount: 2999,
-    paymentMethod: '微信支付',
-    status: '已完成',
-    serviceStage: '',
-    tenderNo: '', // 没有关联标的
-    createTime: '2026-01-28 10:30:25'
-  },
-  {
-    id: 2,
-    orderNo: 'SRV202601280002',
-    source: 'backend',
-    orderType: '投标服务',
-    orderTitle: '联合国UNDP项目投标全流程服务',
-    companyName: '苏州精密制造股份公司',
-    contactPerson: '李总',
-    contactPhone: '139****0002',
-    industry: '制造业',
-    amount: 15800,
-    paymentMethod: '-',
-    status: '进行中',
-    serviceStage: '进行阶段',
-    tenderNo: 'TENDER-2026-001',
-    createTime: '2026-01-27 14:20:10',
-    remark: '包含标书翻译、文件提交、问题澄清等服务'
-  },
-  {
-    id: 4,
-    orderNo: 'SRV202601270004',
-    source: 'backend',
-    orderType: '出海咨询',
-    orderTitle: '马来西亚公司注册及税务咨询',
-    companyName: '北京国际贸易集团',
-    contactPerson: '赵经理',
-    contactPhone: '135****0004',
-    industry: '贸易',
-    amount: 28000,
-    paymentMethod: '-',
-    status: '进行中',
-    serviceStage: '咨询阶段',
-    tenderNo: '', // 没有关联标的
-    createTime: '2026-01-27 11:45:22',
-    remark: '客户计划在马来西亚设立分公司'
-  }
-])
+const loadStats = async () => {
+  try {
+    const res: any = await apiRequest('/v3/admin/orders/stats')
+    if (res?.data) {
+      const d = res.data
+      stats.value[0].value = String(d.totalCount ?? 0)
+      stats.value[0].subLabel = `累计金额 ${fmtAmount(Number(d.totalAmount ?? 0))}`
+      stats.value[1].value = String(d.awaitingCount ?? 0)
+      stats.value[1].subLabel = fmtAmount(Number(d.awaitingAmount ?? 0))
+      stats.value[2].value = String(d.inProgressCount ?? 0)
+      stats.value[2].subLabel = fmtAmount(Number(d.inProgressAmount ?? 0))
+      stats.value[3].value = String(d.completedCount ?? 0)
+      stats.value[3].subLabel = fmtAmount(Number(d.completedAmount ?? 0))
+      stats.value[4].value = String(d.cancelledCount ?? 0)
+      stats.value[4].subLabel = fmtAmount(Number(d.cancelledAmount ?? 0))
+    }
+  } catch {}
+}
 
-const frontendOrders = computed(() => allOrders.value.filter(o => o.source === 'frontend'))
-const backendOrders = computed(() => allOrders.value.filter(o => o.source === 'backend'))
+// --- 订单列表（从后端加载）---
+const allOrders = ref<any[]>([])
 
-// 过滤逻辑
-const filteredOrderList = computed(() => {
-  let list = allOrders.value
-  
-  if (activeTab.value === 'member') {
-    list = frontendOrders.value
-  } else if (activeTab.value === 'service') {
-    list = backendOrders.value
-  }
-  
-  if (filters.value.keyword) {
-    list = list.filter(item => 
-      item.orderNo.includes(filters.value.keyword) ||
-      item.companyName.includes(filters.value.keyword) ||
-      item.contactPerson.includes(filters.value.keyword)
-    )
-  }
-  
-  if (filters.value.orderType) {
-    list = list.filter(item => item.orderType === filters.value.orderType)
-  }
-  
-  if (filters.value.status) {
-    list = list.filter(item => item.status === filters.value.status)
-  }
+// 后端 orderType 到前端中文 select 值的反向映射
+const orderTypeApiMap: Record<string, string> = {
+  '会员购买': 'membership', '标书购买': 'tender', '活动报名': 'activity',
+  '投标服务': 'service', '交付服务': 'delivery', '标书代写': 'ghostwriting',
+  '出海咨询': 'consulting', '服务商入驻': 'other'
+}
+// 后端 status label 到 order_status 的映射
+const statusApiMap: Record<string, string> = {
+  '待支付': 'created', '进行中': 'in_service', '已完成': 'completed', '已取消': 'closed'
+}
 
-  if (filters.value.tenderNo) {
-    list = list.filter(item => (item.tenderNo || '').includes(filters.value.tenderNo))
-  }
+const loadOrders = async () => {
+  apiLoading.value = true
+  try {
+    const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
+    if (filters.value.keyword) query.keyword = filters.value.keyword
+    if (filters.value.orderType) {
+      const apiType = orderTypeApiMap[filters.value.orderType]
+      if (apiType) query.order_type = apiType
+    }
+    if (filters.value.status) {
+      const apiStatus = statusApiMap[filters.value.status]
+      if (apiStatus) query.order_status = apiStatus
+    }
+    if (activeTab.value === 'member') query.source = 'frontend'
+    else if (activeTab.value === 'service') query.source = 'backend'
 
-  if (filters.value.serviceStage) {
-    list = list.filter(item => item.serviceStage === filters.value.serviceStage)
+    const res: any = await apiRequest('/v3/admin/orders', { query })
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    allOrders.value = items
+    totalItems.value = Number(res?.data?.total ?? 0)
+  } catch (e: any) {
+    allOrders.value = []
+    totalItems.value = 0
+    ElMessage.error(e?.message || '加载订单失败')
+  } finally {
+    apiLoading.value = false
   }
+}
 
-  // 日期筛选
-  if (filters.value.dateRange?.length === 2) {
-    const [start, end] = filters.value.dateRange
-    list = list.filter(item => {
-      // 兼容 YYYY-MM-DD 和 YYYY/MM/DD 格式对比
-      const time = item.createTime.replace(/\//g, '-').split(' ')[0]
-      return time >= start && time <= end
-    })
-  }
-  
-  return list
-})
+const loadMembers = async () => {
+  try {
+    const res: any = await apiRequest('/v3/admin/members', { query: { page: 1, page_size: 200 } })
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    memberOptions.value = items.map((m: any) => ({
+      id: m.userId ?? m.id,
+      companyName: m.companyName ?? m.username ?? '-',
+      contactPerson: m.contactPerson ?? m.username ?? '-',
+      phone: m.contactPhone ?? '-',
+      industry: m.industry ?? ''
+    }))
+  } catch {}
+}
 
-// 分页切分逻辑 (修复)
-const paginatedOrderList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredOrderList.value.slice(start, end)
-})
+const frontendOrders = computed(() => allOrders.value.filter((o: any) => o.source === 'frontend'))
+const backendOrders = computed(() => allOrders.value.filter((o: any) => o.source === 'backend'))
+
+// Server-side filtering: filteredOrderList is just allOrders (all filtering done by API)
+const filteredOrderList = computed(() => allOrders.value)
+
+// Server-side pagination: paginatedOrderList is just allOrders (pagination done by API)
+const paginatedOrderList = computed(() => allOrders.value)
 
 // 工具函数
 const getStatusType = (status: string) => {
@@ -684,30 +662,30 @@ const formatDate = (date: Date) => {
 const handleStatClick = (type: string) => {
   if (type === 'all') filters.value.status = ''
   else filters.value.status = type
-  currentPage.value = 1 // 重置页码
+  currentPage.value = 1
+  loadOrders()
 }
 
 const handleTabChange = () => {
   filters.value = { keyword: '', orderType: '', status: '', tenderNo: '', serviceStage: '', dateRange: [] }
   currentPage.value = 1
+  loadOrders()
 }
 
 const handleSearch = () => {
-  currentPage.value = 1 // 重置页码
-  ElMessage.success('查询完成')
+  currentPage.value = 1
+  loadOrders()
 }
 
 const handleReset = () => {
   filters.value = { keyword: '', orderType: '', status: '', tenderNo: '', serviceStage: '', dateRange: [] }
   currentPage.value = 1
-  ElMessage.info('筛选条件已重置')
+  loadOrders()
 }
 
 // 分页处理
-const handleSizeChange = () => currentPage.value = 1
-const handleCurrentChange = () => {
-  // 可以添加回到顶部的逻辑
-}
+const handleSizeChange = () => { currentPage.value = 1; loadOrders() }
+const handleCurrentChange = () => { loadOrders() }
 
 const csvEscape = (val: any) => {
   const str = String(val ?? '')
@@ -769,42 +747,33 @@ const handleCustomerChange = (val: string) => {
   }
 }
 
-// 真实创建订单逻辑 (修复时间格式)
-const handleCreateServiceOrder = () => {
+const handleCreateServiceOrder = async () => {
   if (!formRef.value) return
-  formRef.value.validate((valid) => {
-    if (!valid) return ElMessage.warning('请填写必填项')
-    
-    submitLoading.value = true
-    setTimeout(() => {
-      const now = new Date()
-      // 真实写入表格
-      const newOrder = {
-        id: Date.now(),
-        orderNo: 'SRV' + now.toISOString().replace(/\D/g, '').slice(0, 14),
-        source: 'backend',
-        orderType: serviceOrderForm.value.orderType,
-        orderTitle: serviceOrderForm.value.orderDesc,
-        companyName: serviceOrderForm.value.companyName,
-        contactPerson: serviceOrderForm.value.contactPerson,
-        contactPhone: serviceOrderForm.value.contactPhone,
-        industry: serviceOrderForm.value.industry,
-        invitationCode: serviceOrderForm.value.invitationCode,
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return ElMessage.warning('请填写必填项')
+
+  submitLoading.value = true
+  try {
+    const apiType = orderTypeApiMap[serviceOrderForm.value.orderType] || 'service'
+    await apiRequest('/v3/admin/orders', {
+      method: 'POST',
+      body: {
+        order_type: apiType,
         amount: serviceOrderForm.value.amount,
-        paymentMethod: '-',
-        status: '进行中',
-        serviceStage: serviceOrderForm.value.serviceStage,
-        createTime: formatDate(now), // 使用标准格式
-        tenderNo: serviceOrderForm.value.tenderNo,
-        remark: serviceOrderForm.value.remark
+        biz_type: apiType,
+        user_id: serviceOrderForm.value.customerId || undefined,
+        remark: serviceOrderForm.value.remark || undefined
       }
-      
-      allOrders.value.unshift(newOrder)
-      submitLoading.value = false
-      ElMessage.success('服务订单创建成功')
-      createServiceOrderDialogVisible.value = false
-    }, 500)
-  })
+    })
+    ElMessage.success('服务订单创建成功')
+    createServiceOrderDialogVisible.value = false
+    loadOrders()
+    loadStats()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建订单失败')
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 const handleViewDetail = (row: any) => {
@@ -830,22 +799,46 @@ const handleUploadInvoice = (row: any) => {
   })
 }
 
-const handleComplete = (row: any) => {
-  ElMessageBox.confirm('确认完成此订单吗？', '提示', { type: 'success' })
-    .then(() => {
-      row.status = '已完成'
-      if (row.source === 'backend') row.serviceStage = '完结阶段'
-      ElMessage.success('订单已完成')
+const handleComplete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('确认完成此订单吗？', '提示', { type: 'success' })
+    // in_service → completed
+    await apiRequest(`/v3/admin/orders/${row.id}/transition`, {
+      method: 'POST',
+      body: { to_status: 'completed', reason: '管理员手动完成' }
     })
+    ElMessage.success('订单已完成')
+    loadOrders()
+    loadStats()
+  } catch (e: any) {
+    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
+  }
 }
 
-const handleCancel = (row: any) => {
-  ElMessageBox.confirm('确认取消此订单吗？取消后无法恢复', '提示', { type: 'warning' })
-    .then(() => {
-      row.status = '已取消'
-      ElMessage.success('订单已取消')
+const handleCancel = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('确认取消此订单吗？取消后无法恢复', '提示', { type: 'warning' })
+    // Map current status to valid cancel transition
+    const toStatus = row.orderStatus === 'awaiting_payment' || row.orderStatus === 'created' ? 'closed'
+      : row.orderStatus === 'in_service' || row.orderStatus === 'paid' ? 'refunding' : 'closed'
+    await apiRequest(`/v3/admin/orders/${row.id}/transition`, {
+      method: 'POST',
+      body: { to_status: toStatus, reason: '管理员取消' }
     })
+    ElMessage.success('订单已取消')
+    loadOrders()
+    loadStats()
+  } catch (e: any) {
+    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
+  }
 }
+
+// --- 初始化 ---
+onMounted(() => {
+  loadOrders()
+  loadStats()
+  loadMembers()
+})
 </script>
 
 <style scoped>
