@@ -17,6 +17,26 @@ public class Demand {
     @TableField("user_id")
     private Long userId;
 
+    @TableField("org_type")
+    private String orgType;
+
+    @TableField("org_name")
+    private String orgName;
+
+    @TableField("publish_date")
+    private Date publishDate;
+
+    private Date deadline;
+
+    private String category;
+
+    private String industry;
+
+    private String summary;
+
+    @TableField("enable_sms")
+    private Boolean enableSms;
+
     @TableField("audit_status")
     private Integer auditStatus;
 

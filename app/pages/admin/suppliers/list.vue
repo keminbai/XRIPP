@@ -15,7 +15,7 @@
         </div>
         <div class="flex items-center gap-3">
           <el-tag type="warning" effect="plain">只读模式</el-tag>
-          <el-button type="success" plain @click="handleExport" :disabled="filteredSupplierList.length === 0">
+          <el-button type="success" plain @click="handleExport" :disabled="rawList.length === 0">
             <el-icon class="mr-2"><Download /></el-icon> 导出名录
           </el-button>
         </div>
@@ -61,7 +61,7 @@
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
       <el-table
         v-loading="loading"
-        :data="pagedList"
+        :data="rawList"
         stripe
         @selection-change="handleSelectionChange"
       >
@@ -96,8 +96,10 @@
           v-model:page-size="pageSize"
           background
           layout="total, prev, pager, next, sizes"
-          :total="filteredSupplierList.length"
+          :total="totalItems"
           :page-sizes="[10, 20, 50]"
+          @current-change="handlePageChange"
+          @size-change="handleSizeChange"
         />
       </div>
     </div>
@@ -128,7 +130,7 @@
 
 <script setup lang="ts">
 import { Download, Search } from '@element-plus/icons-vue'
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
 
@@ -156,6 +158,7 @@ const selectedRows = ref<SupplierRow[]>([])
 
 const currentPage = ref(1)
 const pageSize = ref(10)
+const totalItems = ref(0)
 
 const detailDialogVisible = ref(false)
 const currentItem = ref<SupplierRow | null>(null)
@@ -212,8 +215,8 @@ const loadList = async () => {
   loading.value = true
   try {
     const query: Record<string, any> = {
-      page: 1,
-      page_size: 200
+      page: currentPage.value,
+      page_size: pageSize.value
     }
     if (filters.value.status) {
       const statusToApi: Record<string, string> = {
@@ -232,8 +235,10 @@ const loadList = async () => {
     const res = await apiRequest<any>('/v3/admin/supplier-onboarding', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     rawList.value = items.map(mapRow)
+    totalItems.value = Number(res?.data?.total) || 0
   } catch (e: any) {
     rawList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取服务商列表失败')
   } finally {
     loading.value = false
@@ -242,34 +247,16 @@ const loadList = async () => {
 
 onMounted(loadList)
 
-const filteredSupplierList = computed(() => {
-  const kw = filters.value.keyword.trim().toLowerCase()
-  return rawList.value.filter(item => {
-    if (kw) {
-      const match =
-        item.name.toLowerCase().includes(kw) ||
-        item.contact.toLowerCase().includes(kw) ||
-        item.phone.toLowerCase().includes(kw) ||
-        item.applyNo.toLowerCase().includes(kw)
-      if (!match) return false
-    }
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  loadList()
+}
 
-    if (filters.value.status && item.status !== filters.value.status) return false
-
-    if (filters.value.dateRange.length === 2) {
-      const [start, end] = filters.value.dateRange
-      const d = item.submitDate.slice(0, 10)
-      if (d < start || d > end) return false
-    }
-
-    return true
-  })
-})
-
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredSupplierList.value.slice(start, start + pageSize.value)
-})
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadList()
+}
 
 const handleSelectionChange = (rows: SupplierRow[]) => {
   selectedRows.value = rows
@@ -297,7 +284,7 @@ const csvEscape = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`
 
 const handleExport = () => {
   if (!import.meta.client) return
-  const list = selectedRows.value.length ? selectedRows.value : filteredSupplierList.value
+  const list = selectedRows.value.length ? selectedRows.value : rawList.value
   const header = ['申请编号', '公司名称', '联系人', '联系电话', '行业', '审核状态', '提交时间', '审核时间', '驳回原因']
   const rows = list.map(i => [
     i.applyNo, i.name, i.contact, i.phone, i.industry, i.statusLabel, i.submitDate, i.reviewedDate, i.rejectReason

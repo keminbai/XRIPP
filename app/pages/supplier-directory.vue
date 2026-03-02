@@ -86,7 +86,7 @@
         <div class="flex-grow">
           <div class="mb-6 flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
             <span class="text-sm text-slate-600">
-              共找到 <strong class="text-brand-600 text-lg mx-1">{{ filteredSuppliers.length }}</strong> 家符合条件的企业
+              共找到 <strong class="text-brand-600 text-lg mx-1">{{ totalItems }}</strong> 家符合条件的企业
             </span>
 
             <button
@@ -102,7 +102,7 @@
 
           <div class="space-y-4">
             <div
-              v-for="item in pagedSuppliers"
+              v-for="item in filteredSuppliers"
               :key="item.id"
               class="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-xl hover:border-brand-200 transition-all duration-300 group relative"
             >
@@ -157,8 +157,9 @@
               v-model:current-page="currentPage"
               background
               layout="prev, pager, next"
-              :total="filteredSuppliers.length"
+              :total="totalItems"
               :page-size="pageSize"
+              @current-change="handlePageChange"
             />
           </div>
         </div>
@@ -256,7 +257,7 @@ import {
   Search, Filter, Location, Calendar, View, Download,
   Reading, Plus, HomeFilled, ArrowRight, ArrowLeft, Loading
 } from '@element-plus/icons-vue'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
 
@@ -269,7 +270,8 @@ const downloadingId = ref(0)
 const loading = ref(false)
 
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = ref(10)
+const totalItems = ref(0)
 
 const cityOptions = [
   { value: 'shanghai', label: '上海市', children: [{ value: 'shanghai', label: '上海市' }] },
@@ -315,7 +317,7 @@ const mapRow = (item: any) => ({
 const loadSuppliers = async () => {
   loading.value = true
   try {
-    const query: Record<string, any> = { page: 1, page_size: 200 }
+    const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
     if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
     const loc = filters.value.location as string[]
     if (loc?.length > 0) {
@@ -328,8 +330,10 @@ const loadSuppliers = async () => {
     const res: any = await apiRequest('/v3/suppliers', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     rawSuppliers.value = items.map(mapRow)
+    totalItems.value = Number(res?.data?.total ?? 0)
   } catch (e: any) {
     rawSuppliers.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取服务商列表失败')
   } finally {
     loading.value = false
@@ -368,9 +372,7 @@ const serviceValueMap: Record<string, string[]> = {
 
 const filteredSuppliers = computed(() => {
   return suppliers.value.filter((item) => {
-    const k = filters.value.keyword.trim()
-    const matchKeyword = !k || item.name.includes(k) || item.mainBusiness.includes(k)
-
+    // keyword and city are now handled server-side; only province and service remain client-side
     const location = filters.value.location as string[]
     const selectedProvince = location?.[0] ? locationValueMap[location[0]] : ''
     const selectedCity = location?.[1] ? locationValueMap[location[1]] : ''
@@ -381,19 +383,13 @@ const filteredSuppliers = computed(() => {
     const expectedServices = selectedService ? (serviceValueMap[selectedService] || []) : []
     const matchService = !selectedService || expectedServices.some((s) => item.services?.includes(s))
 
-    return matchKeyword && matchProvince && matchCity && matchService
+    return matchProvince && matchCity && matchService
   })
 })
 
-const pagedSuppliers = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredSuppliers.value.slice(start, start + pageSize)
-})
-
-watch(filteredSuppliers, () => {
-  const maxPage = Math.max(1, Math.ceil(filteredSuppliers.value.length / pageSize))
-  if (currentPage.value > maxPage) currentPage.value = 1
-})
+const handlePageChange = () => {
+  loadSuppliers()
+}
 
 const handleSearch = async () => {
   currentPage.value = 1

@@ -276,12 +276,12 @@
             <h3 class="font-bold text-xl text-slate-900 leading-tight">{{ currentViewItem.title }}</h3>
             <el-tag :type="getStatusType(currentViewItem.status)">{{ currentViewItem.status }}</el-tag>
           </div>
-          <div class="text-xs text-slate-500 font-mono">编号: {{ currentViewItem.id }}</div>
+          <div class="text-xs text-slate-500 font-mono">编号: {{ currentViewItem.demandNo || currentViewItem.id }}</div>
         </div>
 
         <div class="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
           <div><span class="text-slate-400 block mb-1">发布组织</span><span class="font-medium">{{ currentViewItem.orgName }}</span></div>
-          <div><span class="text-slate-400 block mb-1">发布日期</span><span class="font-medium">{{ currentViewItem.date }}</span></div>
+          <div><span class="text-slate-400 block mb-1">发布日期</span><span class="font-medium">{{ currentViewItem.publishDate || currentViewItem.date }}</span></div>
           <div><span class="text-slate-400 block mb-1">截止日期</span><span class="font-medium text-red-500">{{ currentViewItem.deadline }}</span></div>
           <div><span class="text-slate-400 block mb-1">所属行业</span><span class="font-medium">{{ currentViewItem.industry }}</span></div>
         </div>
@@ -302,18 +302,20 @@
 </template>
 
 <script setup lang="ts">
-import { 
-  TrendCharts, Promotion, Plus, Search, DocumentCopy, 
-  ArrowLeft, UploadFilled, View, Message 
+import {
+  TrendCharts, Promotion, Plus, Search, DocumentCopy,
+  ArrowLeft, UploadFilled, View, Message
 } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '~/utils/request'
 
 definePageMeta({ layout: 'member' })
 
 // --- 状态控制 ---
-const viewMode = ref<'list' | 'form'>('list') 
+const viewMode = ref<'list' | 'form'>('list')
 const submitting = ref(false)
+const loading = ref(false)
 const previewVisible = ref(false)
 const searchKeyword = ref('')
 const filterStatus = ref('')
@@ -324,36 +326,31 @@ const formData = ref(getEmptyForm())
 
 function getEmptyForm() {
   return {
-    orgType: 'enterprise', orgName: '', title: '', publishDate: '', 
+    orgType: 'enterprise', orgName: '', title: '', publishDate: '',
     deadline: '', category: '', industry: '', summary: '', enableSms: false
   }
 }
 
-// --- 历史数据 Mock ---
-const historyList = ref([
-  { 
-    id: 'REQ2501001', orgType: 'enterprise', orgName: '上海宏大贸易', 
-    title: '年产50万吨光伏组件包装材料采购', publishDate: '2025-01-10', deadline: '2025-02-10',
-    category: 'rfq', industry: '新能源', summary: '采购EVA胶膜、背板等，要求服务商具备ISO认证，年产能不低于1000万平米。交付地点：江苏常州。', 
-    status: '已发布', date: '2025-01-10'
-  },
-  { 
-    id: 'REQ2412088', orgType: 'ngo', orgName: '中国环保基金会', 
-    title: '西部地区净水设备公益采购', publishDate: '2024-12-15', deadline: '2025-01-15',
-    category: 'itb', industry: '环保', summary: '用于农村学校净水，需提供全套安装及售后服务。', 
-    status: '已完成', date: '2024-12-15'
-  },
-  { 
-    id: 'REQ2412099', orgType: 'enterprise', orgName: '上海宏大贸易', 
-    title: '总部大楼办公室装修工程招标', publishDate: '2024-12-20', deadline: '2025-01-01',
-    category: 'rfp', industry: '建筑', summary: '总部大楼12-15层装修，总面积约4000平米，包含硬装及办公家具采购。', 
-    status: '审核驳回', date: '2024-12-20'
+// --- 历史数据 (from API) ---
+const historyList = ref<any[]>([])
+
+const loadHistory = async () => {
+  loading.value = true
+  try {
+    const res: any = await apiRequest('/v3/member/demands?page=1&page_size=100')
+    historyList.value = Array.isArray(res?.data?.items) ? res.data.items : []
+  } catch (e: any) {
+    historyList.value = []
+  } finally {
+    loading.value = false
   }
-])
+}
+
+onMounted(loadHistory)
 
 const historyData = computed(() => {
-  return historyList.value.filter(item => {
-    const matchKey = !searchKeyword.value || item.title.includes(searchKeyword.value) || item.id.includes(searchKeyword.value)
+  return historyList.value.filter((item: any) => {
+    const matchKey = !searchKeyword.value || (item.title || '').includes(searchKeyword.value) || (item.demandNo || '').includes(searchKeyword.value)
     const matchStatus = !filterStatus.value || item.status === filterStatus.value
     return matchKey && matchStatus
   })
@@ -386,7 +383,17 @@ const getStatusType = (status: string) => {
 }
 
 const handleReuse = (row: any) => {
-  formData.value = { ...row, publishDate: '', deadline: '' }
+  formData.value = {
+    orgType: row.orgType || 'enterprise',
+    orgName: row.orgName || '',
+    title: row.title || '',
+    publishDate: '',
+    deadline: '',
+    category: row.category || '',
+    industry: row.industry || '',
+    summary: row.summary || '',
+    enableSms: false
+  }
   viewMode.value = 'form'
   ElMessage.success('已载入历史数据，请设定新的日期后提交')
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -397,28 +404,36 @@ const handleView = (row: any) => {
   previewVisible.value = true
 }
 
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm('确定删除该记录吗？', '警告', { type: 'warning' }).then(() => {
-    historyList.value = historyList.value.filter(i => i.id !== row.id)
+const handleDelete = async (row: any) => {
+  try {
+    await ElMessageBox.confirm('确定删除该记录吗？', '警告', { type: 'warning' })
+    await apiRequest(`/v3/member/demands/${row.id}`, { method: 'DELETE' })
+    historyList.value = historyList.value.filter((i: any) => i.id !== row.id)
     ElMessage.success('已删除')
-  })
+  } catch (e: any) {
+    if (e !== 'cancel' && e?.message) ElMessage.error(e.message)
+  }
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!formData.value.title || !formData.value.summary) return ElMessage.warning('请填写必填项')
-  
+
   submitting.value = true
-  setTimeout(() => {
-    submitting.value = false
-    historyList.value.unshift({
-      id: 'REQ' + Date.now().toString().slice(-6),
-      ...formData.value,
-      status: '审核中',
-      date: new Date().toISOString().split('T')[0]
-    })
+  try {
+    const payload: any = { ...formData.value }
+    // format dates to yyyy-MM-dd string
+    if (payload.publishDate) payload.publishDate = new Date(payload.publishDate).toISOString().split('T')[0]
+    if (payload.deadline) payload.deadline = new Date(payload.deadline).toISOString().split('T')[0]
+
+    await apiRequest('/v3/member/demands', { method: 'POST', body: payload })
     ElMessage.success('提交成功！')
+    await loadHistory()
     switchToList()
-  }, 1500)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '提交失败')
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 

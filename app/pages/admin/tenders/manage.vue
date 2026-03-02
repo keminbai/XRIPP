@@ -80,7 +80,7 @@
     </div>
 
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-      <el-table v-loading="apiLoading" :data="pagedList" stripe :header-cell-style="{ background: '#f8fafc', color: '#64748b' }">
+      <el-table v-loading="apiLoading" :data="displayList" stripe :header-cell-style="{ background: '#f8fafc', color: '#64748b' }">
         <el-table-column prop="tenderNo" label="标书编号" width="170" fixed>
           <template #default="scope">
             <span class="font-mono text-xs font-bold">{{ scope.row.tenderNo }}</span>
@@ -150,9 +150,10 @@
           v-model:page-size="pageSize"
           background
           layout="total, prev, pager, next, sizes"
-          :total="filteredList.length"
+          :total="totalItems"
           :page-sizes="[10, 20, 50]"
           @current-change="handlePageChange"
+          @size-change="handleSizeChange"
         />
       </div>
     </div>
@@ -210,6 +211,7 @@ const currentTender = ref<any>(null)
 
 const apiLoading = ref(false)
 const apiTenders = ref<any[]>([])
+const totalItems = ref(0)
 const tabCounts = ref({ published: 0, draft: 0, expired: 0 })
 
 const filters = ref({
@@ -254,17 +256,19 @@ const loadTenders = async () => {
   apiLoading.value = true
   try {
     const qs = new URLSearchParams({
-      page: '1',
-      page_size: '200',
+      page: String(currentPage.value),
+      page_size: String(pageSize.value),
       tender_status: statusParamMap[activeTab.value],
       keyword: filters.value.keyword || ''
     })
     const res: any = await apiRequest(`/v3/admin/tenders?${qs.toString()}`)
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     apiTenders.value = items.map(normalizeTender)
+    totalItems.value = Number(res?.data?.total ?? 0)
     await loadTenderStats()
   } catch (e: any) {
     apiTenders.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '标书加载失败')
   } finally {
     apiLoading.value = false
@@ -284,24 +288,7 @@ const loadTenderStats = async () => {
   }
 }
 
-const filteredList = computed(() => {
-  return apiTenders.value.filter(item => {
-    const kw = filters.value.keyword.trim().toLowerCase()
-    if (kw && !String(item.title).toLowerCase().includes(kw) && !String(item.tenderNo).toLowerCase().includes(kw)) return false
-    if (filters.value.org && item.organization !== filters.value.org) return false
-    if (filters.value.category && item.category !== filters.value.category) return false
-    if (filters.value.dateRange?.length === 2) {
-      const [start, end] = filters.value.dateRange
-      if (item.publishDate < start || item.publishDate > end) return false
-    }
-    return true
-  })
-})
-
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredList.value.slice(start, start + pageSize.value)
-})
+const displayList = computed(() => apiTenders.value)
 
 const getCount = (status: TenderTab) => tabCounts.value[status] || 0
 
@@ -336,8 +323,14 @@ const handleTabChange = async () => {
   await handleReset(true)
 }
 
-const handlePageChange = () => {
+const handlePageChange = async () => {
   if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+  await loadTenders()
+}
+
+const handleSizeChange = async () => {
+  currentPage.value = 1
+  await loadTenders()
 }
 
 const handlePreview = (row: any) => {
@@ -378,7 +371,7 @@ const handleExport = () => {
   if (!import.meta.client) return
 
   const header = '标书编号,标题,组织,分类,价格,销量,发布日期,状态'
-  const rows = filteredList.value.map(item =>
+  const rows = apiTenders.value.map(item =>
     `"${item.tenderNo}","${item.title}","${item.organization}","${item.categoryLabel}","${item.price}","${item.sales}","${item.publishDate}","${item.status}"`
   )
   const csvContent = '\uFEFF' + [header, ...rows].join('\n')

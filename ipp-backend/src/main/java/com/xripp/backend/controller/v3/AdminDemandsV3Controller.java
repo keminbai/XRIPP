@@ -123,16 +123,14 @@ public class AdminDemandsV3Controller {
         m.put("auditStatus", d.getAuditStatus() != null ? d.getAuditStatus() : AUDIT_PENDING);
         m.put("status", mapStatus(d.getAuditStatus()));
         m.put("statusLabel", mapStatusLabel(d.getAuditStatus()));
-        m.put("publishDate", fmtDate(d.getCreatedAt()));
-        // Fields not yet in schema — provide safe defaults
-        m.put("description", "");
-        m.put("demandType", "-");
-        m.put("industry", "-");
-        m.put("companyName", "用户#" + d.getUserId());
-        m.put("contactPerson", "-");
-        m.put("contactPhone", "-");
-        m.put("matchCount", 0);
-        m.put("rejectReason", "");
+        m.put("orgType", d.getOrgType() != null ? d.getOrgType() : "");
+        m.put("orgName", d.getOrgName() != null ? d.getOrgName() : "");
+        m.put("publishDate", fmtDate(d.getPublishDate() != null ? d.getPublishDate() : d.getCreatedAt()));
+        m.put("deadline", fmtDate(d.getDeadline()));
+        m.put("category", d.getCategory() != null ? d.getCategory() : "");
+        m.put("industry", d.getIndustry() != null ? d.getIndustry() : "");
+        m.put("summary", d.getSummary() != null ? d.getSummary() : "");
+        m.put("enableSms", d.getEnableSms() != null ? d.getEnableSms() : false);
         return m;
     }
 

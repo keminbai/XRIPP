@@ -49,17 +49,17 @@
         <el-tabs v-model="activeTab" class="mb-1" @tab-change="handleTabChange">
           <el-tab-pane name="pending">
             <template #label>
-              <span class="flex items-center gap-2">待审核 <el-badge :value="pendingList.length" type="danger" /></span>
+              <span class="flex items-center gap-2">待审核 <el-badge :value="tabCounts.pending" type="danger" /></span>
             </template>
           </el-tab-pane>
           <el-tab-pane name="approved">
             <template #label>
-              <span class="flex items-center gap-2">已通过 <el-tag size="small" type="success" effect="plain" round>{{ approvedList.length }}</el-tag></span>
+              <span class="flex items-center gap-2">已通过 <el-tag size="small" type="success" effect="plain" round>{{ tabCounts.approved }}</el-tag></span>
             </template>
           </el-tab-pane>
           <el-tab-pane name="rejected">
             <template #label>
-              <span class="flex items-center gap-2">已驳回 <el-tag size="small" type="info" effect="plain" round>{{ rejectedList.length }}</el-tag></span>
+              <span class="flex items-center gap-2">已驳回 <el-tag size="small" type="info" effect="plain" round>{{ tabCounts.rejected }}</el-tag></span>
             </template>
           </el-tab-pane>
         </el-tabs>
@@ -77,7 +77,7 @@
       <div class="p-6">
         <el-table
           v-loading="loading"
-          :data="pagedList"
+          :data="allAuditList"
           style="width: 100%"
           :header-cell-style="{ background: '#f8fafc', color: '#64748b' }"
           stripe
@@ -148,8 +148,10 @@
             v-model:page-size="pageSize"
             background
             layout="total, prev, pager, next, sizes"
-            :total="filteredAuditList.length"
+            :total="totalItems"
             :page-sizes="[10, 20, 50]"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </div>
       </div>
@@ -250,6 +252,8 @@ const selectedRows = ref<AuditRow[]>([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const totalItems = ref(0)
+const tabCounts = ref({ pending: 0, approved: 0, rejected: 0 })
 
 const filters = ref({
   keyword: '',
@@ -295,68 +299,62 @@ const mapRow = (item: any): AuditRow => {
   }
 }
 
+const tabStatusToApi: Record<string, string> = {
+  pending: 'submitted',
+  approved: 'approved',
+  rejected: 'rejected'
+}
+
 const loadList = async () => {
   loading.value = true
   try {
-    const query: Record<string, any> = { page: 1, page_size: 300 }
+    const query: Record<string, any> = {
+      page: currentPage.value,
+      page_size: pageSize.value
+    }
+    if (activeTab.value && tabStatusToApi[activeTab.value]) {
+      query.verification_status = tabStatusToApi[activeTab.value]
+    }
     if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
+
     const res = await apiRequest<any>('/v3/admin/member-verifications', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allAuditList.value = items.map(mapRow)
+    totalItems.value = Number(res?.data?.total) || 0
   } catch (e: any) {
     allAuditList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取服务商审核列表失败')
   } finally {
     loading.value = false
   }
 }
 
+const loadTabCounts = async () => {
+  try {
+    const [pRes, aRes, rRes] = await Promise.all([
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'submitted' } }),
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'approved' } }),
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'rejected' } })
+    ])
+    tabCounts.value = {
+      pending: Number(pRes?.data?.total) || 0,
+      approved: Number(aRes?.data?.total) || 0,
+      rejected: Number(rRes?.data?.total) || 0
+    }
+  } catch { /* counts are best-effort */ }
+}
+
 onMounted(() => {
   loadList()
-})
-
-const pendingList = computed(() => allAuditList.value.filter(item => item.statusCode === 'pending'))
-const approvedList = computed(() => allAuditList.value.filter(item => item.statusCode === 'approved'))
-const rejectedList = computed(() => allAuditList.value.filter(item => item.statusCode === 'rejected'))
-
-const filteredAuditList = computed(() => {
-  let list = allAuditList.value
-
-  if (activeTab.value === 'pending') list = pendingList.value
-  if (activeTab.value === 'approved') list = approvedList.value
-  if (activeTab.value === 'rejected') list = rejectedList.value
-
-  const kw = filters.value.keyword.trim().toLowerCase()
-  if (kw) {
-    list = list.filter(item =>
-      item.companyName.toLowerCase().includes(kw) ||
-      item.contactName.toLowerCase().includes(kw)
-    )
-  }
-
-  if (filters.value.city.trim()) {
-    const city = filters.value.city.trim().toLowerCase()
-    list = list.filter(item => String(item.city || '').toLowerCase().includes(city))
-  }
-
-  if (filters.value.serviceType.trim()) {
-    const s = filters.value.serviceType.trim().toLowerCase()
-    list = list.filter(item => String(item.industry || '').toLowerCase().includes(s))
-  }
-
-  return list
-})
-
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredAuditList.value.slice(start, start + pageSize.value)
+  loadTabCounts()
 })
 
 const stats = computed(() => {
-  const total = allAuditList.value.length
-  const pending = pendingList.value.length
-  const approved = approvedList.value.length
-  const rejected = rejectedList.value.length
+  const pending = tabCounts.value.pending
+  const approved = tabCounts.value.approved
+  const rejected = tabCounts.value.rejected
+  const total = pending + approved + rejected
   const passRate = total ? `${Math.round((approved / total) * 100)}%` : '0%'
 
   return [
@@ -379,6 +377,18 @@ const getStatusType = (status: string) => {
 const handleTabChange = () => {
   selectedRows.value = []
   currentPage.value = 1
+  loadList()
+}
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  loadList()
+}
+
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadList()
 }
 
 const handleSearch = async () => {
@@ -414,6 +424,7 @@ const handleBatchAudit = () => {
         ElMessage.success('批量审核完成')
         selectedRows.value = []
         await loadList()
+        loadTabCounts()
       } catch (e: any) {
         ElMessage.error(e?.message || '批量审核失败')
       } finally {
@@ -436,6 +447,7 @@ const handleApprove = (row: AuditRow) => {
         ElMessage.success('审核通过')
         detailDialogVisible.value = false
         await loadList()
+        loadTabCounts()
       } catch (e: any) {
         ElMessage.error(e?.message || '审核失败')
       }
@@ -464,6 +476,7 @@ const handleConfirmReject = async () => {
     ElMessage.success('已驳回申请')
     rejectDialogVisible.value = false
     await loadList()
+    loadTabCounts()
   } catch (e: any) {
     ElMessage.error(e?.message || '驳回失败')
   } finally {

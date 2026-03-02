@@ -41,8 +41,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = null;
             if (auth != null && auth.startsWith("Bearer ")) {
                 token = auth.substring(7).trim();
-            } else {
-                // Fallback: read from cookie (for el-upload browser POST)
+            } else if (request.getRequestURI().startsWith("/api/common/upload")) {
+                // Cookie fallback ONLY for file upload (el-upload browser POST without Authorization header)
                 if (request.getCookies() != null) {
                     for (var cookie : request.getCookies()) {
                         if ("xripp_token".equals(cookie.getName())) {

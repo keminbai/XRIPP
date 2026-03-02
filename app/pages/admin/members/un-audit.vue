@@ -60,7 +60,7 @@
             <template #label>
               <span class="flex items-center gap-2">
                 待审核
-                <el-badge :value="pendingList.length" type="danger" />
+                <el-badge :value="tabCounts.pending" type="danger" />
               </span>
             </template>
           </el-tab-pane>
@@ -68,7 +68,7 @@
             <template #label>
               <span class="flex items-center gap-2">
                 已通过
-                <el-tag size="small" type="success" effect="plain" round>{{ approvedList.length }}</el-tag>
+                <el-tag size="small" type="success" effect="plain" round>{{ tabCounts.approved }}</el-tag>
               </span>
             </template>
           </el-tab-pane>
@@ -76,7 +76,7 @@
             <template #label>
               <span class="flex items-center gap-2">
                 已驳回
-                <el-tag size="small" type="info" effect="plain" round>{{ rejectedList.length }}</el-tag>
+                <el-tag size="small" type="info" effect="plain" round>{{ tabCounts.rejected }}</el-tag>
               </span>
             </template>
           </el-tab-pane>
@@ -122,7 +122,7 @@
       <div class="p-6">
         <el-table 
           v-loading="apiLoading"
-          :data="filteredAuditList" 
+          :data="apiAuditList"
           style="width: 100%" 
           :header-cell-style="{background:'#f8fafc', color:'#64748b'}"
           stripe
@@ -250,11 +250,15 @@
         </el-table>
 
         <div class="mt-4 flex justify-end">
-          <el-pagination 
-            background 
-            layout="total, prev, pager, next" 
-            :total="filteredAuditList.length"
-            :page-size="10"
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            background
+            layout="total, prev, pager, next, sizes"
+            :total="totalItems"
+            :page-sizes="[10, 20, 50]"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </div>
       </div>
@@ -576,6 +580,11 @@ const currentRejectItem = ref<any>(null)
 const selectedRows = ref<any[]>([])
 const certFileList = ref<UploadUserFile[]>([])
 
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalItems = ref(0)
+const tabCounts = ref({ pending: 0, approved: 0, rejected: 0 })
+
 const filters = ref({
   keyword: '',
   companyType: '',
@@ -594,19 +603,19 @@ const uploadCertForm = ref({
   remark: ''
 })
 
-// 统计数据（基于真实列表计算）
+// 统计数据（基于 tabCounts）
 const stats = computed(() => {
-  const totalPending = apiAuditList.value.filter(i => i.status === 'pending').length
-  const totalApproved = apiAuditList.value.filter(i => i.status === 'approved').length
-  const totalRejected = apiAuditList.value.filter(i => i.status === 'rejected').length
-  const total = apiAuditList.value.length
+  const totalPending = tabCounts.value.pending
+  const totalApproved = tabCounts.value.approved
+  const totalRejected = tabCounts.value.rejected
+  const total = totalPending + totalApproved + totalRejected
   const passRate = total > 0 ? Math.round((totalApproved / total) * 100) : 0
 
   return [
     { label: '待审核', value: String(totalPending), subLabel: '实时数据', icon: Clock, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
     { label: '已通过', value: String(totalApproved), subLabel: `通过率 ${passRate}%`, icon: CircleCheck, bgClass: 'bg-green-50', textClass: 'text-green-600' },
     { label: '已驳回', value: String(totalRejected), subLabel: '实时数据', icon: CircleClose, bgClass: 'bg-red-50', textClass: 'text-red-600' },
-    { label: '总申请数', value: String(total), subLabel: '当前筛选前基数', icon: TrendCharts, bgClass: 'bg-blue-50', textClass: 'text-blue-600' }
+    { label: '总申请数', value: String(total), subLabel: '真实接口统计', icon: TrendCharts, bgClass: 'bg-blue-50', textClass: 'text-blue-600' }
   ]
 })
 
@@ -675,48 +684,7 @@ const normalizeAuditItem = (raw: any) => ({
 })
 
 
-const pendingList = computed(() => apiAuditList.value.filter(item => item.status === 'pending'))
-const approvedList = computed(() => apiAuditList.value.filter(item => item.status === 'approved'))
-const rejectedList = computed(() => apiAuditList.value.filter(item => item.status === 'rejected'))
-
-const displaySource = computed(() => apiAuditList.value)
-
-const filteredAuditList = computed(() => {
-  let list = [...displaySource.value]
-
-  if (activeTab.value === 'pending') {
-    list = list.filter(item => item.status === 'pending')
-  } else if (activeTab.value === 'approved') {
-    list = list.filter(item => item.status === 'approved')
-  } else if (activeTab.value === 'rejected') {
-    list = list.filter(item => item.status === 'rejected')
-  }
-
-  if (filters.value.keyword) {
-    const k = filters.value.keyword.trim()
-    list = list.filter(item =>
-      item.companyNameCn?.includes(k) ||
-      item.contactName?.includes(k) ||
-      item.applyNo?.includes(k)
-    )
-  }
-
-  if (filters.value.companyType) {
-    list = list.filter(item => String(item.companyType) === String(filters.value.companyType))
-  }
-
-  if (filters.value.dateRange?.length === 2) {
-    const [start, end] = filters.value.dateRange
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    list = list.filter(item => {
-      const d = new Date(item.applyDate)
-      return d >= startDate && d <= endDate
-    })
-  }
-
-  return list
-})
+/* pendingList/approvedList/rejectedList removed -- tab counts come from API via tabCounts ref */
 
 // API 列表与加载方法
 const apiAuditList = ref<any[]>([])
@@ -768,41 +736,59 @@ const mapStatusLabel = (s?: string) => {
   }
 }
 
+const tabStatusToApi: Record<string, string> = {
+  pending: 'submitted',
+  approved: 'approved',
+  rejected: 'rejected'
+}
+
 const loadAuditList = async () => {
   apiLoading.value = true
   try {
-    const statusMap: Record<string, string> = {
-      pending: 'submitted',
-      approved: 'approved',
-      rejected: 'rejected'
-    }
-
     const query: any = {
-      page: 1,
-      page_size: 100
+      page: currentPage.value,
+      page_size: pageSize.value
     }
 
-    if (activeTab.value && statusMap[activeTab.value]) {
-      query.verification_status = statusMap[activeTab.value]
+    if (activeTab.value && tabStatusToApi[activeTab.value]) {
+      query.verification_status = tabStatusToApi[activeTab.value]
     }
 
-    if (filters.value?.keyword) {
-      query.keyword = filters.value.keyword
+    if (filters.value?.keyword?.trim()) {
+      query.keyword = filters.value.keyword.trim()
     }
 
     const res = await apiRequest<any>('/v3/admin/member-verifications', { query })
     const items = res?.data?.items || []
     apiAuditList.value = items.map(mapVerificationToRow)
+    totalItems.value = Number(res?.data?.total) || 0
   } catch (e: any) {
     apiAuditList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取审核列表失败')
   } finally {
     apiLoading.value = false
   }
 }
 
+const loadTabCounts = async () => {
+  try {
+    const [pRes, aRes, rRes] = await Promise.all([
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'submitted' } }),
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'approved' } }),
+      apiRequest<any>('/v3/admin/member-verifications', { query: { page: 1, page_size: 1, verification_status: 'rejected' } })
+    ])
+    tabCounts.value = {
+      pending: Number(pRes?.data?.total) || 0,
+      approved: Number(aRes?.data?.total) || 0,
+      rejected: Number(rRes?.data?.total) || 0
+    }
+  } catch { /* counts are best-effort */ }
+}
+
 onMounted(() => {
   loadAuditList()
+  loadTabCounts()
 })
 
 // 工具函数 - 标签映射
@@ -959,15 +945,29 @@ const quickReasonMap: Record<string, string> = {
 const handleTabChange = () => {
   selectedRows.value = []
   filters.value = { keyword: '', companyType: '', dateRange: [] }
+  currentPage.value = 1
+  loadAuditList()
+}
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+  loadAuditList()
+}
+
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
   loadAuditList()
 }
 
 const handleSearch = () => {
+  currentPage.value = 1
   loadAuditList()
 }
 
 const handleReset = () => {
   filters.value = { keyword: '', companyType: '', dateRange: [] }
+  currentPage.value = 1
   ElMessage.info('筛选条件已重置')
   loadAuditList()
 }
@@ -979,7 +979,7 @@ const csvEscape = (val: any) => {
 
 const handleExport = () => {
   if (!import.meta.client) return
-  const list = selectedRows.value.length ? selectedRows.value : filteredAuditList.value
+  const list = selectedRows.value.length ? selectedRows.value : apiAuditList.value
 
   const header = [
     '申请编号','申请日期','公司中文名','公司英文名',
@@ -1037,6 +1037,7 @@ const handleBatchApprove = () => {
       const failedCount = results.length - successCount
       selectedRows.value = []
       await loadAuditList()
+      loadTabCounts()
 
       if (failedCount > 0) {
         ElMessage.warning(`批量审核完成：成功 ${successCount}，失败 ${failedCount}`)
@@ -1073,6 +1074,7 @@ const handleApprove = (row: any) => {
       ElMessage.success('审核通过')
       detailDialogVisible.value = false
       await loadAuditList()
+      loadTabCounts()
     } catch (e: any) {
       ElMessage.error(e?.data?.message || e?.message || '审核失败')
     } finally {
@@ -1116,6 +1118,7 @@ const handleConfirmReject = async () => {
     ElMessage.success('已驳回申请')
     rejectDialogVisible.value = false
     await loadAuditList()
+    loadTabCounts()
   } catch (e: any) {
     ElMessage.error(e?.data?.message || e?.message || '驳回失败')
   } finally {

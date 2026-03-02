@@ -256,11 +256,13 @@
         </el-table>
 
         <div class="mt-4 flex justify-end">
-          <el-pagination 
-            background 
-            layout="total, prev, pager, next" 
-            :total="filteredActivityList.length"
-            :page-size="10"
+          <el-pagination
+            v-model:current-page="currentPage"
+            background
+            layout="total, prev, pager, next"
+            :total="totalItems"
+            :page-size="pageSize"
+            @current-change="loadActivities"
           />
         </div>
       </div>
@@ -727,7 +729,7 @@ import {
   Picture, Close, VideoCamera, User, Download, Star, Check,
   Edit, View, Warning
 } from '@element-plus/icons-vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadProps, UploadUserFile, FormInstance } from 'element-plus'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
@@ -752,6 +754,10 @@ const currentSignupItem = ref<any>(null)
 const currentDisplayApplyItem = ref<any>(null)
 const currentDetailItem = ref<any>(null)
 const formRef = ref<FormInstance>()
+
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalItems = ref(0)
 
 const filters = ref({ keyword: '', status: '', publisher: '' })
 
@@ -873,11 +879,19 @@ const loadActivities = async () => {
   apiLoading.value = true
   try {
     // partner/publishes 通过 DataScope 自动隔离：admin 可见全量，partner 仅见自身
-    const res: any = await apiRequest('/v3/partner/publishes?page=1&page_size=200')
+    const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
+    // 状态筛选可映射到 audit_status（published=1, auditing=0, rejected=2, offline=3）
+    const statusMap: Record<string, number> = { published: 1, auditing: 0, rejected: 2, offline: 3 }
+    if (filters.value.status && statusMap[filters.value.status] !== undefined) {
+      query.audit_status = statusMap[filters.value.status]
+    }
+    const res: any = await apiRequest('/v3/partner/publishes', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allActivityList.value = items.map(mapActivityRow)
+    totalItems.value = Number(res?.data?.total ?? 0)
   } catch (e: any) {
     allActivityList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取活动列表失败')
   } finally {
     apiLoading.value = false
@@ -1027,10 +1041,16 @@ const handleReject = (row: any) => {
 
 // 核心交互逻辑
 const handleSearch = () => {
-  // 实际项目中通常是无提示或 loading
+  currentPage.value = 1
+  loadActivities()
 }
 
-const openPublishDialog = () => { 
+watch(() => [filters.value.status, filters.value.publisher], () => {
+  currentPage.value = 1
+  loadActivities()
+})
+
+const openPublishDialog = () => {
   isEdit.value = false
   form.value = {
     subType: '',

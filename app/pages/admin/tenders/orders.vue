@@ -28,7 +28,7 @@
             <el-radio-button label="month">按月</el-radio-button>
           </el-radio-group>
         </div>
-        <div v-if="filteredList.length" ref="trendChartRef" class="w-full h-72"></div>
+        <div v-if="apiOrders.length" ref="trendChartRef" class="w-full h-72"></div>
         <div v-else class="h-72 flex items-center justify-center text-slate-400 text-sm">暂无趋势数据</div>
       </div>
 
@@ -37,7 +37,7 @@
           <el-icon class="text-purple-500"><PieChart /></el-icon>
           销售额占比（按组织）
         </h3>
-        <div v-if="filteredList.length" ref="pieChartRef" class="w-full h-72"></div>
+        <div v-if="apiOrders.length" ref="pieChartRef" class="w-full h-72"></div>
         <div v-else class="h-72 flex items-center justify-center text-slate-400 text-sm">暂无占比数据</div>
       </div>
     </div>
@@ -88,7 +88,7 @@
       <div class="p-6">
         <el-table
           v-loading="apiLoading"
-          :data="pagedList"
+          :data="displayList"
           style="width: 100%"
           :header-cell-style="{ background: '#f8fafc', color: '#64748b' }"
           stripe
@@ -165,8 +165,10 @@
             v-model:page-size="pageSize"
             background
             layout="total, prev, pager, next, sizes"
-            :total="filteredList.length"
+            :total="totalItems"
             :page-sizes="[10, 20, 50]"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </div>
       </div>
@@ -228,6 +230,7 @@ let pieChart: echarts.ECharts | null = null
 
 const apiOrders = ref<Row[]>([])
 const apiLoading = ref(false)
+const totalItems = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const detailDialogVisible = ref(false)
@@ -266,8 +269,16 @@ const mapPaymentStatus = (orderStatus: string) => {
 const loadOrders = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/orders?page=1&page_size=200')
+    const qs = new URLSearchParams({
+      page: String(currentPage.value),
+      page_size: String(pageSize.value)
+    })
+    if (filters.value.keyword) qs.set('keyword', filters.value.keyword)
+    if (filters.value.paymentStatus) qs.set('order_status', filters.value.paymentStatus)
+    if (filters.value.organization) qs.set('order_type', filters.value.organization)
+    const res: any = await apiRequest(`/v3/admin/orders?${qs.toString()}`)
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    totalItems.value = Number(res?.data?.total ?? 0)
     apiOrders.value = items.map((o: any) => ({
       id: Number(o.id),
       orderNo: o.orderNo || `ORD-${o.id}`,
@@ -286,43 +297,21 @@ const loadOrders = async () => {
       lastDownloadTime: null
     }))
   } catch (e: any) {
+    apiOrders.value = []
+    totalItems.value = 0
     ElMessage.error(e?.data?.message || e?.message || '订单加载失败')
   } finally {
     apiLoading.value = false
   }
 }
 
-const filteredList = computed(() => {
-  return apiOrders.value.filter(item => {
-    if (filters.value.organization && item.organization !== filters.value.organization) return false
-    if (filters.value.paymentStatus && item.paymentStatus !== filters.value.paymentStatus) return false
-    if (filters.value.dateRange.length === 2) {
-      const [start, end] = filters.value.dateRange
-      const d = item.orderTime.slice(0, 10)
-      if (d < start || d > end) return false
-    }
-    if (filters.value.keyword) {
-      const kw = filters.value.keyword.toLowerCase()
-      if (
-        !item.orderNo.toLowerCase().includes(kw) &&
-        !item.tenderTitle.toLowerCase().includes(kw) &&
-        !item.buyerCompany.toLowerCase().includes(kw)
-      ) return false
-    }
-    return true
-  })
-})
+const displayList = computed(() => apiOrders.value)
 
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredList.value.slice(start, start + pageSize.value)
-})
-
-const totalAmount = computed(() => filteredList.value.reduce((sum, i) => sum + i.amount, 0))
+const totalAmount = computed(() => apiOrders.value.reduce((sum, i) => sum + i.amount, 0))
 
 const stats = computed(() => {
-  const list = filteredList.value
-  const total = list.length
+  const list = apiOrders.value
+  const total = totalItems.value || list.length
   const totalSales = list.reduce((sum, i) => sum + i.amount, 0)
   const paidCount = list.filter(i => i.paymentStatus === 'paid').length
   const pendingCount = list.filter(i => i.paymentStatus === 'pending').length
@@ -340,7 +329,7 @@ const updateCharts = async () => {
   await nextTick()
   if (!import.meta.client || !trendChart || !pieChart) return
 
-  const list = filteredList.value
+  const list = apiOrders.value
   if (!list.length) {
     trendChart.clear()
     pieChart.clear()
@@ -414,13 +403,13 @@ onBeforeUnmount(() => {
   pieChart = null
 })
 
-watch([filteredList, trendMode], async () => {
-  currentPage.value = 1
+watch(trendMode, async () => {
   await updateCharts()
 })
 
 const handleSearch = async () => {
   currentPage.value = 1
+  await loadOrders()
   await updateCharts()
   ElMessage.success('查询完成')
 }
@@ -428,8 +417,21 @@ const handleSearch = async () => {
 const handleReset = async () => {
   filters.value = { keyword: '', organization: '', paymentStatus: '', dateRange: [] }
   currentPage.value = 1
+  await loadOrders()
   await updateCharts()
   ElMessage.info('筛选已重置')
+}
+
+const handlePageChange = async () => {
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+  await loadOrders()
+  await updateCharts()
+}
+
+const handleSizeChange = async () => {
+  currentPage.value = 1
+  await loadOrders()
+  await updateCharts()
 }
 
 const handleViewDetail = (row: Row) => {
@@ -446,7 +448,7 @@ const csvEscape = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`
 const handleExport = () => {
   if (!import.meta.client) return
   const header = ['订单号', '标题', '采购组织', '买家公司', '金额', '支付状态', '下单时间']
-  const rows = filteredList.value.map(i => [
+  const rows = apiOrders.value.map(i => [
     i.orderNo,
     i.tenderTitle,
     i.organization,

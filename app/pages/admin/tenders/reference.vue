@@ -75,7 +75,7 @@
             <h3 class="text-lg font-bold text-slate-800">可引用标讯列表（真实数据）</h3>
             <p class="text-xs text-slate-500 mt-1">数据来源：`/v3/admin/tenders`</p>
           </div>
-          <el-button type="success" plain @click="handleExport" :disabled="filteredReferenceList.length === 0">
+          <el-button type="success" plain @click="handleExport" :disabled="allReferenceList.length === 0">
             <el-icon class="mr-2"><Download /></el-icon> 导出列表
           </el-button>
         </div>
@@ -100,7 +100,7 @@
       </div>
 
       <div class="p-6">
-        <el-table v-loading="loading" :data="pagedList" stripe :header-cell-style="{ background: '#f8fafc', color: '#64748b' }">
+        <el-table v-loading="loading" :data="displayList" stripe :header-cell-style="{ background: '#f8fafc', color: '#64748b' }">
           <el-table-column label="标讯信息" min-width="340">
             <template #default="{ row }">
               <div class="py-2">
@@ -148,8 +148,10 @@
             v-model:page-size="pageSize"
             background
             layout="total, prev, pager, next, sizes"
-            :total="filteredReferenceList.length"
+            :total="totalItems"
             :page-sizes="[10, 20, 50]"
+            @current-change="handlePageChange"
+            @size-change="handleSizeChange"
           />
         </div>
       </div>
@@ -179,6 +181,7 @@ type RefRow = {
 
 const loading = ref(false)
 const allReferenceList = ref<RefRow[]>([])
+const totalItems = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
@@ -224,11 +227,18 @@ const mapTenderToReference = (t: any): RefRow => ({
 const loadReferences = async () => {
   loading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/tenders?page=1&page_size=200')
+    const qs = new URLSearchParams({
+      page: String(currentPage.value),
+      page_size: String(pageSize.value)
+    })
+    if (filters.value.keyword) qs.set('keyword', filters.value.keyword)
+    const res: any = await apiRequest(`/v3/admin/tenders?${qs.toString()}`)
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allReferenceList.value = items.map(mapTenderToReference)
+    totalItems.value = Number(res?.data?.total ?? 0)
   } catch (e: any) {
     allReferenceList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取标讯列表失败')
   } finally {
     loading.value = false
@@ -237,25 +247,7 @@ const loadReferences = async () => {
 
 onMounted(loadReferences)
 
-const filteredReferenceList = computed(() => {
-  let list = allReferenceList.value
-  const kw = filters.value.keyword.trim().toLowerCase()
-  if (kw) {
-    list = list.filter(item =>
-      item.title.toLowerCase().includes(kw) ||
-      item.referenceNo.toLowerCase().includes(kw)
-    )
-  }
-  if (filters.value.source) {
-    list = list.filter(item => item.source === filters.value.source)
-  }
-  return list
-})
-
-const pagedList = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredReferenceList.value.slice(start, start + pageSize.value)
-})
+const displayList = computed(() => allReferenceList.value)
 
 const getSourceTag = (source: string) => {
   const map: Record<string, string> = {
@@ -287,13 +279,25 @@ const getDeadlineLabel = (deadline: string) => {
   return `剩余 ${days} 天`
 }
 
-const handleSearch = () => {
+const handleSearch = async () => {
   currentPage.value = 1
+  await loadReferences()
 }
 
-const handleReset = () => {
+const handleReset = async () => {
   filters.value = { keyword: '', source: '' }
   currentPage.value = 1
+  await loadReferences()
+}
+
+const handlePageChange = async () => {
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+  await loadReferences()
+}
+
+const handleSizeChange = async () => {
+  currentPage.value = 1
+  await loadReferences()
 }
 
 const csvEscape = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`
@@ -302,7 +306,7 @@ const handleExport = () => {
   if (!import.meta.client) return
 
   const header = ['标题', '来源', '采购组织', '标讯编号', '截止时间', '创建时间', '链接']
-  const rows = filteredReferenceList.value.map(i => [
+  const rows = allReferenceList.value.map(i => [
     i.title, i.source, i.organization, i.referenceNo, i.deadline, i.createDate, i.url
   ])
 

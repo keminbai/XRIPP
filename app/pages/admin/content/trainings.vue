@@ -257,11 +257,13 @@
         </el-table>
 
         <div class="mt-4 flex justify-end">
-          <el-pagination 
-            background 
-            layout="total, prev, pager, next" 
-            :total="filteredTrainingList.length"
-            :page-size="10"
+          <el-pagination
+            v-model:current-page="currentPage"
+            background
+            layout="total, prev, pager, next"
+            :total="totalItems"
+            :page-size="pageSize"
+            @current-change="loadTrainings"
           />
         </div>
       </div>
@@ -764,7 +766,7 @@ import {
   Search, Plus, Calendar, Monitor, More, VideoPlay, Location, 
   Picture, Close, VideoCamera, User, Timer, Download, Star, Reading, Check, Edit, View, Warning
 } from '@element-plus/icons-vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadProps, UploadUserFile, FormInstance } from 'element-plus'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
@@ -787,6 +789,10 @@ const apiLoading = ref(false)
 const currentSignupItem = ref<any>(null)
 const currentDisplayApplyItem = ref<any>(null)
 const formRef = ref<FormInstance>()
+
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalItems = ref(0)
 
 const filters = ref({ keyword: '', status: '', publisher: '' })
 
@@ -905,11 +911,16 @@ const mapTrainingRow = (item: any) => {
 const loadTrainings = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/contents?content_type=training&page=1&page_size=200')
+    const query: Record<string, any> = { content_type: 'training', page: currentPage.value, page_size: pageSize.value }
+    if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
+    if (filters.value.status) query.publish_status = filters.value.status
+    const res: any = await apiRequest('/v3/admin/contents', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allTrainingList.value = items.map(mapTrainingRow)
+    totalItems.value = Number(res?.data?.total ?? 0)
   } catch (e: any) {
     allTrainingList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取培训列表失败')
   } finally {
     apiLoading.value = false
@@ -930,22 +941,10 @@ const signupList = ref([
 
 const filteredTrainingList = computed(() => {
   let list = allTrainingList.value
-  
-  if (filters.value.keyword) {
-    list = list.filter(item => 
-      item.title.includes(filters.value.keyword) || 
-      item.code.includes(filters.value.keyword)
-    )
-  }
-  
-  if (filters.value.status) {
-    list = list.filter(item => item.status === filters.value.status)
-  }
-  
+  // keyword and status are now handled server-side; only publisher remains client-side
   if (filters.value.publisher) {
     list = list.filter(item => item.publisher === filters.value.publisher)
   }
-  
   return list
 })
 
@@ -1060,7 +1059,15 @@ const handleViewDetail = (row: any) => {
 }
 
 // 核心交互逻辑
-const handleSearch = () => {}
+const handleSearch = () => {
+  currentPage.value = 1
+  loadTrainings()
+}
+
+watch(() => [filters.value.status, filters.value.publisher], () => {
+  currentPage.value = 1
+  loadTrainings()
+})
 
 const openPublishDialog = () => { 
   isEdit.value = false

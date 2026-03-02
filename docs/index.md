@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-02-28（第十一轮：Partner 数据隔离修复 + DDL/种子已执行确认 + 全面审计刷新）
+最后更新：2026-03-02（第十二轮：P0 安全/数据/分页修复 + 标书详情页接入 + Demand 字段补齐）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -24,7 +24,8 @@
 | 3 | [DDL_Phase3_Partners_Extension.sql](./DDL_Phase3_Partners_Extension.sql) | partners 生命周期字段（幂等） |
 | 4 | [DDL_Phase4_ScheduledTasks.sql](./DDL_Phase4_ScheduledTasks.sql) | partners.renewal_reminder_sent |
 | 5 | [DDL_Phase5_Suppliers_Extension.sql](./DDL_Phase5_Suppliers_Extension.sql) | suppliers 扩展列（service_type/contact等） |
-| 6 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 6 | [DDL_Phase6_Demands_Extension.sql](./DDL_Phase6_Demands_Extension.sql) | demands 表字段扩展（8 列，幂等） |
+| 7 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -100,14 +101,26 @@
 - ✅ DDL Phase 1-5 + 种子数据已通过 sqlcmd 全量执行确认
 - ✅ BCrypt 密码修复（原 plaintext "123456" 全部替换为 BCrypt hash）
 
+### Phase F — P0 安全/数据/分页修复（2026-03-02 ✅）
+- ✅ CSRF 修复：Cookie 回退限定为仅 /common/upload 端点（原全局回退有跨站请求伪造风险）
+- ✅ Demand 字段补齐：DDL Phase 6 增加 8 列 + Entity 更新 + AdminDemandsV3Controller 去除占位值
+- ✅ MemberDemandsV3Controller 新建：POST /v3/member/demands + GET + DELETE（前端 publish-demand.vue 接入）
+- ✅ 标书详情页（procurement/[id].vue）接入 GET /v3/tenders/{id}，支持 SSR（useAsyncData）
+- ✅ 假分页系统性修复：9 个页面从 page=1&page_size=200+slice() 改为真实服务端分页
+  - admin/tenders: manage, orders, reference
+  - admin/suppliers: list, audit
+  - admin/members: un-audit
+  - admin/content: activities, trainings
+  - supplier-directory.vue
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
 
 | 页面 | 状态 | 说明 |
 |---|---|---|
-| `admin/tenders/reference.vue` | 部分实现 | 列表真实；写操作（引用提交/抓取/删除）未接入 |
-| `admin/tenders/orders.vue` | ✅ 已接入 | 调用 /v3/admin/orders 真实数据 |
+| `admin/tenders/reference.vue` | 部分实现 | 列表真实+服务端分页；写操作（引用提交/抓取/删除）未接入 |
+| `admin/tenders/orders.vue` | ✅ 已接入 | 调用 /v3/admin/orders 真实数据+服务端分页 |
 | `admin/members/un-audit.vue` | 部分实现 | 审核主流程真实；证书上传依赖文件上传（Phase D 已就绪） |
 | `admin/members/list.vue` | ✅ 已接入 | admin + partner 均可访问（partner 按 partner_id 隔离） |
 | `admin/audit.vue` | ✅ 已接入 | 三 Tab 均已接入真实 API；需求审核已闭环 |
@@ -175,7 +188,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（21 个）
+## 8. 后端 Controller 清单（22 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -187,6 +200,7 @@
 | OrdersV3Controller | /v3/orders | 会员订单 |
 | MemberProfileV3Controller | /v3/member/profile | 会员画像 |
 | MemberBenefitsV3Controller | /v3/member/benefits | 会员权益 |
+| MemberDemandsV3Controller | /v3/member/demands | 会员采购需求（CRUD） |
 | MemberVerificationV3Controller | /v3/member/verifications | 会员认证 |
 | SupplierOnboardingV3Controller | /v3/supplier-onboarding | 供应商入驻 |
 | PartnerPublishesV3Controller | /v3/partner/publishes | 合伙人发布 |
