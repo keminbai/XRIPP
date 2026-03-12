@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-02（第十三轮：P1 订单管理 API 接入 + 收藏系统全栈实现 + activities 搜索修正）
+最后更新：2026-03-12（第十五轮：前端 Mock 清理 Batch 3-4 + P0 会员注册全栈 + 质量审计修复）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -126,6 +126,30 @@
 - ✅ procurement/index.vue + [id].vue 从 localStorage 改为后端 API 收藏
 - ✅ DDL Phase 6 执行确认（demands 8 列已在数据库中存在）
 
+### Phase H — 前端 Mock 清理 Batch 3-4 + 降级标注（2026-03-12 ✅）
+- ✅ `services.vue`：hardcoded newsList 改为 `/v3/contents?content_type=media` API 加载
+- ✅ `media/[id].vue`：3 篇静态文章改为 `/v3/contents/{id}` API + loading/error 状态
+- ✅ `experts.vue`：移除假专家数据，标注"专家智库功能即将上线"
+- ✅ `admin/finance/profit.vue`：统计卡片接入 `/v3/admin/orders/stats` + `/v3/admin/partners`
+- ✅ 后端新增 ContentsV3Controller（`/v3/contents` 公共读取，仅返回 published 内容）
+- ✅ SecurityConfig 添加 `/v3/contents/**` 到 permitAll
+- ✅ 18 个暂无后端的 admin 页面添加"功能开发中"降级标注横幅：
+  - `admin/overseas/*`（4 页）、`admin/system/*`（9 页）、`admin/business/*`（3 页）、`admin/finance/pricing.vue`（1 页）
+
+### Phase I — P0 会员注册全栈 + 质量审计（2026-03-12 ✅）
+- ✅ 后端：`POST /v3/auth/register` — @Transactional 原子操作（7 步流程）
+  - SMS 验证码校验（开发期 123456）、手机号唯一性、invitation_code→partner_id 绑定
+  - BCrypt 密码哈希、sys_user + member_profile 同步创建、JWT 即时签发
+  - TOCTOU 并发注册保护（DataIntegrityViolationException 捕获）
+- ✅ 前端：`login.vue` 会员区域重构为 Login/Register 双 Tab
+  - 注册表单：手机号 + 验证码（60s 倒计时） + 密码 + 公司名称（必填） + 邀请码（选填）
+  - 注册成功自动登录并跳转 `/member`
+  - 支持 `?mode=register` URL 参数直接打开注册 Tab
+- ✅ 质量审计修复：
+  - ContentsV3Controller：SimpleDateFormat→DateTimeFormatter（线程安全）+ safeOr() 空值一致性
+  - login.vue：SMS timer onBeforeUnmount 清理（内存泄漏）+ 三表单独立 submitting ref
+  - SecurityConfig：`/v3/auth/register` 加入 permitAll
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -146,7 +170,11 @@
 | `admin/content/trainings.vue` | 部分实现 | 列表+状态流转+创建真实；编辑受控降级 |
 | `admin/content/media.vue` | 部分实现 | 同培训 |
 | `admin/content/display.vue` | 未实现 | 三 Tab 均为占位提示；需 OSS 依赖 |
-| `admin/overseas/*.vue` | 未实现 | 海外服务模块无后端 API |
+| `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
+| `admin/system/*.vue` | 降级标注 | 系统管理模块，已添加"暂未对接后端"横幅 |
+| `admin/business/*.vue` | 降级标注 | 业务配置模块，已添加"暂未对接后端"横幅 |
+| `admin/finance/pricing.vue` | 降级标注 | 定价配置，已添加"暂未对接后端"横幅 |
+| `admin/finance/profit.vue` | 部分实现 | 统计卡片接入真实 API；利润分成表仍为 mock |
 | `admin/index.vue` | 未实现 | 仪表盘统计为静态数据（低优先级） |
 
 ### 系统级待办
@@ -167,7 +195,7 @@
 
 | 模块 | 后端 API | 前端接入 | 验收状态 |
 |---|---|---|---|
-| 用户登录/注册 | ✅ BCrypt-only 认证 | ✅ 已接入 | ✅ 可验收（种子数据已执行） |
+| 用户登录/注册 | ✅ BCrypt-only 认证 + 注册 API | ✅ 已接入（含注册） | ✅ 可验收（种子数据 + 自注册） |
 | 标书发布/管理 | ✅ CRUD + 状态机 | ✅ 已接入 | ✅ 可验收 |
 | 标书引用 | 读接口完成，写未实现 | 只读降级 | 仅读操作可验收 |
 | 标书防重复扣费 | ✅ tender_download_logs + dedup | 不涉及前端 | ✅ 可验收 |
@@ -203,11 +231,11 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（23 个）
+## 8. 后端 Controller 清单（24 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
-| AuthV3Controller | /v3/auth | 登录认证 |
+| AuthV3Controller | /v3/auth | 登录 + 注册认证 |
 | CommonV3Controller | /common | 文件上传 |
 | TendersV3Controller | /v3/tenders | 标书公共查询 + 下载 |
 | SuppliersV3Controller | /v3/suppliers | 服务商公共查询 |
@@ -229,6 +257,7 @@
 | AdminMemberVerificationV3Controller | /v3/admin/member-verifications | 会员认证审核 |
 | AdminSupplierOnboardingV3Controller | /v3/admin/supplier-onboarding | 供应商入库审核 |
 | UserFavoritesV3Controller | /v3/member/favorites | 会员收藏（CRUD + ids） |
+| ContentsV3Controller | /v3/contents | 内容公共查询（仅 published） |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）

@@ -49,63 +49,119 @@
             {{ loginRole === 'member' ? 'MEMBER ACCESS' : 'ADMIN ACCESS' }}
           </div>
           <h2 class="text-3xl font-bold text-slate-900 mb-2">
-            {{ loginRole === 'member' ? '欢迎回来，会员' : '管理后台登录' }}
+            {{ loginRole === 'member'
+              ? (memberMode === 'login' ? '欢迎回来，会员' : '注册新会员')
+              : '管理后台登录' }}
           </h2>
           <p class="text-slate-500">
-            {{ loginRole === 'member' ? '请选择您习惯的方式登录' : '请输入管理账号和密码' }}
+            {{ loginRole === 'member'
+              ? (memberMode === 'login' ? '请输入手机号和密码登录' : '填写信息完成注册，即刻开始')
+              : '请输入管理账号和密码' }}
           </p>
         </div>
 
+        <!-- ========== 会员区域 ========== -->
         <div v-if="loginRole === 'member'" class="space-y-6 animate-fade-in-right">
+          <!-- 登录/注册 Tab -->
           <div class="flex border-b border-slate-200 mb-6">
             <button
               class="pb-3 px-4 text-sm font-bold transition-all border-b-2"
-              :class="memberTab === 'phone' ? 'text-brand-600 border-brand-600' : 'text-slate-400 border-transparent hover:text-slate-600'"
-              @click="memberTab = 'phone'"
+              :class="memberMode === 'login' ? 'text-brand-600 border-brand-600' : 'text-slate-400 border-transparent hover:text-slate-600'"
+              @click="memberMode = 'login'"
             >
-              手机验证码
+              登录
             </button>
             <button
               class="pb-3 px-4 text-sm font-bold transition-all border-b-2"
-              :class="memberTab === 'wechat' ? 'text-brand-600 border-brand-600' : 'text-slate-400 border-transparent hover:text-slate-600'"
-              @click="memberTab = 'wechat'"
+              :class="memberMode === 'register' ? 'text-brand-600 border-brand-600' : 'text-slate-400 border-transparent hover:text-slate-600'"
+              @click="memberMode = 'register'"
             >
-              微信扫码
+              注册
             </button>
           </div>
 
-          <div v-if="memberTab === 'phone'" class="space-y-5">
+          <!-- 登录表单 -->
+          <div v-if="memberMode === 'login'" class="space-y-5">
             <div class="space-y-2">
               <label class="text-sm font-medium text-slate-700">手机号</label>
-              <el-input v-model="memberForm.phone" size="large" placeholder="请输入手机号" class="custom-input h-12">
+              <el-input v-model="loginForm.phone" size="large" placeholder="请输入手机号" class="custom-input h-12" @keyup.enter="handleMemberLogin">
                 <template #prefix><el-icon><Iphone /></el-icon></template>
               </el-input>
             </div>
             <div class="space-y-2">
-              <label class="text-sm font-medium text-slate-700">验证码</label>
-              <div class="flex gap-4">
-                <el-input v-model="memberForm.code" size="large" placeholder="6位验证码" class="custom-input h-12 flex-grow" />
-                <button class="px-6 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors whitespace-nowrap">
-                  获取验证码
-                </button>
-              </div>
+              <label class="text-sm font-medium text-slate-700">密码</label>
+              <el-input v-model="loginForm.password" size="large" type="password" show-password placeholder="请输入密码" class="custom-input h-12" @keyup.enter="handleMemberLogin">
+                <template #prefix><el-icon><Lock /></el-icon></template>
+              </el-input>
             </div>
             <button
-              class="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg transition-all text-base mt-4"
+              class="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg transition-all text-base mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
+              :disabled="memberSubmitting"
               @click="handleMemberLogin"
             >
-              立即登录 / 注册
+              {{ memberSubmitting ? '登录中...' : '立即登录' }}
             </button>
+            <div class="text-center text-sm text-slate-500">
+              还没有账号？
+              <button class="text-brand-600 font-bold hover:underline" @click="memberMode = 'register'">立即注册</button>
+            </div>
           </div>
 
-          <div v-else class="py-4 text-center">
-            <div class="w-48 h-48 mx-auto bg-slate-50 border-2 border-slate-200 rounded-2xl flex items-center justify-center mb-4">
-              <el-icon class="text-6xl text-slate-300"><ChatDotRound /></el-icon>
+          <!-- 注册表单 -->
+          <div v-else class="space-y-4">
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">手机号 <span class="text-red-500">*</span></label>
+              <el-input v-model="registerForm.phone" size="large" placeholder="手机号即为登录账号" class="custom-input h-12">
+                <template #prefix><el-icon><Iphone /></el-icon></template>
+              </el-input>
             </div>
-            <p class="text-sm text-slate-500">请使用微信扫一扫登录</p>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">验证码 <span class="text-red-500">*</span></label>
+              <div class="flex gap-3">
+                <el-input v-model="registerForm.smsCode" size="large" placeholder="6位验证码" class="custom-input h-12 flex-grow" />
+                <button
+                  class="px-5 h-12 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors whitespace-nowrap text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="smsCountdown > 0"
+                  @click="handleSendSms"
+                >
+                  {{ smsCountdown > 0 ? `${smsCountdown}s 后重试` : '获取验证码' }}
+                </button>
+              </div>
+              <div class="text-xs text-slate-400">测试环境验证码：123456</div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">设置密码 <span class="text-red-500">*</span></label>
+              <el-input v-model="registerForm.password" size="large" type="password" show-password placeholder="至少6位" class="custom-input h-12">
+                <template #prefix><el-icon><Lock /></el-icon></template>
+              </el-input>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">公司名称 <span class="text-red-500">*</span></label>
+              <el-input v-model="registerForm.companyName" size="large" placeholder="请输入您的公司全称" class="custom-input h-12">
+                <template #prefix><el-icon><OfficeBuilding /></el-icon></template>
+              </el-input>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium text-slate-700">合伙人邀请码 <span class="text-slate-400 font-normal">(选填)</span></label>
+              <el-input v-model="registerForm.invitationCode" size="large" placeholder="如有合伙人邀请码请填写" class="custom-input h-12">
+                <template #prefix><el-icon><Ticket /></el-icon></template>
+              </el-input>
+            </div>
+            <button
+              class="w-full py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg transition-all text-base mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              :disabled="registerSubmitting"
+              @click="handleRegister"
+            >
+              {{ registerSubmitting ? '注册中...' : '注册并登录' }}
+            </button>
+            <div class="text-center text-sm text-slate-500">
+              已有账号？
+              <button class="text-brand-600 font-bold hover:underline" @click="memberMode = 'login'">返回登录</button>
+            </div>
           </div>
         </div>
 
+        <!-- ========== 管理员区域 ========== -->
         <div v-else class="space-y-6 animate-fade-in-right">
           <div class="p-4 bg-orange-50 border border-orange-100 rounded-xl text-orange-800 text-sm flex gap-3 items-start mb-6">
             <el-icon class="mt-0.5 text-lg"><Warning /></el-icon>
@@ -145,10 +201,10 @@
 
           <button
             class="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all text-base mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
-            :disabled="adminLoading"
+            :disabled="adminSubmitting"
             @click="handleAdminLogin"
           >
-            {{ adminLoading ? '登录中...' : '安全登录' }}
+            {{ adminSubmitting ? '登录中...' : '安全登录' }}
           </button>
         </div>
       </div>
@@ -157,43 +213,55 @@
 </template>
 
 <script setup lang="ts">
-import { User, Lock, Iphone, ChatDotRound, Switch, Warning } from '@element-plus/icons-vue'
-import { ref } from 'vue'
+import { User, Lock, Iphone, Switch, Warning, OfficeBuilding, Ticket } from '@element-plus/icons-vue'
+import { ref, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { loginByPassword } from '~/utils/request'
+import { loginByPassword, setAuth, apiRequest } from '~/utils/request'
 
 definePageMeta({ layout: false })
 
 const route = useRoute()
 const loginRole = ref<'member' | 'admin'>('member')
-const memberTab = ref<'phone' | 'wechat'>('phone')
+const memberMode = ref<'login' | 'register'>('login')
+const memberSubmitting = ref(false)
+const registerSubmitting = ref(false)
+const adminSubmitting = ref(false)
+const smsCountdown = ref(0)
+let smsTimer: ReturnType<typeof setInterval> | null = null
 
-const memberForm = ref({
+onBeforeUnmount(() => {
+  if (smsTimer) { clearInterval(smsTimer); smsTimer = null }
+})
+
+// 登录表单
+const loginForm = ref({ phone: '', password: '' })
+
+// 注册表单
+const registerForm = ref({
   phone: '',
-  code: ''
+  smsCode: '',
+  password: '',
+  companyName: '',
+  invitationCode: ''
 })
 
-const adminForm = ref({
-  username: '',
-  password: ''
-})
-
-const adminLoading = ref(false)
+// 管理员表单
+const adminForm = ref({ username: '', password: '' })
 
 const toggleRole = () => {
   loginRole.value = loginRole.value === 'member' ? 'admin' : 'member'
 }
 
+// ====== 会员登录 ======
 const handleMemberLogin = async () => {
-  if (!memberForm.value.phone || !memberForm.value.code) {
-    ElMessage.warning('请输入会员账号和密码')
-    return
+  if (!loginForm.value.phone || !loginForm.value.password) {
+    return ElMessage.warning('请输入手机号和密码')
   }
 
-  adminLoading.value = true
+  memberSubmitting.value = true
   try {
-    const res = await loginByPassword(memberForm.value.phone, memberForm.value.code)
+    const res = await loginByPassword(loginForm.value.phone, loginForm.value.password)
     const role = String(res.data.user.role || '').toLowerCase()
 
     if (role !== 'member') {
@@ -204,19 +272,77 @@ const handleMemberLogin = async () => {
     ElMessage.success(`会员登录成功：${res.data.user.username}`)
     await navigateTo('/member', { replace: true })
   } catch (e: any) {
-    ElMessage.error(e?.message || '会员登录失败')
+    ElMessage.error(e?.message || '登录失败')
   } finally {
-    adminLoading.value = false
+    memberSubmitting.value = false
   }
 }
 
-const handleAdminLogin = async () => {
-  if (!adminForm.value.username || !adminForm.value.password) {
-    ElMessage.warning('请输入账号和密码')
-    return
+// ====== 会员注册 ======
+const handleRegister = async () => {
+  const { phone, smsCode, password, companyName } = registerForm.value
+
+  if (!phone) return ElMessage.warning('请输入手机号')
+  if (!smsCode) return ElMessage.warning('请输入验证码')
+  if (!password) return ElMessage.warning('请设置密码')
+  if (password.length < 6) return ElMessage.warning('密码长度不能少于6位')
+  if (!companyName) return ElMessage.warning('请输入公司名称')
+
+  registerSubmitting.value = true
+  try {
+    const res: any = await apiRequest('/v3/auth/register', {
+      method: 'POST',
+      body: {
+        phone: registerForm.value.phone,
+        password: registerForm.value.password,
+        sms_code: registerForm.value.smsCode,
+        company_name: registerForm.value.companyName,
+        invitation_code: registerForm.value.invitationCode || ''
+      }
+    })
+
+    if (!res.data?.token || !res.data?.user) {
+      throw new Error('注册响应异常')
+    }
+
+    // 注册即登录：保存 token + user
+    setAuth(res.data.token, res.data.user)
+    ElMessage.success('注册成功，欢迎加入 XRIPP！')
+    await navigateTo('/member', { replace: true })
+  } catch (e: any) {
+    ElMessage.error(e?.message || '注册失败，请稍后重试')
+  } finally {
+    registerSubmitting.value = false
+  }
+}
+
+// ====== 发送验证码（开发期模拟） ======
+const handleSendSms = () => {
+  if (!registerForm.value.phone) {
+    return ElMessage.warning('请先输入手机号')
+  }
+  if (registerForm.value.phone.length < 6) {
+    return ElMessage.warning('请输入正确的手机号')
   }
 
-  adminLoading.value = true
+  ElMessage.success('验证码已发送（测试环境请输入 123456）')
+  smsCountdown.value = 60
+  if (smsTimer) clearInterval(smsTimer)
+  smsTimer = setInterval(() => {
+    smsCountdown.value--
+    if (smsCountdown.value <= 0) {
+      if (smsTimer) { clearInterval(smsTimer); smsTimer = null }
+    }
+  }, 1000)
+}
+
+// ====== 管理员登录 ======
+const handleAdminLogin = async () => {
+  if (!adminForm.value.username || !adminForm.value.password) {
+    return ElMessage.warning('请输入账号和密码')
+  }
+
+  adminSubmitting.value = true
   try {
     const res = await loginByPassword(adminForm.value.username, adminForm.value.password)
     ElMessage.success(`登录成功：${res.data.user.username}`)
@@ -242,8 +368,13 @@ const handleAdminLogin = async () => {
   } catch (e: any) {
     ElMessage.error(e?.message || '登录失败')
   } finally {
-    adminLoading.value = false
+    adminSubmitting.value = false
   }
+}
+
+// 如果 URL 带 mode=register，自动切换到注册
+if (route.query.mode === 'register') {
+  memberMode.value = 'register'
 }
 </script>
 

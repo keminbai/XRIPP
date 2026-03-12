@@ -9,7 +9,8 @@ import com.xripp.backend.service.IContentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -77,7 +78,7 @@ public class ContentsV3Controller {
         m.put("id", c.getId());
         m.put("title", safe(c.getTitle()));
         m.put("summary", safe(c.getSummary()));
-        m.put("contentType", c.getContentType() == null ? "other" : c.getContentType());
+        m.put("contentType", safeOr(c.getContentType(), "other"));
         m.put("cityName", safe(c.getCityName()));
         m.put("isPaid", Boolean.TRUE.equals(c.getIsPaid()));
         m.put("fee", c.getFee() == null ? java.math.BigDecimal.ZERO : c.getFee());
@@ -90,8 +91,14 @@ public class ContentsV3Controller {
         return s == null ? "" : s;
     }
 
+    private String safeOr(String s, String dft) {
+        return (s == null || s.isBlank()) ? dft : s;
+    }
+
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     private String fmtDate(Date date) {
         if (date == null) return "";
-        return new SimpleDateFormat("yyyy-MM-dd").format(date);
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().format(DATE_FMT);
     }
 }
