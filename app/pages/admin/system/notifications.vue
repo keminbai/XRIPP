@@ -12,6 +12,11 @@
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        系统管理模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <!-- 通知类型设置 -->
     <div class="bg-white p-6 rounded-xl border border-slate-200">
       <div class="mb-4">

@@ -6,6 +6,11 @@
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        业务配置模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div

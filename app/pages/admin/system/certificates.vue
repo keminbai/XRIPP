@@ -1,6 +1,11 @@
 <!-- 文件路径: D:\ipp-platform\app\pages\admin\system/certificates.vue -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        系统管理模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
       <div class="flex justify-between items-center mb-6">
         <div>

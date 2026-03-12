@@ -11,6 +11,11 @@
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        系统管理模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div v-for="(stat, i) in stats" :key="i" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">

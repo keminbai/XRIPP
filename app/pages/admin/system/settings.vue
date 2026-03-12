@@ -1,5 +1,10 @@
 <template>
   <div class="bg-white p-6 rounded-xl border border-slate-200">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        系统管理模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <div class="mb-6">
       <h3 class="text-lg font-bold text-slate-800">系统设置</h3>
       <p class="text-xs text-slate-500 mt-1">配置系统基础参数</p>

@@ -309,57 +309,16 @@ const experts = ref<any[]>([])
 const loading = ref(false)
 const error = ref('')
 
-// ✅ Mock数据获取（生产环境替换为API）
+// 专家智库暂无后端API，展示"即将上线"提示
 const fetchExperts = async () => {
   loading.value = true
   error.value = ''
-  
+
   try {
-    // 模拟API延迟
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Mock数据（6类专家样例）
-    experts.value = [
-      {
-        id: 1, name: '张伟', title: '基因编辑技术专家', category: '生命科学',
-        experience: 15, skills: ['CRISPR技术', '基因治疗', '细胞工程'],
-        bio: '长期从事基因编辑技术研发，主导多项国家重点项目，在《Nature》发表论文20余篇。',
-        industry: '基因编辑', created_at: '2024-01-15'
-      },
-      {
-        id: 2, name: '李娜', title: '环境监测高级工程师', category: '生态环境',
-        experience: 12, skills: ['水质监测', '大气污染治理', '土壤修复'],
-        bio: '环境工程博士，参与多个国家环保重点项目，擅长环境监测与治理方案设计。',
-        industry: '环保技术', created_at: '2024-02-20'
-      },
-      {
-        id: 3, name: '王军', title: '心血管专科主任医师', category: '医疗健康',
-        experience: 18, skills: ['心脏介入', '冠心病治疗', '临床研究'],
-        bio: '三甲医院心内科主任，完成心脏介入手术3000+例，国家级学术带头人。',
-        industry: '临床医学', created_at: '2024-01-10'
-      },
-      {
-        id: 4, name: '陈敏', title: '智慧交通系统架构师', category: '智慧城市',
-        experience: 10, skills: ['交通大数据', '智能信号灯', '车路协同'],
-        bio: '主导多个城市智慧交通项目，擅长交通大数据分析与智能调度系统设计。',
-        industry: '智能交通', created_at: '2024-03-05'
-      },
-      {
-        id: 5, name: '刘强', title: 'AI算法专家', category: '信息技术',
-        experience: 8, skills: ['深度学习', '计算机视觉', 'NLP'],
-        bio: '前大厂AI实验室负责人，在计算机视觉与自然语言处理领域有深厚积累。',
-        industry: '人工智能', created_at: '2024-02-28'
-      },
-      {
-        id: 6, name: '赵丽', title: '工业机器人总工程师', category: '机器人制造',
-        experience: 14, skills: ['机器人控制', '自动化产线', 'PLC编程'],
-        bio: '资深机器人工程师，主导多条智能制造产线设计，拥有发明专利15项。',
-        industry: '工业机器人', created_at: '2024-01-20'
-      },
-    ]
-  } catch (e) {
-    error.value = '专家数据加载失败'
-    ElMessage.error('专家数据加载失败')
+    // 专家智库模块尚在开发中，暂无后端 API
+    // 显示空列表 + 提示
+    experts.value = []
+    error.value = '专家智库功能即将上线，敬请期待！'
   } finally {
     loading.value = false
   }

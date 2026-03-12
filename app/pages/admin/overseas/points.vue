@@ -12,7 +12,12 @@
 -->
 <template>
   <div class="space-y-6">
-    
+    <el-alert type="warning" :closable="false" show-icon>
+      <template #title>
+        <span class="font-bold">功能开发中</span> — 海外服务模块暂无后端API，当前数据仅为界面演示，不会持久化保存。
+      </template>
+    </el-alert>
+
     <!-- 服务网点列表 -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="p-6 border-b border-slate-100">

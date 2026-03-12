@@ -1,241 +1,160 @@
-﻿<template>
-  <div class="space-y-6">
-    <!-- 基础展示配置 -->
-    <div class="bg-white p-6 rounded-xl border border-slate-200">
-      <div class="mb-6">
-        <h3 class="text-lg font-bold text-slate-800">采购数据配置</h3>
-        <p class="text-xs text-slate-500 mt-1">配置首页数据看板展示的采购相关数据</p>
-      </div>
+<!--
+  文件路径: D:\ipp-platform\app\pages\admin\dashboard\procurement.vue
+  版本: V2.0 API对接版 (2026-03-12)
 
-      <el-form :model="form" label-width="150px" class="max-w-3xl">
-        <el-form-item label="展示采购总额">
-          <el-switch v-model="form.showTotal" />
-        </el-form-item>
-        <el-form-item label="展示本月新增">
-          <el-switch v-model="form.showMonthly" />
-        </el-form-item>
-        <el-form-item label="展示采购趋势图">
-          <el-switch v-model="form.showTrend" />
-        </el-form-item>
-        <el-form-item label="数据刷新频率">
-          <el-select v-model="form.refreshRate" class="w-full">
-            <el-option label="实时" value="realtime" />
-            <el-option label="每小时" value="hourly" />
-            <el-option label="每天" value="daily" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="数据来源">
-          <el-input v-model="form.dataSource" placeholder="API接口地址" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSaveConfig">保存配置</el-button>
-          <el-button @click="handleResetConfig">重置配置</el-button>
-        </el-form-item>
-      </el-form>
+  修复: 移除纯手工录入模式，改为从 /v3/admin/tenders/stats + /v3/admin/tenders 读取真实数据
+-->
+<template>
+  <div class="space-y-6">
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div v-for="(stat, i) in stats" :key="i"
+        class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm text-slate-500">{{ stat.label }}</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="stat.bgClass">
+            <el-icon :class="stat.textClass"><component :is="stat.icon" /></el-icon>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-slate-800">{{ stat.value }}</div>
+      </div>
     </div>
 
-    <!-- 子项目录入与发布 -->
-    <div class="bg-white p-6 rounded-xl border border-slate-200">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h3 class="text-lg font-bold text-slate-800">公共采购数据录入与发布</h3>
-          <p class="text-xs text-slate-500 mt-1">联合国采购数据、采购主体分布、采购类目排名与各国采购数据</p>
-        </div>
-        <div class="flex gap-2">
-          <el-button type="success" @click="handlePublish">发布数据</el-button>
-          <el-button @click="handleResetData">清空录入</el-button>
-        </div>
-      </div>
-
-      <el-form :model="entry" label-width="150px" class="max-w-4xl">
-        <el-form-item label="统计口径日期">
-          <el-date-picker v-model="entry.asOfDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
-        </el-form-item>
-        <el-form-item label="联合国采购总额">
-          <div class="flex items-center gap-2 w-full">
-            <el-input-number v-model="entry.totalAmount" :min="0" :step="100000" class="!w-56" />
-            <el-select v-model="entry.currency" class="w-24">
-              <el-option label="USD" value="USD" />
-              <el-option label="CNY" value="CNY" />
-            </el-select>
-            <span class="text-xs text-slate-500">用于首页总额显示</span>
+    <!-- 最新标书列表 -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">采购标书数据</h3>
+            <p class="text-xs text-slate-500 mt-1">最新采购标书信息</p>
           </div>
-        </el-form-item>
-        <el-form-item label="本月新增采购">
-          <el-input-number v-model="entry.monthlyNew" :min="0" :step="1000" class="!w-56" />
-        </el-form-item>
-      </el-form>
-
-      <!-- 采购主体分布 -->
-      <div class="mt-6">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="font-bold text-slate-700">采购主体分布</h4>
-          <el-button size="small" @click="addBuyer">添加主体</el-button>
+          <el-button type="primary" plain @click="navigateTo('/admin/tenders/publish')">
+            发布新标书
+          </el-button>
         </div>
-        <el-table :data="buyers" stripe border>
-          <el-table-column prop="name" label="主体名称" min-width="200">
-            <template #default="scope">
-              <el-input v-model="scope.row.name" placeholder="如：UNICEF" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="country" label="所在国家" width="160">
-            <template #default="scope">
-              <el-input v-model="scope.row.country" placeholder="国家" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="amount" label="采购金额" width="160">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.amount" :min="0" :step="10000" class="!w-32" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="share" label="占比" width="120">
-            <template #default="scope">
-              <el-input v-model="scope.row.share" placeholder="%" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button link type="danger" size="small" @click="removeRow(buyers, scope.$index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
       </div>
 
-      <!-- 采购类目排名 -->
-      <div class="mt-8">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="font-bold text-slate-700">采购类目排名</h4>
-          <el-button size="small" @click="addCategory">添加类目</el-button>
-        </div>
-        <el-table :data="categories" stripe border>
-          <el-table-column prop="rank" label="排名" width="90">
+      <div class="p-6">
+        <el-table :data="tenderList" stripe :header-cell-style="{background:'#f8fafc', color:'#64748b'}" v-loading="loading">
+          <el-table-column type="index" label="#" width="60" align="center" />
+          <el-table-column prop="title" label="标书标题" min-width="300" show-overflow-tooltip />
+          <el-table-column prop="organization" label="采购机构" width="200" show-overflow-tooltip />
+          <el-table-column prop="country" label="国家" width="120" />
+          <el-table-column label="状态" width="100" align="center">
             <template #default="scope">
-              <el-input-number v-model="scope.row.rank" :min="1" :step="1" class="!w-20" />
+              <el-tag :type="scope.row.tenderStatus === 'published' ? 'success' : scope.row.tenderStatus === 'draft' ? 'info' : 'warning'" size="small">
+                {{ statusLabel(scope.row.tenderStatus || scope.row.tender_status) }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="name" label="类目" min-width="200">
-            <template #default="scope">
-              <el-input v-model="scope.row.name" placeholder="如：医疗器械" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="amount" label="采购金额" width="160">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.amount" :min="0" :step="10000" class="!w-32" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="share" label="占比" width="120">
-            <template #default="scope">
-              <el-input v-model="scope.row.share" placeholder="%" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button link type="danger" size="small" @click="removeRow(categories, scope.$index)">删除</el-button>
-            </template>
+          <el-table-column label="截止日期" width="120">
+            <template #default="scope">{{ (scope.row.deadline || '').slice(0, 10) }}</template>
           </el-table-column>
         </el-table>
-      </div>
 
-      <!-- 各国采购数据录入 -->
-      <div class="mt-8">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="font-bold text-slate-700">各国采购数据</h4>
-          <el-button size="small" @click="addCountry">添加国家</el-button>
+        <div class="mt-4 flex justify-end">
+          <el-pagination
+            v-model:current-page="currentPage"
+            background layout="total, prev, pager, next"
+            :total="totalItems" :page-size="pageSize"
+            @current-change="loadTenders"
+          />
         </div>
-        <el-table :data="countryData" stripe border>
-          <el-table-column prop="country" label="国家" min-width="180">
-            <template #default="scope">
-              <el-input v-model="scope.row.country" placeholder="国家" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="amount" label="采购金额" width="160">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.amount" :min="0" :step="10000" class="!w-32" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="projects" label="项目数量" width="140">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.projects" :min="0" :step="1" class="!w-24" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="status" label="发布状态" width="140">
-            <template #default="scope">
-              <el-select v-model="scope.row.status" size="small" class="w-full">
-                <el-option label="草稿" value="draft" />
-                <el-option label="已发布" value="published" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button link type="danger" size="small" @click="removeRow(countryData, scope.$index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+      </div>
+    </div>
+
+    <!-- 状态分布图 -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <h3 class="text-base font-bold text-slate-800 mb-4">标书状态分布</h3>
+      <div class="h-64">
+        <ClientOnly>
+          <AppChart :options="statusChartOptions" />
+        </ClientOnly>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { Document, TrendCharts, DataLine, Files } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
-const form = ref({
-  showTotal: true,
-  showMonthly: true,
-  showTrend: true,
-  refreshRate: 'hourly',
-  dataSource: '/api/dashboard/procurement'
+const loading = ref(false)
+const tenderList = ref<any[]>([])
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalItems = ref(0)
+const tenderStats = ref<any>({})
+
+const statusLabel = (s: string) => {
+  const map: Record<string, string> = { published: '已发布', draft: '草稿', archived: '已归档' }
+  return map[s] || s || '未知'
+}
+
+const stats = computed(() => {
+  const data = tenderStats.value
+  const published = Number(data.published || 0)
+  const draft = Number(data.draft || 0)
+  const archived = Number(data.archived || 0)
+  const total = published + draft + archived
+
+  return [
+    { label: '标书总量', value: total.toLocaleString(), icon: Document, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+    { label: '已发布', value: String(published), icon: TrendCharts, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+    { label: '草稿', value: String(draft), icon: Files, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+    { label: '已归档', value: String(archived), icon: DataLine, bgClass: 'bg-slate-50', textClass: 'text-slate-600' }
+  ]
 })
 
-const entry = ref({
-  asOfDate: '2026-02-01',
-  totalAmount: 120000000,
-  monthlyNew: 8500000,
-  currency: 'USD'
-})
+const statusChartOptions = computed(() => {
+  const data = tenderStats.value
+  const items = [
+    { name: '已发布', value: Number(data.published || 0) },
+    { name: '草稿', value: Number(data.draft || 0) },
+    { name: '已归档', value: Number(data.archived || 0) }
+  ].filter(i => i.value > 0)
 
-const buyers = ref([
-  { name: 'UNICEF', country: '美国', amount: 25000000, share: '21%' },
-  { name: 'WFP', country: '意大利', amount: 18000000, share: '15%' }
-])
-
-const categories = ref([
-  { rank: 1, name: '医疗器械', amount: 22000000, share: '18%' },
-  { rank: 2, name: '物流运输', amount: 17000000, share: '14%' }
-])
-
-const countryData = ref([
-  { country: '美国', amount: 30000000, projects: 120, status: 'published' },
-  { country: '德国', amount: 14000000, projects: 65, status: 'draft' }
-])
-
-const handleSaveConfig = () => ElMessage.success('采购数据配置已保存')
-const handleResetConfig = () => {
-  form.value = {
-    showTotal: true,
-    showMonthly: true,
-    showTrend: true,
-    refreshRate: 'hourly',
-    dataSource: '/api/dashboard/procurement'
+  return {
+    tooltip: { trigger: 'item' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      data: items.length ? items : [{ name: '无数据', value: 1 }],
+      label: { formatter: '{b}: {c} ({d}%)' }
+    }],
+    color: ['#22c55e', '#f97316', '#94a3b8']
   }
-  ElMessage.success('已重置配置')
+})
+
+const loadTenders = async () => {
+  loading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/tenders', {
+      query: { page: currentPage.value, page_size: pageSize.value }
+    })
+    tenderList.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    totalItems.value = Number(res?.data?.total ?? 0)
+  } catch (e: any) {
+    tenderList.value = []
+    ElMessage.error(e?.message || '加载标书失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const handlePublish = () => ElMessage.success('采购数据已发布')
-const handleResetData = () => {
-  entry.value = { asOfDate: '', totalAmount: 0, monthlyNew: 0, currency: 'USD' }
-  buyers.value = []
-  categories.value = []
-  countryData.value = []
-  ElMessage.warning('录入数据已清空')
+const loadStats = async () => {
+  try {
+    const res: any = await apiRequest('/v3/admin/tenders/stats')
+    tenderStats.value = res?.data || {}
+  } catch { tenderStats.value = {} }
 }
 
-const addBuyer = () => buyers.value.push({ name: '', country: '', amount: 0, share: '' })
-const addCategory = () => categories.value.push({ rank: categories.value.length + 1, name: '', amount: 0, share: '' })
-const addCountry = () => countryData.value.push({ country: '', amount: 0, projects: 0, status: 'draft' })
-const removeRow = (list: any[], index: number) => list.splice(index, 1)
+onMounted(() => {
+  loadTenders()
+  loadStats()
+})
 </script>

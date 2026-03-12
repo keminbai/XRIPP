@@ -551,15 +551,16 @@
               </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div v-if="newsList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div
                 v-for="news in newsList"
                 :key="news.id"
                 class="group cursor-pointer"
                 @click="navigateTo(`/media/${news.id}`)"
               >
-                <div class="aspect-video rounded-xl overflow-hidden mb-4 relative shadow-md">
-                  <img :src="news.image" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="News" />
+                <div class="aspect-video rounded-xl overflow-hidden mb-4 relative shadow-md bg-slate-100">
+                  <img v-if="news.image" :src="news.image" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="News" />
+                  <div v-else class="w-full h-full flex items-center justify-center text-4xl text-slate-300">📰</div>
                   <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   <div class="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
                     <div class="text-sm font-bold">查看详情 →</div>
@@ -568,11 +569,14 @@
                 <div class="flex gap-2 items-center text-xs text-slate-400 mb-2">
                   <span class="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-slate-600 font-medium">{{ news.tag }}</span>
                   <span>{{ news.date }}</span>
-                  <span class="ml-auto flex items-center gap-1"><el-icon><View /></el-icon> {{ news.views }}</span>
                 </div>
                 <h3 class="font-bold text-lg text-slate-900 mb-2 group-hover:text-brand-600 transition-colors line-clamp-2">{{ news.title }}</h3>
                 <p class="text-sm text-slate-500 line-clamp-2">{{ news.excerpt }}</p>
               </div>
+            </div>
+            <div v-else class="text-center py-16">
+              <div class="text-4xl mb-3">📰</div>
+              <div class="text-slate-500">暂无新闻资讯，敬请期待</div>
             </div>
           </el-tab-pane>
 
@@ -909,6 +913,7 @@ const recentActivities = computed(() => apiActivities.value)
 onMounted(() => {
   loadActivities()
   loadLatestSuppliers()
+  loadNewsList()
 })
 
 const trainingCourses = [
@@ -947,11 +952,27 @@ const trainingImages = [
 const cities = ['上海', '北京', '深圳', '广州', '杭州', '成都', '武汉', '南京', '苏州', '宁波', '天津', '重庆', '西安', '郑州', '长沙']
 const provinces = ['上海市', '北京市', '广东省', '浙江省', '江苏省', '四川省', '湖北省', '陕西省', '河南省', '湖南省']
 const platformStats = [{ value: '4,600+', label: '服务企业' }, { value: '26', label: '联合国机构' }, { value: '193', label: '覆盖国家' }, { value: '99.8%', label: '注册成功率' }]
-const newsList = [
-  { id: 1, tag: '成功案例', date: '2025-01-15', views: '1.2k', title: 'XRIPP平台助力上海企业中标联合国$2.5M医疗设备项目', excerpt: '经过3个月的精心准备,上海某医疗器械企业成功中标...', image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80' },
-  { id: 2, tag: '政策解读', date: '2025-01-10', views: '856', title: '2025年联合国采购政策重大调整解读', excerpt: '联合国采购部门近日发布最新政策指南,对供应商资质...', image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&q=80' },
-  { id: 3, tag: '战略合作', date: '2025-01-05', views: '643', title: 'XRIPP与马来西亚能源部签署战略合作协议', excerpt: 'XRIPP Global与马来西亚能源部达成战略合作,共同推动...', image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&auto=format&fit=crop' }
-]
+const newsList = ref<any[]>([])
+
+const loadNewsList = async () => {
+  try {
+    const res: any = await apiRequest('/v3/contents', {
+      query: { content_type: 'media', page: 1, page_size: 6 }
+    })
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    newsList.value = items.map((item: any) => ({
+      id: item.id,
+      tag: '新闻',
+      date: item.publishDate || '',
+      views: '-',
+      title: item.title || '',
+      excerpt: item.summary || '',
+      image: ''
+    }))
+  } catch {
+    newsList.value = []
+  }
+}
 
 const selectedCity = ref('上海')
 const citySearchQuery = ref('')

@@ -1,6 +1,11 @@
 <!-- 文件路径: D:\ipp-platform\app\pages\admin\system\login-config.vue -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        系统管理模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm max-w-3xl">
       <h3 class="text-lg font-bold text-slate-800 mb-6">登录安全配置</h3>
 

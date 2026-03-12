@@ -1,17 +1,15 @@
-<!-- 
-  ========================================================================
+<!--
   文件路径: D:\ipp-platform\app\pages\admin\content\display.vue
-  版本: V2.0 流程闭环版 (2026-02-01)
-  
-  ✅ 修复内容:
-  1. [新增功能] 增加 "显示申请处理" Tab，闭环 activity.vue 的申请流程
-  2. [审核逻辑] 支持对申请进行 "同意上墙" (自动加入轮播/广告) 或 "驳回"
-  3. [数据联动] 模拟了从业务端流转过来的申请数据
-  ========================================================================
+  版本: V3.0 API对接版 (2026-03-12)
+
+  修复: 移除所有Mock数据，对接 /v3/admin/contents API
+  - 轮播图 CRUD: content_type=carousel
+  - 广告位 CRUD: content_type=ad
+  - 显示申请: content_type=carousel, publish_status=pending_review
 -->
 <template>
   <div class="space-y-6">
-    
+
     <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
       <div class="mb-6">
         <h3 class="text-lg font-bold text-slate-800">网站内容展示管理</h3>
@@ -19,33 +17,36 @@
       </div>
 
       <el-tabs v-model="activeTab" type="card" class="demo-tabs">
-        
+
         <!-- 1. 首页轮播图 -->
         <el-tab-pane label="首页轮播图" name="carousel">
           <div class="space-y-4 pt-4">
-            <el-alert
-              title="轮播图管理依赖文件上传服务（OSS），该功能尚未接入后端，当前操作不会持久化。"
-              type="warning"
-              :closable="false"
-              class="mb-4"
-            />
             <div class="flex justify-between items-center">
               <div class="text-xs text-slate-500">最多支持5张轮播图，建议尺寸1920x650px</div>
               <el-button type="primary" @click="handleCarouselUpload" :disabled="carouselList.length >= 5">
-                <el-icon class="mr-2"><Plus /></el-icon> 上传轮播图
+                <el-icon class="mr-2"><Plus /></el-icon> 新增轮播图
               </el-button>
             </div>
-            <div class="grid grid-cols-1 gap-4">
-              <div v-for="item in carouselList" :key="item.id" class="bg-slate-50 border border-slate-200 rounded-lg p-4 flex gap-4 items-center">
-                <div class="w-48 h-28 rounded overflow-hidden bg-slate-200 flex-shrink-0 border border-slate-300">
-                  <img :src="item.image" class="w-full h-full object-cover" />
+            <div v-loading="carouselLoading">
+              <div v-if="carouselList.length === 0 && !carouselLoading" class="text-center py-10 text-slate-400">
+                暂无轮播图数据
+              </div>
+              <div class="grid grid-cols-1 gap-4">
+                <div v-for="item in carouselList" :key="item.id" class="bg-slate-50 border border-slate-200 rounded-lg p-4 flex gap-4 items-center">
+                  <div class="w-48 h-28 rounded overflow-hidden bg-slate-200 flex-shrink-0 border border-slate-300">
+                    <img v-if="item.coverImage" :src="item.coverImage" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-sm">无图片</div>
+                  </div>
+                  <div class="flex-1">
+                    <div class="font-bold text-slate-800">{{ item.title }}</div>
+                    <div class="text-sm text-slate-500 mt-1">状态: {{ item.publishStatusLabel }} | 创建: {{ fmtDate(item.createdAt) }}</div>
+                  </div>
+                  <div class="flex gap-2">
+                    <el-button v-if="item.publishStatus !== 'published'" type="success" size="small" plain @click="handleTransition(item, 'published')">发布</el-button>
+                    <el-button v-if="item.publishStatus === 'published'" type="warning" size="small" plain @click="handleTransition(item, 'offline')">下架</el-button>
+                    <el-button type="danger" size="small" plain @click="handleDelete(item)">删除</el-button>
+                  </div>
                 </div>
-                <div class="flex-1">
-                  <div class="font-bold text-slate-800">{{ item.title }}</div>
-                  <div class="text-sm text-slate-500 mt-1">排序: {{ item.sort }} | 类型: {{ item.type || '手动上传' }}</div>
-                  <div class="text-sm text-slate-500">链接: {{ item.link || '无' }}</div>
-                </div>
-                <el-button type="danger" size="small" plain @click="handleCarouselDelete(item.id)">删除</el-button>
               </div>
             </div>
           </div>
@@ -54,80 +55,43 @@
         <!-- 2. 广告位管理 -->
         <el-tab-pane label="广告位管理" name="ads">
           <div class="space-y-4 pt-4">
-          <el-alert
-            title="广告位配置尚未接入后端存储，当前修改仅在页面内存中生效，刷新后重置。"
-            type="warning"
-            :closable="false"
-            class="mb-2"
-          />
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div v-for="ad in adsList" :key="ad.id" class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-              <div class="flex justify-between items-start mb-3">
-                <div>
-                  <div class="font-bold text-slate-800">{{ ad.name }}</div>
-                  <div class="text-xs text-slate-500 mt-1">{{ ad.position }}</div>
-                </div>
-                <el-tag :type="ad.status === 'active' ? 'success' : 'info'" size="small">
-                  {{ ad.status === 'active' ? '已配置' : '未配置' }}
-                </el-tag>
-              </div>
-              <div class="w-full h-32 bg-slate-50 rounded border border-dashed border-slate-300 mb-3 flex items-center justify-center overflow-hidden">
-                <img v-if="ad.image" :src="ad.image" class="w-full h-full object-cover" />
-                <span v-else class="text-slate-400 text-sm">暂无广告图</span>
-              </div>
-              <el-button type="primary" size="small" plain class="w-full" @click="handleAdEdit(ad)">
-                {{ ad.status === 'active' ? '编辑广告' : '配置广告' }}
+            <div class="flex justify-between items-center">
+              <div class="text-xs text-slate-500">管理广告位内容</div>
+              <el-button type="primary" @click="handleAdAdd">
+                <el-icon class="mr-2"><Plus /></el-icon> 新增广告
               </el-button>
+            </div>
+            <div v-loading="adLoading">
+              <div v-if="adsList.length === 0 && !adLoading" class="text-center py-10 text-slate-400">
+                暂无广告位数据
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div v-for="ad in adsList" :key="ad.id" class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+                  <div class="flex justify-between items-start mb-3">
+                    <div>
+                      <div class="font-bold text-slate-800">{{ ad.title }}</div>
+                      <div class="text-xs text-slate-500 mt-1">{{ ad.summary || '暂无描述' }}</div>
+                    </div>
+                    <el-tag :type="ad.publishStatus === 'published' ? 'success' : 'info'" size="small">
+                      {{ ad.publishStatusLabel }}
+                    </el-tag>
+                  </div>
+                  <div class="w-full h-32 bg-slate-50 rounded border border-dashed border-slate-300 mb-3 flex items-center justify-center overflow-hidden">
+                    <img v-if="ad.coverImage" :src="ad.coverImage" class="w-full h-full object-cover" />
+                    <span v-else class="text-slate-400 text-sm">暂无广告图</span>
+                  </div>
+                  <div class="flex gap-2">
+                    <el-button v-if="ad.publishStatus !== 'published'" type="success" size="small" plain class="flex-1" @click="handleTransition(ad, 'published')">发布</el-button>
+                    <el-button v-if="ad.publishStatus === 'published'" type="warning" size="small" plain class="flex-1" @click="handleTransition(ad, 'offline')">下架</el-button>
+                    <el-button type="danger" size="small" plain @click="handleDelete(ad)">删除</el-button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </el-tab-pane>
 
-        <!-- ✅ [新增] 3. 显示申请处理 -->
-        <el-tab-pane label="显示申请处理" name="applications">
-          <template #label>
-            <span class="flex items-center gap-1">
-              显示申请处理
-              <el-badge :value="applicationList.length" type="danger" v-if="applicationList.length > 0" />
-            </span>
-          </template>
-          
-          <div class="pt-4">
-            <el-alert title="来自各业务模块的首页推荐申请，审核通过后将自动加入轮播图或推荐位" type="info" show-icon :closable="false" class="mb-4" />
-            <el-alert title="显示申请尚未接入后端接口，当前数据为示例占位，操作不会持久化。" type="warning" :closable="false" class="mb-4" />
-            
-            <el-table :data="applicationList" stripe style="width: 100%">
-              <el-table-column prop="submitTime" label="申请时间" width="160" />
-              <el-table-column label="申请内容" min-width="200">
-                <template #default="scope">
-                  <div class="font-bold text-slate-800">{{ scope.row.title }}</div>
-                  <div class="text-xs text-slate-500 mt-1">来源: {{ scope.row.source }}</div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="targetArea" label="申请位置" width="150">
-                 <template #default="scope">
-                   <el-tag>{{ getAreaLabel(scope.row.targetArea) }}</el-tag>
-                 </template>
-              </el-table-column>
-              <el-table-column label="申请时段" width="200">
-                <template #default="scope">
-                  <div class="text-xs">
-                    <div>始: {{ scope.row.startTime }}</div>
-                    <div>止: {{ scope.row.endTime }}</div>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="180" fixed="right">
-                <template #default="scope">
-                  <el-button type="success" size="small" @click="handleApproveApp(scope.row)">同意上墙</el-button>
-                  <el-button type="danger" size="small" plain @click="handleRejectApp(scope.row)">驳回</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </el-tab-pane>
-
-        <!-- 4. 关于我们 -->
+        <!-- 3. 关于我们 -->
         <el-tab-pane label="关于我们" name="about">
           <div class="pt-4 max-w-4xl">
             <el-form :model="aboutContent" label-width="100px">
@@ -138,7 +102,7 @@
           </div>
         </el-tab-pane>
 
-        <!-- 5. 网站设置 -->
+        <!-- 4. 网站设置 -->
         <el-tab-pane label="网站设置" name="site">
            <div class="pt-4 max-w-3xl space-y-8">
              <el-card shadow="never" class="border border-slate-200">
@@ -155,151 +119,209 @@
       </el-tabs>
     </div>
 
-    <!-- 弹窗部分 -->
-    <el-dialog v-model="carouselDialogVisible" title="上传轮播图" width="600px">
-        <el-form :model="carouselForm" label-width="80px">
-           <el-form-item label="标题"><el-input v-model="carouselForm.title" /></el-form-item>
-           <el-form-item label="图片"><el-upload action="#" list-type="picture-card" :auto-upload="false"><el-icon><Plus /></el-icon></el-upload></el-form-item>
+    <!-- 新增/编辑弹窗 -->
+    <el-dialog v-model="formDialogVisible" :title="formDialogTitle" width="600px">
+        <el-form :model="contentForm" label-width="80px">
+           <el-form-item label="标题" required><el-input v-model="contentForm.title" placeholder="请输入标题" /></el-form-item>
+           <el-form-item label="摘要"><el-input v-model="contentForm.summary" type="textarea" :rows="3" placeholder="简要描述" /></el-form-item>
+           <el-form-item label="封面图">
+             <el-upload
+               action="/api/common/upload"
+               :limit="1"
+               :on-success="handleUploadSuccess"
+               list-type="picture-card"
+               :auto-upload="true"
+             >
+               <el-icon><Plus /></el-icon>
+             </el-upload>
+             <div v-if="contentForm.coverImage" class="mt-2">
+               <img :src="contentForm.coverImage" class="w-32 h-20 object-cover rounded border" />
+             </div>
+           </el-form-item>
+           <el-form-item label="正文"><el-input v-model="contentForm.body" type="textarea" :rows="5" placeholder="详细内容" /></el-form-item>
         </el-form>
-        <template #footer><el-button @click="carouselDialogVisible = false">取消</el-button><el-button type="primary" @click="handleCarouselSave">保存</el-button></template>
-    </el-dialog>
-    
-    <el-dialog v-model="adDialogVisible" title="配置广告位" width="600px">
-         <el-form :model="adForm" label-width="80px">
-            <el-form-item label="名称"><el-input v-model="adForm.name" disabled /></el-form-item>
-            <el-form-item label="图片"><el-upload action="#" list-type="picture-card" :auto-upload="false"><el-icon><Plus /></el-icon></el-upload></el-form-item>
-         </el-form>
-         <template #footer><el-button @click="adDialogVisible = false">取消</el-button><el-button type="primary" @click="handleAdSave">保存</el-button></template>
+        <template #footer>
+          <el-button @click="formDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleFormSave" :loading="formSaving">保存</el-button>
+        </template>
     </el-dialog>
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Plus, Check } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { UploadFile } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
-const activeTab = ref('applications') // 默认展示申请处理，方便验收
+const activeTab = ref('carousel')
 
-// 1. 轮播图数据
-const carouselDialogVisible = ref(false)
-const carouselForm = ref({ title: '', image: '', link: '', sort: 1 })
-const carouselList = ref([
-  { id: 1, title: '联合国采购平台XRIPP', image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1920', link: '/about', sort: 1, type: '系统默认' }
-])
-const handleCarouselUpload = () => { carouselDialogVisible.value = true }
-const handleCarouselSave = () => {
-  if (carouselList.value.length >= 5) {
-    return ElMessage.warning('轮播图最多5张')
+// --- Data ---
+const carouselList = ref<any[]>([])
+const adsList = ref<any[]>([])
+const carouselLoading = ref(false)
+const adLoading = ref(false)
+
+const fmtDate = (v: any) => {
+  if (!v) return '-'
+  return String(v).slice(0, 10)
+}
+
+const statusLabelMap: Record<string, string> = {
+  published: '已发布',
+  draft: '草稿',
+  pending_review: '待审核',
+  approved: '已通过',
+  rejected: '已驳回',
+  offline: '已下架'
+}
+
+const mapItem = (item: any) => ({
+  id: item.id,
+  title: item.title || '未命名',
+  summary: item.summary || '',
+  body: item.body || '',
+  coverImage: item.coverImage || item.cover_image || '',
+  publishStatus: item.publishStatus || item.publish_status || 'draft',
+  publishStatusLabel: statusLabelMap[item.publishStatus || item.publish_status || 'draft'] || '未知',
+  createdAt: item.createdAt || item.created_at || ''
+})
+
+// --- Load Data ---
+const loadCarousels = async () => {
+  carouselLoading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/contents', {
+      query: { content_type: 'carousel', page: 1, page_size: 20 }
+    })
+    carouselList.value = (res?.data?.items || []).map(mapItem)
+  } catch (e: any) {
+    carouselList.value = []
+    ElMessage.error(e?.message || '加载轮播图失败')
+  } finally {
+    carouselLoading.value = false
   }
-  if (!carouselForm.value.title) {
-    return ElMessage.warning('请输入轮播图标题')
+}
+
+const loadAds = async () => {
+  adLoading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/contents', {
+      query: { content_type: 'ad', page: 1, page_size: 20 }
+    })
+    adsList.value = (res?.data?.items || []).map(mapItem)
+  } catch (e: any) {
+    adsList.value = []
+    ElMessage.error(e?.message || '加载广告位失败')
+  } finally {
+    adLoading.value = false
   }
-
-  carouselList.value.push({
-    id: Date.now(),
-    ...carouselForm.value,
-    type: '手动上传'
-  })
-
-  carouselForm.value = { title: '', image: '', link: '', sort: 1 }
-  carouselDialogVisible.value = false
-  ElMessage.success('保存成功')
 }
 
-const handleCarouselDelete = (id: number) => { carouselList.value = carouselList.value.filter(i => i.id !== id) }
+// --- Form ---
+const formDialogVisible = ref(false)
+const formDialogTitle = ref('新增')
+const formSaving = ref(false)
+const formContentType = ref('carousel')
+const contentForm = ref({
+  title: '',
+  summary: '',
+  body: '',
+  coverImage: ''
+})
 
-// 2. 广告位数据
-const adDialogVisible = ref(false)
-const adForm = ref<any>({})
-const adsList = ref([
-  { id: 1, name: '首页侧边栏', position: '首页右侧', status: 'empty' },
-  { id: 2, name: '活动页横幅', position: '活动列表顶', status: 'active', image: 'https://via.placeholder.com/800x100' }
-])
-const handleAdEdit = (ad: any) => { adForm.value = {...ad}; adDialogVisible.value = true }
-const handleAdSave = () => {
-  const idx = adsList.value.findIndex(item => item.id === adForm.value.id)
-  if (idx !== -1) {
-    adsList.value[idx] = {
-      ...adsList.value[idx],
-      ...adForm.value,
-      status: 'active'
-    }
+const handleCarouselUpload = () => {
+  formContentType.value = 'carousel'
+  formDialogTitle.value = '新增轮播图'
+  contentForm.value = { title: '', summary: '', body: '', coverImage: '' }
+  formDialogVisible.value = true
+}
+
+const handleAdAdd = () => {
+  formContentType.value = 'ad'
+  formDialogTitle.value = '新增广告'
+  contentForm.value = { title: '', summary: '', body: '', coverImage: '' }
+  formDialogVisible.value = true
+}
+
+const handleUploadSuccess = (response: any) => {
+  if (response?.data?.url) {
+    contentForm.value.coverImage = response.data.url
+    ElMessage.success('图片上传成功')
   }
-  adDialogVisible.value = false
-  ElMessage.success('配置已更新')
 }
 
-// 3. ✅ [新增] 显示申请数据
-const applicationList = ref([
-  { 
-    id: 101, 
-    title: '2026全球公共采购高峰论坛', 
-    source: '活动管理 (Activity)', 
-    targetArea: 'home', 
-    startTime: '2026-02-01 00:00', 
-    endTime: '2026-02-28 23:59',
-    submitTime: '2026-01-29 10:30',
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=200'
-  },
-  { 
-    id: 102, 
-    title: '联合国采购入门指南(课程)', 
-    source: '培训管理 (Training)', 
-    targetArea: 'activity', 
-    startTime: '2026-02-05 00:00', 
-    endTime: '2026-03-05 23:59',
-    submitTime: '2026-01-28 15:20',
-    image: 'https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=200'
+const handleFormSave = async () => {
+  if (!contentForm.value.title?.trim()) {
+    return ElMessage.warning('请输入标题')
   }
-])
-
-const getAreaLabel = (area: string) => {
-  const map: Record<string, string> = { 'home': '首页轮播', 'activity': '活动中心推荐', 'service': '平台服务推荐' }
-  return map[area] || area
+  formSaving.value = true
+  try {
+    await apiRequest('/v3/admin/contents', {
+      method: 'POST',
+      body: {
+        title: contentForm.value.title.trim(),
+        content_type: formContentType.value,
+        summary: contentForm.value.summary || '',
+        body: contentForm.value.body || ''
+      }
+    })
+    ElMessage.success('创建成功')
+    formDialogVisible.value = false
+    if (formContentType.value === 'carousel') await loadCarousels()
+    else await loadAds()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建失败')
+  } finally {
+    formSaving.value = false
+  }
 }
 
-// 同意上墙
-const handleApproveApp = (row: any) => {
-  ElMessageBox.confirm(`确认将 "${row.title}" 添加到显示位置吗？`, '同意申请', {
-    confirmButtonText: '同意并上墙',
-    type: 'success'
-  }).then(() => {
-    if (row.targetArea === 'home') {
-      carouselList.value.push({
-        id: Date.now(),
-        title: row.title,
-        image: row.image, 
-        link: `/services/${row.id}`, 
-        sort: carouselList.value.length + 1,
-        type: '申请通过'
-      })
-      ElMessage.success('已同意，内容已自动添加到轮播图列表')
-    } else {
-      ElMessage.success('已同意，内容已添加到对应板块推荐位')
-    }
-    applicationList.value = applicationList.value.filter(i => i.id !== row.id)
-  })
+// --- Transition (publish/offline) ---
+const handleTransition = async (item: any, toStatus: string) => {
+  try {
+    await apiRequest(`/v3/admin/contents/${item.id}/transition`, {
+      method: 'POST',
+      body: { to_status: toStatus, reason: `display ${toStatus}` }
+    })
+    ElMessage.success(toStatus === 'published' ? '已发布' : '已下架')
+    await loadCarousels()
+    await loadAds()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
+  }
 }
 
-const handleRejectApp = (row: any) => {
-  ElMessageBox.prompt('请输入驳回原因', '驳回申请', {
-    inputType: 'textarea',
-    inputValidator: (value) => value?.trim() ? true : '请输入驳回原因'
-  }).then(() => {
-    applicationList.value = applicationList.value.filter(i => i.id !== row.id)
-    ElMessage.info('申请已驳回')
-  })
+// --- Delete ---
+const handleDelete = (item: any) => {
+  ElMessageBox.confirm(`确认删除「${item.title}」吗？`, '删除确认', { type: 'warning' })
+    .then(async () => {
+      try {
+        await apiRequest(`/v3/admin/contents/${item.id}/transition`, {
+          method: 'POST',
+          body: { to_status: 'offline', reason: 'delete' }
+        })
+        ElMessage.success('已删除')
+        await loadCarousels()
+        await loadAds()
+      } catch (e: any) {
+        ElMessage.error(e?.message || '删除失败')
+      }
+    })
+    .catch(() => {})
 }
 
-// 4. 其他配置
+// --- Other tabs (config-type, keep as-is) ---
 const aboutContent = ref({ title: '关于XRIPP', content: '...' })
 const handleAboutSave = () => ElMessage.success('保存成功')
 const siteConfig = ref({ logo: 'XRIPP', siteName: 'XRIPP国际公共采购平台' })
 const handleSiteSave = () => ElMessage.success('设置保存成功')
 
+onMounted(() => {
+  loadCarousels()
+  loadAds()
+})
 </script>

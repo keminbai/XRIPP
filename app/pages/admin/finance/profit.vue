@@ -1,17 +1,18 @@
-<!-- 
-  ========================================================================
+<!--
   文件路径: D:\ipp-platform\app\pages\admin\finance\profit.vue
-  版本: V1.1 (2026-02-06)
-  
-  ✅ 核心功能:
-  1. [分成配置] 各城市合伙人分成比例设置
-  2. [分成统计] 各合伙人分成金额统计
-  3. [分成明细] 分成记录查询
-  4. [结算管理] 分成结算处理
-  ========================================================================
+  版本: V2.0 API对接版 (2026-03-12)
+
+  修复: 统计卡片从 /v3/admin/orders/stats + /v3/admin/partners 读取真实数据
+  注意: 分成配置/结算等核心功能需要独立后端API，暂标记"功能开发中"
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="warning" :closable="false" show-icon>
+      <template #title>
+        <span class="font-bold">功能开发中</span> — 利润分成模块需要独立后端API（分成配置表、结算记录表），当前分成配置与结算操作仅为界面演示。统计卡片中的收入数据来自真实订单API。
+      </template>
+    </el-alert>
+
     <!-- 统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div
@@ -229,37 +230,66 @@
 
 <script setup lang="ts">
 import { Coin, TrendCharts, Money, UserFilled, Check, Plus } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
 const activeTab = ref('config')
 const filters = ref({ city: '', dateRange: [] as string[] })
 
+// Real data from APIs
+const totalRevenue = ref(0)
+const completedRevenue = ref(0)
+const partnerCount = ref(0)
+
 const stats = computed(() => [
-  { label: '本月总分成', value: '¥68.5K', icon: Coin, bgClass: 'bg-green-50', textClass: 'text-green-600' },
-  { label: '待结算', value: '¥23.2K', icon: Money, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
-  { label: '合伙人数', value: String(partnerConfig.value.length), icon: UserFilled, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
-  { label: '累计分成', value: '¥856K', icon: TrendCharts, bgClass: 'bg-purple-50', textClass: 'text-purple-600' }
+  { label: '平台总收入', value: `¥${completedRevenue.value.toLocaleString()}`, icon: Coin, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+  { label: '订单总金额', value: `¥${totalRevenue.value.toLocaleString()}`, icon: Money, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+  { label: '合伙人数', value: String(partnerCount.value), icon: UserFilled, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+  { label: '分成配置数', value: String(partnerConfig.value.length), icon: TrendCharts, bgClass: 'bg-purple-50', textClass: 'text-purple-600' }
 ])
 
+// Load real stats from APIs
+const loadRealStats = async () => {
+  await Promise.allSettled([
+    apiRequest('/v3/admin/orders/stats').then((res: any) => {
+      const data = res?.data || {}
+      let total = 0
+      let completed = 0
+      Object.entries(data).forEach(([status, info]: [string, any]) => {
+        const amount = Number(info?.total_amount || info?.totalAmount || 0)
+        total += amount
+        if (status === 'completed' || status === 'paid') {
+          completed += amount
+        }
+      })
+      totalRevenue.value = total
+      completedRevenue.value = completed
+    }),
+    apiRequest('/v3/admin/partners', { query: { page: 1, page_size: 1 } }).then((res: any) => {
+      partnerCount.value = Number(res?.data?.total ?? 0)
+    })
+  ])
+}
+
+// 分成配置（暂无后端，本地状态）
 const partnerConfig = ref([
   { id: 1, city: '上海', partnerName: '张三', percentage: 15, businessLines: ['membership', 'tender'], enabled: true },
   { id: 2, city: '北京', partnerName: '李四', percentage: 18, businessLines: ['membership', 'tender', 'training'], enabled: true },
   { id: 3, city: '深圳', partnerName: '王五', percentage: 12, businessLines: ['tender'], enabled: true }
 ])
 
+// 分成统计（暂无后端，演示数据）
 const profitStats = ref([
-  { city: '上海', partnerName: '张三', percentage: 15, monthRevenue: 50000, monthProfit: 7500, totalProfit: 125000, settled: false },
-  { city: '北京', partnerName: '李四', percentage: 18, monthRevenue: 68000, monthProfit: 12240, totalProfit: 285000, settled: true },
-  { city: '深圳', partnerName: '王五', percentage: 12, monthRevenue: 42000, monthProfit: 5040, totalProfit: 98000, settled: false }
+  { city: '上海', partnerName: '张三', percentage: 15, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: false },
+  { city: '北京', partnerName: '李四', percentage: 18, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: true },
+  { city: '深圳', partnerName: '王五', percentage: 12, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: false }
 ])
 
-const profitRecords = ref([
-  { date: '2026-01-28', city: '上海', orderNo: 'MEM202601280001', businessLine: 'membership', orderAmount: 9800, percentage: '15%', profitAmount: 1470 },
-  { date: '2026-01-27', city: '北京', orderNo: 'TND202601270002', businessLine: 'tender', orderAmount: 299, percentage: '18%', profitAmount: 54 }
-])
+// 分成明细（暂无后端，空数组）
+const profitRecords = ref<any[]>([])
 
 const filteredRecords = computed(() => {
   let list = profitRecords.value
@@ -272,17 +302,17 @@ const getBusinessLabel = (line: string) => {
   return map[line] || '未知'
 }
 
-// 保存配置（占位）
-const handleSaveConfig = () => ElMessage.success('分成配置已保存')
-const handleViewDetail = () => ElMessage.info('查看明细功能开发中...')
-const handleSearch = () => ElMessage.success('查询完成')
+// 保存配置（占位 — 需后端API）
+const handleSaveConfig = () => ElMessage.warning('分成配置保存功能需要后端API支持，当前为界面演示')
+const handleViewDetail = () => ElMessage.info('查看明细功能需要后端API支持')
+const handleSearch = () => ElMessage.info('分成明细查询功能需要后端API支持')
 
 const handleSettle = (row: any) => {
   ElMessageBox.confirm(`确认结算 ${row.city} ${row.partnerName} 本月分成（¥${row.monthProfit.toLocaleString()}）吗？`, '确认结算', {
     type: 'success'
   }).then(() => {
     row.settled = true
-    ElMessage.success('结算完成，款项将在3个工作日内到账')
+    ElMessage.warning('结算功能需要后端API支持，当前为界面演示')
   })
 }
 
@@ -306,13 +336,17 @@ const handleSaveConfigDialog = () => {
     partnerConfig.value.push(payload)
   }
   configDialogVisible.value = false
-  ElMessage.success('已保存')
+  ElMessage.warning('已暂存到本地，需后端API支持才能持久化保存')
 }
 
 const handleRemoveConfig = (row: any) => {
   ElMessageBox.confirm(`确定删除 ${row.city} - ${row.partnerName} 吗？`, '提示', { type: 'warning' }).then(() => {
     partnerConfig.value = partnerConfig.value.filter(x => x.id !== row.id)
-    ElMessage.success('已删除')
+    ElMessage.success('已从本地移除')
   })
 }
+
+onMounted(() => {
+  loadRealStats()
+})
 </script>

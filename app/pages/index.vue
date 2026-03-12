@@ -387,14 +387,14 @@ const heroSlides = [
   { image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1932&auto=format&fit=crop', animation: 'animate-zoom-out' },
 ]
 
-// 统计数据
+// 统计数据 (从API加载，reactive)
 const { platformStats } = usePlatformStats()
-const stats = [
-  { label: '招标信息总量', value: platformStats.tenderCount.toLocaleString(), icon: '📄' },
-  { label: '注册企业会员', value: platformStats.memberCount.toLocaleString(), icon: '🏢' },
+const stats = computed(() => [
+  { label: '招标信息总量', value: platformStats.tenderCount ? platformStats.tenderCount.toLocaleString() : '-', icon: '📄' },
+  { label: '注册企业会员', value: platformStats.memberCount ? platformStats.memberCount.toLocaleString() : '-', icon: '🏢' },
   { label: '覆盖目标国家', value: String(platformStats.countryCount), icon: '🌍' },
   { label: '联合国年采购额', value: platformStats.unAnnualAmount, icon: '💰' },
-]
+])
 
 // 平台服务商风采数据
 const memberShowcase = [

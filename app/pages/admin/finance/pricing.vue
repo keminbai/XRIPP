@@ -11,6 +11,11 @@
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        定价配置暂未对接后端API，修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
     <!-- Tab 切换 -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
       <el-tabs v-model="activeTab" class="p-6">

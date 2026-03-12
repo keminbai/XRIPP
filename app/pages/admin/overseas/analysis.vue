@@ -12,6 +12,11 @@
 -->
 <template>
   <div class="space-y-6">
+    <el-alert type="warning" :closable="false" show-icon>
+      <template #title>
+        <span class="font-bold">功能开发中</span> — 海外服务模块暂无后端API，当前数据仅为界面演示，不会持久化保存。
+      </template>
+    </el-alert>
     <!-- 顶部统计卡片 -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div v-for="(stat, i) in stats" :key="i" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">

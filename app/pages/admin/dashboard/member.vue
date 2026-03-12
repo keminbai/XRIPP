@@ -1,172 +1,161 @@
-﻿<template>
-  <div class="space-y-6">
-    <div class="bg-white p-6 rounded-xl border border-slate-200">
-      <div class="mb-6">
-        <h3 class="text-lg font-bold text-slate-800">会员数据配置</h3>
-        <p class="text-xs text-slate-500 mt-1">配置首页数据看板展示的会员相关数据</p>
-      </div>
+<!--
+  文件路径: D:\ipp-platform\app\pages\admin\dashboard\member.vue
+  版本: V2.0 API对接版 (2026-03-12)
 
-      <el-form :model="form" label-width="150px" class="max-w-3xl">
-        <el-form-item label="展示会员总数">
-          <el-switch v-model="form.showTotal" />
-        </el-form-item>
-        <el-form-item label="展示会员增长">
-          <el-switch v-model="form.showGrowth" />
-        </el-form-item>
-        <el-form-item label="展示会员分布图">
-          <el-switch v-model="form.showDistribution" />
-        </el-form-item>
-        <el-form-item label="会员等级展示">
-          <el-checkbox-group v-model="form.memberLevels">
-            <el-checkbox label="SVIP">SVIP会员</el-checkbox>
-            <el-checkbox label="VIP">VIP会员</el-checkbox>
-            <el-checkbox label="NORMAL">普通会员</el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleSaveConfig">保存配置</el-button>
-          <el-button @click="handleResetConfig">重置配置</el-button>
-        </el-form-item>
-      </el-form>
+  修复: 移除手工录入模式，改为从 /v3/admin/members 读取真实数据并展示统计
+-->
+<template>
+  <div class="space-y-6">
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div v-for="(stat, i) in stats" :key="i"
+        class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-sm text-slate-500">{{ stat.label }}</div>
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="stat.bgClass">
+            <el-icon :class="stat.textClass"><component :is="stat.icon" /></el-icon>
+          </div>
+        </div>
+        <div class="text-2xl font-bold text-slate-800">{{ stat.value }}</div>
+      </div>
     </div>
 
-    <div class="bg-white p-6 rounded-xl border border-slate-200">
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h3 class="text-lg font-bold text-slate-800">会员数据录入与发布</h3>
-          <p class="text-xs text-slate-500 mt-1">会员入驻情况、新会员增量、企业类型占比、会员概况</p>
+    <!-- 会员列表 -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-6 border-b border-slate-100">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800">会员数据概览</h3>
+            <p class="text-xs text-slate-500 mt-1">平台注册会员信息</p>
+          </div>
+          <el-button type="primary" plain @click="navigateTo('/admin/members/list')">管理会员</el-button>
         </div>
-        <div class="flex gap-2">
-          <el-button type="success" @click="handlePublish">发布数据</el-button>
-          <el-button @click="handleResetData">清空录入</el-button>
+
+        <div class="flex gap-3 flex-wrap">
+          <el-select v-model="filters.level" placeholder="会员等级" class="w-40" clearable @change="loadMembers">
+            <el-option label="SVIP" value="SVIP" />
+            <el-option label="VIP" value="VIP" />
+            <el-option label="普通" value="NORMAL" />
+          </el-select>
+          <el-input v-model="filters.keyword" placeholder="搜索..." class="w-56" clearable @keyup.enter="loadMembers" />
+          <el-button type="primary" plain @click="loadMembers">查询</el-button>
         </div>
       </div>
 
-      <el-form :model="entry" label-width="150px" class="max-w-4xl">
-        <el-form-item label="统计口径日期">
-          <el-date-picker v-model="entry.asOfDate" type="date" value-format="YYYY-MM-DD" class="w-full" />
-        </el-form-item>
-        <el-form-item label="会员总数">
-          <el-input-number v-model="entry.totalMembers" :min="0" :step="100" class="!w-56" />
-        </el-form-item>
-        <el-form-item label="本月新增会员">
-          <el-input-number v-model="entry.newMembers" :min="0" :step="10" class="!w-56" />
-        </el-form-item>
-        <el-form-item label="活跃会员数">
-          <el-input-number v-model="entry.activeMembers" :min="0" :step="10" class="!w-56" />
-        </el-form-item>
-        <el-form-item label="会员概况描述">
-          <el-input v-model="entry.summary" type="textarea" :rows="3" placeholder="简要描述会员结构与趋势" />
-        </el-form-item>
-      </el-form>
-
-      <div class="mt-6">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="font-bold text-slate-700">企业类型占比</h4>
-          <el-button size="small" @click="addCompanyType">添加类型</el-button>
-        </div>
-        <el-table :data="companyTypes" stripe border>
-          <el-table-column prop="type" label="企业类型" min-width="200">
+      <div class="p-6">
+        <el-table :data="memberList" stripe :header-cell-style="{background:'#f8fafc', color:'#64748b'}" v-loading="loading">
+          <el-table-column type="index" label="#" width="60" align="center" />
+          <el-table-column label="用户名" width="150">
+            <template #default="scope">{{ scope.row.username || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="公司名称" min-width="200">
+            <template #default="scope">{{ scope.row.companyName || scope.row.company_name || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="等级" width="100" align="center">
             <template #default="scope">
-              <el-input v-model="scope.row.type" placeholder="如：制造业" />
+              <el-tag :type="(scope.row.memberLevel || scope.row.member_level) === 'SVIP' ? 'danger' : (scope.row.memberLevel || scope.row.member_level) === 'VIP' ? 'warning' : 'info'" size="small">
+                {{ scope.row.memberLevel || scope.row.member_level || 'NORMAL' }}
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="count" label="数量" width="140">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.count" :min="0" :step="10" class="!w-24" />
-            </template>
+          <el-table-column label="行业" width="150">
+            <template #default="scope">{{ scope.row.industry || '-' }}</template>
           </el-table-column>
-          <el-table-column prop="share" label="占比" width="120">
-            <template #default="scope">
-              <el-input v-model="scope.row.share" placeholder="%" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button link type="danger" size="small" @click="removeRow(companyTypes, scope.$index)">删除</el-button>
-            </template>
+          <el-table-column label="注册时间" width="120">
+            <template #default="scope">{{ (scope.row.createdAt || scope.row.created_at || '').slice(0, 10) }}</template>
           </el-table-column>
         </el-table>
+
+        <div class="mt-4 flex justify-end">
+          <el-pagination
+            v-model:current-page="currentPage"
+            background layout="total, prev, pager, next"
+            :total="totalItems" :page-size="pageSize"
+            @current-change="loadMembers"
+          />
+        </div>
       </div>
+    </div>
 
-      <div class="mt-8">
-        <div class="flex items-center justify-between mb-3">
-          <h4 class="font-bold text-slate-700">会员增长趋势（月度）</h4>
-          <el-button size="small" @click="addGrowth">添加月份</el-button>
-        </div>
-        <el-table :data="growth" stripe border>
-          <el-table-column prop="month" label="月份" width="160">
-            <template #default="scope">
-              <el-input v-model="scope.row.month" placeholder="2026-02" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="new" label="新增" width="140">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.new" :min="0" :step="5" class="!w-24" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="churn" label="流失" width="140">
-            <template #default="scope">
-              <el-input-number v-model="scope.row.churn" :min="0" :step="5" class="!w-24" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            <template #default="scope">
-              <el-button link type="danger" size="small" @click="removeRow(growth, scope.$index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+    <!-- 等级分布图 -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+      <h3 class="text-base font-bold text-slate-800 mb-4">会员等级分布</h3>
+      <div class="h-64">
+        <ClientOnly>
+          <AppChart :options="levelChartOptions" />
+        </ClientOnly>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { User, Trophy, TrendCharts, UserFilled } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
-const form = ref({
-  showTotal: true,
-  showGrowth: true,
-  showDistribution: true,
-  memberLevels: ['SVIP', 'VIP', 'NORMAL']
+const loading = ref(false)
+const memberList = ref<any[]>([])
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalItems = ref(0)
+const filters = ref({ level: '', keyword: '' })
+
+const stats = computed(() => {
+  const total = totalItems.value
+  const svip = memberList.value.filter(m => (m.memberLevel || m.member_level) === 'SVIP').length
+  const vip = memberList.value.filter(m => (m.memberLevel || m.member_level) === 'VIP').length
+  const normal = memberList.value.filter(m => (m.memberLevel || m.member_level) === 'NORMAL').length
+
+  return [
+    { label: '会员总数', value: String(total), icon: User, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+    { label: 'SVIP', value: String(svip), icon: Trophy, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+    { label: 'VIP', value: String(vip), icon: TrendCharts, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+    { label: '普通会员', value: String(normal), icon: UserFilled, bgClass: 'bg-slate-50', textClass: 'text-slate-600' }
+  ]
 })
 
-const entry = ref({
-  asOfDate: '2026-02-01',
-  totalMembers: 12860,
-  newMembers: 420,
-  activeMembers: 7560,
-  summary: '本月会员增长稳定，制造业与信息技术企业占比提升。'
+const levelChartOptions = computed(() => {
+  const levelMap: Record<string, number> = {}
+  memberList.value.forEach(m => {
+    const lvl = m.memberLevel || m.member_level || 'NORMAL'
+    levelMap[lvl] = (levelMap[lvl] || 0) + 1
+  })
+  const data = Object.entries(levelMap).map(([name, value]) => ({ name, value }))
+
+  return {
+    tooltip: { trigger: 'item' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      data: data.length ? data : [{ name: '无数据', value: 1 }],
+      label: { formatter: '{b}: {c} ({d}%)' }
+    }],
+    color: ['#f97316', '#22c55e', '#94a3b8']
+  }
 })
 
-const companyTypes = ref([
-  { type: '制造业', count: 3400, share: '26%' },
-  { type: '信息技术', count: 2600, share: '20%' }
-])
+const loadMembers = async () => {
+  loading.value = true
+  try {
+    const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
+    if (filters.value.level) query.member_level = filters.value.level
+    if (filters.value.keyword?.trim()) query.keyword = filters.value.keyword.trim()
 
-const growth = ref([
-  { month: '2026-01', new: 380, churn: 45 },
-  { month: '2026-02', new: 420, churn: 52 }
-])
-
-const handleSaveConfig = () => ElMessage.success('会员数据配置已保存')
-const handleResetConfig = () => {
-  form.value = { showTotal: true, showGrowth: true, showDistribution: true, memberLevels: ['SVIP', 'VIP', 'NORMAL'] }
-  ElMessage.success('已重置配置')
+    const res: any = await apiRequest('/v3/admin/members', { query })
+    memberList.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    totalItems.value = Number(res?.data?.total ?? 0)
+  } catch (e: any) {
+    memberList.value = []
+    totalItems.value = 0
+    ElMessage.error(e?.message || '加载会员数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const handlePublish = () => ElMessage.success('会员数据已发布')
-const handleResetData = () => {
-  entry.value = { asOfDate: '', totalMembers: 0, newMembers: 0, activeMembers: 0, summary: '' }
-  companyTypes.value = []
-  growth.value = []
-  ElMessage.warning('录入数据已清空')
-}
-
-const addCompanyType = () => companyTypes.value.push({ type: '', count: 0, share: '' })
-const addGrowth = () => growth.value.push({ month: '', new: 0, churn: 0 })
-const removeRow = (list: any[], index: number) => list.splice(index, 1)
+onMounted(() => { loadMembers() })
 </script>

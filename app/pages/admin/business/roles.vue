@@ -1,7 +1,12 @@
 <!-- 文件路径: D:\ipp-platform\app\pages\admin\business\roles.vue -->
 <template>
   <div class="space-y-6">
-    
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        业务配置模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
+
     <!-- 提示说明 -->
     <el-alert 
       title="此处配置业务角色的操作权限与数据范围，系统管理员权限请前往「系统综管-权限管理」" 

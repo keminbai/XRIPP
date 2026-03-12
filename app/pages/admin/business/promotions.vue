@@ -1,7 +1,12 @@
 <!-- 文件路径: D:\ipp-platform\app\pages\admin\business\promotions.vue -->
 <template>
   <div class="space-y-6">
-    
+    <el-alert type="info" :closable="true" show-icon>
+      <template #title>
+        业务配置模块暂未对接后端API，配置修改仅在当前会话有效，刷新后将重置。
+      </template>
+    </el-alert>
+
     <!-- 提示说明 -->
     <el-alert 
       title="此处配置营销活动与折扣规则，标准定价请前往「财务配置-定价策略」" 
