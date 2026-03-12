@@ -98,8 +98,8 @@ public class AdminContentsV3Controller {
         if (title.isEmpty()) {
             return V3Response.error("VALIDATION_ERROR", "title required");
         }
-        if (contentType.isEmpty() || !List.of("activity", "media", "ad", "training").contains(contentType)) {
-            return V3Response.error("VALIDATION_ERROR", "content_type must be activity|media|ad|training");
+        if (contentType.isEmpty() || !List.of("activity", "media", "ad", "training", "carousel").contains(contentType)) {
+            return V3Response.error("VALIDATION_ERROR", "content_type must be activity|media|ad|training|carousel");
         }
 
         ContentEntity c = new ContentEntity();
@@ -107,6 +107,7 @@ public class AdminContentsV3Controller {
         c.setContentType(contentType);
         c.setSummary(str(String.valueOf(body.getOrDefault("summary", ""))));
         c.setBody(str(String.valueOf(body.getOrDefault("body", ""))));
+        c.setCoverImage(str(String.valueOf(body.getOrDefault("cover_image", ""))));
         c.setCityName(str(String.valueOf(body.getOrDefault("city_name", ""))));
         c.setPublishStatus("draft");
 
@@ -263,11 +264,13 @@ public class AdminContentsV3Controller {
             case "media" -> "MED";
             case "activity" -> "ACT";
             case "ad" -> "AD";
+            case "carousel" -> "CRS";
             default -> "CNT";
         };
         m.put("contentNo", typePrefix + "-" + String.format("%07d", c.getId()));
         m.put("title", safe(c.getTitle()));
         m.put("summary", safe(c.getSummary()));
+        m.put("coverImage", safe(c.getCoverImage()));
         m.put("contentType", safeOr(c.getContentType(), "other"));
         // expose as "status" to minimise frontend field mapping changes
         m.put("status", safeOr(c.getPublishStatus(), "draft"));
@@ -290,7 +293,7 @@ public class AdminContentsV3Controller {
     private boolean isAllowedTransition(String from, String to) {
         if (from.equals(to)) return false;
         return switch (from) {
-            case "draft" -> "pending_review".equals(to);
+            case "draft" -> "pending_review".equals(to) || "published".equals(to);
             case "pending_review" -> "published".equals(to) || "rejected".equals(to) || "approved".equals(to);
             case "approved" -> "published".equals(to) || "rejected".equals(to);
             case "published" -> "offline".equals(to);

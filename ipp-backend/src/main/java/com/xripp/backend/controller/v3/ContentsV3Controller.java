@@ -78,6 +78,7 @@ public class ContentsV3Controller {
         m.put("id", c.getId());
         m.put("title", safe(c.getTitle()));
         m.put("summary", safe(c.getSummary()));
+        m.put("coverImage", safe(c.getCoverImage()));
         m.put("contentType", safeOr(c.getContentType(), "other"));
         m.put("cityName", safe(c.getCityName()));
         m.put("isPaid", Boolean.TRUE.equals(c.getIsPaid()));

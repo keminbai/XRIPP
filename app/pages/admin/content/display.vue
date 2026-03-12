@@ -266,7 +266,8 @@ const handleFormSave = async () => {
         title: contentForm.value.title.trim(),
         content_type: formContentType.value,
         summary: contentForm.value.summary || '',
-        body: contentForm.value.body || ''
+        body: contentForm.value.body || '',
+        cover_image: contentForm.value.coverImage || ''
       }
     })
     ElMessage.success('创建成功')

@@ -30,6 +30,9 @@ public class ContentEntity {
     @TableField("publish_status")
     private String publishStatus;
 
+    @TableField("cover_image")
+    private String coverImage;
+
     @TableField("city_name")
     private String cityName;
 

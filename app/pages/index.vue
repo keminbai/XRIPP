@@ -381,19 +381,40 @@ const getTypeClass = (type: string) => {
 // 轮播图逻辑
 const handleCarouselChange = (index: number) => { activeIndex.value = index }
 
-const heroSlides = [
+const defaultSlides = [
   { image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop', animation: 'animate-zoom-in' },
   { image: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?q=80&w=2070&auto=format&fit=crop', animation: 'animate-pan' },
   { image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1932&auto=format&fit=crop', animation: 'animate-zoom-out' },
 ]
+const animations = ['animate-zoom-in', 'animate-pan', 'animate-zoom-out']
+const heroSlides = ref(defaultSlides)
 
-// 统计数据 (从API加载，reactive)
-const { platformStats } = usePlatformStats()
+// Load carousel banners from API
+const loadBanners = async () => {
+  try {
+    const res: any = await apiRequest('/v3/contents', { query: { content_type: 'carousel', page_size: 5 } })
+    const items = res?.data?.items || []
+    if (items.length > 0) {
+      heroSlides.value = items
+        .filter((item: any) => item.coverImage)
+        .map((item: any, i: number) => ({
+          image: item.coverImage,
+          animation: animations[i % animations.length]
+        }))
+      if (heroSlides.value.length === 0) heroSlides.value = defaultSlides
+    }
+  } catch {
+    // Fallback to defaults
+  }
+}
+
+// 统计数据 (从API加载)
+const { stats: dashboardStats } = usePlatformStats()
 const stats = computed(() => [
-  { label: '招标信息总量', value: platformStats.tenderCount ? platformStats.tenderCount.toLocaleString() : '-', icon: '📄' },
-  { label: '注册企业会员', value: platformStats.memberCount ? platformStats.memberCount.toLocaleString() : '-', icon: '🏢' },
-  { label: '覆盖目标国家', value: String(platformStats.countryCount), icon: '🌍' },
-  { label: '联合国年采购额', value: platformStats.unAnnualAmount, icon: '💰' },
+  { label: '招标信息总量', value: dashboardStats.value.totals.tenderCount ? dashboardStats.value.totals.tenderCount.toLocaleString() : '-', icon: '📄' },
+  { label: '注册企业会员', value: dashboardStats.value.totals.memberCount ? dashboardStats.value.totals.memberCount.toLocaleString() : '-', icon: '🏢' },
+  { label: '覆盖目标国家', value: String(dashboardStats.value.totals.countryCount), icon: '🌍' },
+  { label: '联合国年采购额', value: '$25.7B', icon: '💰' },
 ])
 
 // 平台服务商风采数据
@@ -427,7 +448,9 @@ onMounted(async () => {
 
     apiRequest('/v3/activities?page=1&page_size=4').then((res: any) => {
       activities.value = Array.isArray(res?.data?.items) ? res.data.items : []
-    }).catch(() => { activities.value = [] })
+    }).catch(() => { activities.value = [] }),
+
+    loadBanners()
   ])
 })
 

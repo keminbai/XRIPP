@@ -26,7 +26,8 @@
 | 5 | [DDL_Phase5_Suppliers_Extension.sql](./DDL_Phase5_Suppliers_Extension.sql) | suppliers 扩展列（service_type/contact等） |
 | 6 | [DDL_Phase6_Demands_Extension.sql](./DDL_Phase6_Demands_Extension.sql) | demands 表字段扩展（8 列，幂等） |
 | 7 | [DDL_Phase7_Favorites.sql](./DDL_Phase7_Favorites.sql) | user_favorites 收藏表（幂等） |
-| 8 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 8 | [DDL_Phase8_Contents_Carousel.sql](./DDL_Phase8_Contents_Carousel.sql) | contents 表 cover_image + carousel 类型扩展 |
+| 9 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
