@@ -1,29 +1,40 @@
-import { reactive, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { apiRequest } from '@/utils/request'
 
+export interface DashboardStats {
+  totals: {
+    tenderCount: number
+    memberCount: number
+    countryCount: number
+    monthlyNewMembers: number
+  }
+  tendersByCategory: { name: string; value: number }[]
+  tendersByCountry: { name: string; value: number }[]
+  memberTrend: { month: string; count: number }[]
+  membersByIndustry: { name: string; value: number }[]
+  recentCompanies: string[]
+}
+
+const defaultStats: DashboardStats = {
+  totals: { tenderCount: 0, memberCount: 0, countryCount: 193, monthlyNewMembers: 0 },
+  tendersByCategory: [],
+  tendersByCountry: [],
+  memberTrend: [],
+  membersByIndustry: [],
+  recentCompanies: []
+}
+
 export const usePlatformStats = () => {
-  const platformStats = reactive({
-    tenderCount: 0,
-    memberCount: 0,
-    countryCount: 193,
-    unAnnualAmount: '$25.7B'
-  })
+  const stats = ref<DashboardStats>({ ...defaultStats })
+  const loaded = ref(false)
 
   const loadStats = async () => {
     try {
-      await Promise.allSettled([
-        apiRequest('/v3/admin/tenders/stats').then((res: any) => {
-          const data = res?.data || {}
-          let total = 0
-          Object.values(data).forEach((v: any) => { total += Number(v || 0) })
-          if (total > 0) platformStats.tenderCount = total
-        }),
-
-        apiRequest('/v3/admin/members', { query: { page: 1, page_size: 1 } }).then((res: any) => {
-          const total = Number(res?.data?.total || 0)
-          if (total > 0) platformStats.memberCount = total
-        })
-      ])
+      const res: any = await apiRequest('/v3/dashboard/stats')
+      if (res?.data) {
+        stats.value = { ...defaultStats, ...res.data }
+        loaded.value = true
+      }
     } catch {
       // Silently fallback to defaults
     }
@@ -33,5 +44,5 @@ export const usePlatformStats = () => {
     onMounted(() => { loadStats() })
   }
 
-  return { platformStats }
+  return { stats, loaded, loadStats }
 }

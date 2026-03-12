@@ -351,13 +351,19 @@ function startAuto() {
   }, 1000)
 }
 
+// ═══ Category Mapping ═══
+const categoryMap: Record<string, string> = {
+  medical: '医疗设备', it: 'IT通讯', construction: '基建工程',
+  office: '办公设备', consulting: '咨询服务', other: '其他'
+}
+
 // ═══ Config Data ═══
-const { platformStats } = usePlatformStats()
+const { stats: dashboardStats, loaded: statsLoaded } = usePlatformStats()
 const cfg = ref({
-  year: '2024', countryCount: platformStats.countryCount, memberCount: platformStats.memberCount, monthlyNewMembers: 86,
+  year: new Date().getFullYear().toString(), countryCount: 193, memberCount: 0, monthlyNewMembers: 0,
   ungmCount: 3200, helpedProjects: 1253, domesticCities: 18,
-  tenderCount: platformStats.tenderCount,
-  unData: { totalAmount: platformStats.unAnnualAmount, cnAmount: '$435M', growthRate: '↑ 12.3%', activeOrgs: 26 },
+  tenderCount: 0,
+  unData: { totalAmount: '$25.7B', cnAmount: '$435M', growthRate: '↑ 12.3%', activeOrgs: 26 },
   dp: { count: 18, provinces: 12, cities: 25 },
   ip: { count: 28, countries: 15, cities: 42 },
   orgList: [
@@ -367,34 +373,16 @@ const cfg = ref({
     { name: '联合国粮农组织', code: 'FAO' }, { name: '世界银行', code: 'WB' },
     { name: '亚洲开发银行', code: 'ADB' }, { name: '红十字国际委员会', code: 'ICRC' }
   ],
-  topCat: [
-    { name: '医疗设备', value: 1250 }, { name: '基建工程', value: 980 },
-    { name: 'IT/通讯', value: 850 }, { name: '帐篷/救援', value: 720 }, { name: '能源设施', value: 640 }
-  ],
-  topCtry: [
-    { name: '肯尼亚', value: 450 }, { name: '乌克兰', value: 410 },
-    { name: '也门', value: 380 }, { name: '阿富汗', value: 320 }, { name: '苏丹', value: 290 }
-  ],
-  compTypes: [
-    { name: '产品类', value: 1680 }, { name: '服务类', value: 1124 }, { name: '贸易类', value: 937 },
-    { name: '创新科技类', value: 562 }, { name: '工程类', value: 281 }, { name: '其它', value: 100 }
-  ],
-  trend: [
-    { m: '7月', v: 45 }, { m: '8月', v: 58 }, { m: '9月', v: 62 },
-    { m: '10月', v: 75 }, { m: '11月', v: 88 }, { m: '12月', v: 120 }
-  ],
+  topCat: [] as { name: string; value: number }[],
+  topCtry: [] as { name: string; value: number }[],
+  compTypes: [] as { name: string; value: number }[],
+  trend: [] as { m: string; v: number }[],
   cityRank: [
     { name: '上海', value: 1204 }, { name: '深圳', value: 985 }, { name: '杭州', value: 856 },
     { name: '苏州', value: 742 }, { name: '北京', value: 621 }, { name: '成都', value: 580 },
     { name: '广州', value: 533 }, { name: '宁波', value: 490 }, { name: '南京', value: 420 }, { name: '青岛', value: 380 }
   ],
-  compNames: [
-    '浙江大华技术股份有限公司', '迈瑞生物医疗电子股份有限公司', '联想集团有限公司',
-    '海尔智家股份有限公司', '中国建筑一局(集团)有限公司', '同方威视技术股份有限公司',
-    '深圳华大基因股份有限公司', '江苏鱼跃医疗设备股份有限公司', '东软集团股份有限公司',
-    '中联重科股份有限公司', '三一重工股份有限公司', '比亚迪股份有限公司',
-    '隆基绿能科技股份有限公司', '晶科能源控股有限公司', '宁德时代新能源科技股份有限公司'
-  ],
+  compNames: [] as string[],
   provRank: [{name:'江苏',value:5},{name:'浙江',value:4},{name:'广东',value:3},{name:'四川',value:2},{name:'山东',value:2}],
   ctryRank: [{name:'印度尼西亚',value:3},{name:'马来西亚',value:2},{name:'泰国',value:2},{name:'越南',value:1},{name:'肯尼亚',value:1}],
   dpList: [
@@ -827,6 +815,79 @@ watch(activeTab, async () => {
   // 短延时确保 display 已从 none 变为可见
   await new Promise(r => setTimeout(r, 50))
   resizeAll()
+})
+
+// ═══ API Data → cfg + chart redraw ═══
+watch(statsLoaded, (ready) => {
+  if (!ready) return
+  const d = dashboardStats.value
+
+  // Update cfg totals
+  const t = d.totals
+  cfg.value.tenderCount = t.tenderCount || cfg.value.tenderCount
+  cfg.value.memberCount = t.memberCount || cfg.value.memberCount
+  cfg.value.countryCount = t.countryCount || cfg.value.countryCount
+  cfg.value.monthlyNewMembers = t.monthlyNewMembers || cfg.value.monthlyNewMembers
+
+  // Category bar chart data (map English → Chinese)
+  if (d.tendersByCategory?.length) {
+    cfg.value.topCat = d.tendersByCategory.map(item => ({
+      name: categoryMap[item.name] || item.name,
+      value: item.value
+    }))
+  }
+
+  // Country bar chart data
+  if (d.tendersByCountry?.length) {
+    cfg.value.topCtry = d.tendersByCountry.map(item => ({
+      name: item.name, value: item.value
+    }))
+  }
+
+  // Member trend (month → short label)
+  if (d.memberTrend?.length) {
+    cfg.value.trend = d.memberTrend.map(item => ({
+      m: item.month.replace(/^\d{4}-/, '').replace(/^0/, '') + '月',
+      v: item.count
+    }))
+  }
+
+  // Industry pie chart
+  if (d.membersByIndustry?.length) {
+    cfg.value.compTypes = d.membersByIndustry.map(item => ({
+      name: item.name, value: item.value
+    }))
+  }
+
+  // Recent companies scroll list
+  if (d.recentCompanies?.length) {
+    cfg.value.compNames = d.recentCompanies
+  }
+
+  // Redraw charts with new data (setOption on existing instances)
+  if (chartsInited.value) {
+    if (cfg.value.topCat.length) inst['p1b1']?.setOption(hBar(cfg.value.topCat, '#fbbf24', '#d97706', 80))
+    if (cfg.value.topCtry.length) inst['p1b2']?.setOption(hBar(cfg.value.topCtry, '#38bdf8', '#0284c7', 60))
+
+    if (cfg.value.trend.length && inst['p2line']) {
+      inst['p2line'].setOption({
+        xAxis: { data: cfg.value.trend.map(d => d.m) },
+        series: [{ data: cfg.value.trend.map(d => d.v) }]
+      })
+    }
+
+    if (cfg.value.compTypes.length && inst['p2pie']) {
+      const tc = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
+      inst['p2pie'].setOption({
+        series: [{
+          data: cfg.value.compTypes.map((d, i) => ({
+            value: d.value, name: d.name,
+            itemStyle: { color: tc[i % tc.length] }
+          }))
+        }]
+      })
+    }
+  }
 })
 
 // ═══ Lifecycle ═══

@@ -231,7 +231,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（24 个）
+## 8. 后端 Controller 清单（25 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -258,6 +258,7 @@
 | AdminSupplierOnboardingV3Controller | /v3/admin/supplier-onboarding | 供应商入库审核 |
 | UserFavoritesV3Controller | /v3/member/favorites | 会员收藏（CRUD + ids） |
 | ContentsV3Controller | /v3/contents | 内容公共查询（仅 published） |
+| DashboardV3Controller | /v3/dashboard | 数据大屏统计（公共，无需认证） |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
