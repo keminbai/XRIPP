@@ -713,45 +713,18 @@ const handleReset = () => {
   loadMembers()
 }
 
-const csvEscape = (val: any) => {
-  const str = String(val ?? '')
-  return `"${str.replace(/"/g, '""')}"`
-}
-
-const handleExport = () => {
+const handleExport = async () => {
   if (!import.meta.client) return
-  const list = selectedRows.value.length ? selectedRows.value : filteredMemberList.value
-
-  const header = ['公司名称','联系人','电话','行业','等级','邀请码','省份','城市','国际会员','状态','注册时间','到期时间']
-  const rows = list.map(i => [
-    i.companyName,
-    i.contactPerson,
-    i.contactPhone,
-    i.industry,
-    i.level,
-    i.invitationCode,
-    i.province,
-    i.city,
-    i.isInternational ? '是' : '否',
-    i.statusLabel,
-    i.registerDate,
-    i.expireDate
-  ])
-
-  const csvContent = '\uFEFF' + [
-    header.map(csvEscape).join(','),
-    ...rows.map(r => r.map(csvEscape).join(','))
-  ].join('\r\n')
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `会员列表_${new Date().toISOString().slice(0,10)}.csv`
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 100)
-
-  ElMessage.success('导出成功')
+  try {
+    const { downloadExcel } = await import('@/utils/downloadExcel')
+    await downloadExcel('/v3/admin/members/export', `会员列表_${new Date().toISOString().slice(0, 10)}.xlsx`, {
+      member_level: filters.value.level?.toLowerCase() || '',
+      keyword: filters.value.keyword || ''
+    })
+    ElMessage.success('导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
 }
 
 const handleViewDetail = (row: any) => {

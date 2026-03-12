@@ -4,10 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.dto.TenderExportDTO;
 import com.xripp.backend.entity.TenderEntity;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.ITenderService;
 import com.xripp.backend.service.StateTransitionService;
+import com.xripp.backend.util.ExcelExportUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -400,6 +403,45 @@ public class AdminTendersV3Controller {
     private String formatDate(Date date) {
         if (date == null) return "";
         return new SimpleDateFormat("yyyy-MM-dd").format(date);
+    }
+
+    @GetMapping("/export")
+    public void export(
+            @RequestParam(name = "tender_status", required = false) String tenderStatus,
+            @RequestParam(required = false) String keyword,
+            HttpServletResponse response
+    ) throws Exception {
+        if (!SecurityContextHolder.isAdmin()) {
+            response.setStatus(403);
+            return;
+        }
+
+        QueryWrapper<TenderEntity> qw = new QueryWrapper<>();
+        if (tenderStatus != null && !tenderStatus.isBlank()) {
+            qw.eq("tender_status", tenderStatus.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("title", kw).or().like("tender_no", kw));
+        }
+        qw.orderByDesc("updated_at");
+
+        List<TenderEntity> all = tenderService.list(qw);
+        List<TenderExportDTO> rows = new ArrayList<>();
+        for (TenderEntity t : all) {
+            TenderExportDTO dto = new TenderExportDTO();
+            dto.setTenderNo(t.getTenderNo());
+            dto.setTitle(t.getTitle());
+            dto.setOrganizationName(t.getOrganizationName());
+            dto.setCountry(t.getCountry());
+            dto.setCategory(mapCategoryLabel(safeOr(t.getCategory(), "other")));
+            dto.setPrice(t.getPrice() == null ? "0" : t.getPrice().toPlainString());
+            dto.setTenderStatus(t.getTenderStatus());
+            dto.setDeadlineAt(formatDateTime(t.getDeadlineAt()));
+            dto.setCreatedAt(formatDate(t.getCreatedAt()));
+            rows.add(dto);
+        }
+        ExcelExportUtil.write(response, "标书列表", TenderExportDTO.class, rows);
     }
 
     private String formatDateTime(Date date) {

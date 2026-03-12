@@ -4,10 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.dto.SupplierExportDTO;
 import com.xripp.backend.entity.SupplierOnboarding;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.ISupplierOnboardingService;
 import com.xripp.backend.service.StateTransitionService;
+import com.xripp.backend.util.ExcelExportUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -237,5 +240,46 @@ public class AdminSupplierOnboardingV3Controller {
     private String fmtDate(java.util.Date date) {
         if (date == null) return "";
         return new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date);
+    }
+
+    @GetMapping("/export")
+    public void export(
+            @RequestParam(name = "onboarding_status", required = false) String onboardingStatus,
+            @RequestParam(required = false) String keyword,
+            HttpServletResponse response
+    ) throws Exception {
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
+            response.setStatus(403);
+            return;
+        }
+
+        QueryWrapper<SupplierOnboarding> qw = new QueryWrapper<>();
+        if (SecurityContextHolder.isPartner()) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            if (partnerId == null) { response.setStatus(403); return; }
+            qw.eq("partner_id", partnerId);
+        }
+        if (onboardingStatus != null && !onboardingStatus.isBlank()) {
+            qw.eq("onboarding_status", onboardingStatus.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("company_name", kw).or().like("city_name", kw));
+        }
+        qw.orderByDesc("updated_at");
+
+        List<SupplierOnboarding> all = service.list(qw);
+        List<SupplierExportDTO> rows = new ArrayList<>();
+        for (SupplierOnboarding so : all) {
+            SupplierExportDTO dto = new SupplierExportDTO();
+            dto.setId(so.getId());
+            dto.setCompanyName(so.getCompanyName());
+            dto.setCityName(so.getCityName());
+            dto.setOnboardingStatus(mapStatusLabel(safeOr(so.getOnboardingStatus(), "draft")));
+            dto.setSubmittedAt(ExcelExportUtil.fmtDate(so.getSubmittedAt()));
+            dto.setReviewedAt(ExcelExportUtil.fmtDate(so.getReviewedAt()));
+            rows.add(dto);
+        }
+        ExcelExportUtil.write(response, "供应商入驻", SupplierExportDTO.class, rows);
     }
 }

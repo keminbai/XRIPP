@@ -4,12 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
+import com.xripp.backend.dto.OrderExportDTO;
 import com.xripp.backend.entity.MemberProfile;
 import com.xripp.backend.entity.OrderEntity;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.IMemberProfileService;
 import com.xripp.backend.service.IOrderService;
 import com.xripp.backend.service.StateTransitionService;
+import com.xripp.backend.util.ExcelExportUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -344,5 +347,63 @@ public class AdminOrdersV3Controller {
             case "completed" -> "closed".equals(to);
             default -> false;
         };
+    }
+
+    @GetMapping("/export")
+    public void export(
+            @RequestParam(name = "order_status", required = false) String orderStatus,
+            @RequestParam(name = "order_type", required = false) String orderType,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String source,
+            HttpServletResponse response
+    ) throws Exception {
+        if (!SecurityContextHolder.isAdmin()) {
+            response.setStatus(403);
+            return;
+        }
+
+        QueryWrapper<OrderEntity> qw = new QueryWrapper<>();
+        if (orderStatus != null && !orderStatus.isBlank()) {
+            qw.eq("order_status", orderStatus.trim());
+        }
+        if (orderType != null && !orderType.isBlank()) {
+            qw.eq("order_type", orderType.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("order_no", kw).or().like("biz_type", kw));
+        }
+        if ("frontend".equals(source)) {
+            qw.in("order_type", FRONTEND_ORDER_TYPES);
+        } else if ("backend".equals(source)) {
+            qw.notIn("order_type", FRONTEND_ORDER_TYPES);
+        }
+        qw.orderByDesc("created_at");
+
+        List<OrderEntity> all = orderService.list(qw);
+
+        Set<Long> userIds = all.stream()
+                .map(OrderEntity::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, MemberProfile> profileMap = loadProfiles(userIds);
+
+        List<OrderExportDTO> rows = new ArrayList<>();
+        for (OrderEntity o : all) {
+            MemberProfile mp = profileMap.get(o.getUserId());
+            OrderExportDTO dto = new OrderExportDTO();
+            dto.setOrderNo(o.getOrderNo() != null ? o.getOrderNo() : "ORD-" + o.getId());
+            dto.setOrderType(ORDER_TYPE_LABELS.getOrDefault(
+                    o.getOrderType() != null ? o.getOrderType() : "", o.getOrderType()));
+            dto.setCompanyName(mp != null && mp.getCompanyName() != null ? mp.getCompanyName() : "-");
+            dto.setContactPerson(mp != null && mp.getContactPerson() != null ? mp.getContactPerson() : "-");
+            dto.setContactPhone(mp != null && mp.getContactPhone() != null ? mp.getContactPhone() : "-");
+            dto.setAmount(o.getAmount() != null ? o.getAmount().toPlainString() : "0");
+            dto.setOrderStatus(STATUS_LABELS.getOrDefault(
+                    o.getOrderStatus() != null ? o.getOrderStatus() : "", "待支付"));
+            dto.setCreatedAt(fmtDate(o.getCreatedAt()));
+            rows.add(dto);
+        }
+        ExcelExportUtil.write(response, "订单列表", OrderExportDTO.class, rows);
     }
 }

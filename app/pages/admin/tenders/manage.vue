@@ -367,27 +367,17 @@ const handleArchive = (row: any) => {
   }).catch(() => {})
 }
 
-const handleExport = () => {
+const handleExport = async () => {
   if (!import.meta.client) return
-
-  const header = '标书编号,标题,组织,分类,价格,销量,发布日期,状态'
-  const rows = apiTenders.value.map(item =>
-    `"${item.tenderNo}","${item.title}","${item.organization}","${item.categoryLabel}","${item.price}","${item.sales}","${item.publishDate}","${item.status}"`
-  )
-  const csvContent = '\uFEFF' + [header, ...rows].join('\n')
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = url
-  link.download = `标书列表_${activeTab.value}_${new Date().toISOString().slice(0, 10)}.csv`
-  link.style.display = 'none'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-
-  ElMessage.success('列表导出成功')
+  try {
+    const { downloadExcel } = await import('@/utils/downloadExcel')
+    await downloadExcel('/v3/admin/tenders/export', `标书列表_${activeTab.value}_${new Date().toISOString().slice(0, 10)}.xlsx`, {
+      tender_status: statusParamMap[activeTab.value] || ''
+    })
+    ElMessage.success('列表导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
 }
 </script>
 

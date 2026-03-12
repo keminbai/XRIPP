@@ -280,29 +280,24 @@ const handleView = (row: SupplierRow) => {
   detailDialogVisible.value = true
 }
 
-const csvEscape = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`
-
-const handleExport = () => {
+const handleExport = async () => {
   if (!import.meta.client) return
-  const list = selectedRows.value.length ? selectedRows.value : rawList.value
-  const header = ['申请编号', '公司名称', '联系人', '联系电话', '行业', '审核状态', '提交时间', '审核时间', '驳回原因']
-  const rows = list.map(i => [
-    i.applyNo, i.name, i.contact, i.phone, i.industry, i.statusLabel, i.submitDate, i.reviewedDate, i.rejectReason
-  ])
+  try {
+    const { downloadExcel } = await import('@/utils/downloadExcel')
+    const params: Record<string, string> = {}
+    if (filters.value.status) {
+      const statusToApi: Record<string, string> = {
+        submitted: 'submitted', precheck_passed: 'precheck_passed',
+        active: 'active', rejected: 'precheck_failed', inactive: 'inactive'
+      }
+      params.onboarding_status = statusToApi[filters.value.status] || filters.value.status
+    }
+    if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
 
-  const csvContent = '\uFEFF' + [
-    header.map(csvEscape).join(','),
-    ...rows.map(r => r.map(csvEscape).join(','))
-  ].join('\r\n')
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `服务商名录_${new Date().toISOString().slice(0, 10)}.csv`
-  a.click()
-  URL.revokeObjectURL(url)
-
-  ElMessage.success('导出成功')
+    await downloadExcel('/v3/admin/supplier-onboarding/export', `服务商名录_${new Date().toISOString().slice(0, 10)}.xlsx`, params)
+    ElMessage.success('导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
 }
 </script>

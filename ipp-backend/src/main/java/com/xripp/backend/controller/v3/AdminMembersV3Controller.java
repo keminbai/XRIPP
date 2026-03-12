@@ -6,10 +6,13 @@ import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.MemberProfile;
 import com.xripp.backend.entity.SysUser;
+import com.xripp.backend.dto.MemberExportDTO;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.IMemberProfileService;
 import com.xripp.backend.service.ISysUserService;
 import com.xripp.backend.service.StateTransitionService;
+import com.xripp.backend.util.ExcelExportUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -177,5 +180,50 @@ public class AdminMembersV3Controller {
     private String fmtDate(Date date) {
         if (date == null) return "";
         return new SimpleDateFormat("yyyy-MM-dd HH:mm").format(date);
+    }
+
+    @GetMapping("/export")
+    public void export(
+            @RequestParam(name = "member_level", required = false) String memberLevel,
+            @RequestParam(required = false) String keyword,
+            HttpServletResponse response
+    ) throws Exception {
+        if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
+            response.setStatus(403);
+            return;
+        }
+
+        QueryWrapper<MemberProfile> qw = new QueryWrapper<>();
+        if (SecurityContextHolder.isPartner()) {
+            Long partnerId = SecurityContextHolder.getCurrentPartnerId();
+            if (partnerId == null) { response.setStatus(403); return; }
+            qw.inSql("user_id", "SELECT id FROM sys_user WHERE partner_id = " + partnerId);
+        }
+        if (memberLevel != null && !memberLevel.isBlank()) {
+            qw.eq("member_level", memberLevel.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("company_name", kw)
+                    .or().like("contact_person", kw)
+                    .or().like("contact_phone", kw));
+        }
+        qw.orderByDesc("created_at");
+
+        List<MemberProfile> all = memberProfileService.list(qw);
+        List<MemberExportDTO> rows = new ArrayList<>();
+        for (MemberProfile mp : all) {
+            MemberExportDTO dto = new MemberExportDTO();
+            dto.setId(mp.getId());
+            dto.setCompanyName(mp.getCompanyName());
+            dto.setContactPerson(mp.getContactPerson());
+            dto.setContactPhone(mp.getContactPhone());
+            dto.setIndustry(mp.getIndustry());
+            dto.setMemberLevel(mp.getMemberLevel() == null ? "normal" : mp.getMemberLevel());
+            dto.setInvitationCode(mp.getInvitationCode());
+            dto.setCreatedAt(ExcelExportUtil.fmtDate(mp.getCreatedAt()));
+            rows.add(dto);
+        }
+        ExcelExportUtil.write(response, "会员列表", MemberExportDTO.class, rows);
     }
 }

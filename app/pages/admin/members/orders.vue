@@ -687,46 +687,28 @@ const handleReset = () => {
 const handleSizeChange = () => { currentPage.value = 1; loadOrders() }
 const handleCurrentChange = () => { loadOrders() }
 
-const csvEscape = (val: any) => {
-  const str = String(val ?? '')
-  return `"${str.replace(/"/g, '""')}"`
-}
-
-const handleExport = () => {
+const handleExport = async () => {
   if (!import.meta.client) return
-  const header = [
-    '订单号','来源','订单类型','关联标的','订单标题','公司名称','联系人','联系电话',
-    '订单金额','状态','当前阶段','创建时间'
-  ]
-  const rows = filteredOrderList.value.map(i => [
-    i.orderNo,
-    i.source === 'frontend' ? '前台' : '后台',
-    i.orderType,
-    i.tenderNo || '',
-    i.orderTitle,
-    i.companyName,
-    i.contactPerson,
-    i.contactPhone,
-    i.amount,
-    i.status,
-    i.serviceStage || '',
-    i.createTime
-  ])
+  try {
+    const { downloadExcel } = await import('@/utils/downloadExcel')
+    const params: Record<string, string> = {}
+    if (filters.value.keyword) params.keyword = filters.value.keyword
+    if (filters.value.orderType) {
+      const apiType = orderTypeApiMap[filters.value.orderType]
+      if (apiType) params.order_type = apiType
+    }
+    if (filters.value.status) {
+      const apiStatus = statusApiMap[filters.value.status]
+      if (apiStatus) params.order_status = apiStatus
+    }
+    if (activeTab.value === 'member') params.source = 'frontend'
+    else if (activeTab.value === 'service') params.source = 'backend'
 
-  const csvContent = '\uFEFF' + [
-    header.map(csvEscape).join(','),
-    ...rows.map(r => r.map(csvEscape).join(','))
-  ].join('\r\n')
-
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `会员订单_${new Date().toISOString().slice(0,10)}.csv`
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 100)
-
-  ElMessage.success('导出成功')
+    await downloadExcel('/v3/admin/orders/export', `会员订单_${new Date().toISOString().slice(0, 10)}.xlsx`, params)
+    ElMessage.success('导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '导出失败')
+  }
 }
 
 const openCreateServiceOrderDialog = () => {
