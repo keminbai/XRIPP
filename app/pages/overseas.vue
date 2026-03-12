@@ -367,75 +367,9 @@ useHead({ title: '海外服务 - XRIPP全球公共采购服务平台' })
 const route = useRoute()
 const hideMapBanner = computed(() => route.query.mode === 'delivery')
 
-// ==================== 1. 真实服务点数据 (客户提供) ====================
-const servicePoints = [
-    // 🇨🇳 总部（新增）
-  { 
-    id: 'CN01', 
-    city: '上海', 
-    country: '中国', 
-    lat: 31.23, 
-    lng: 121.47, 
-    manager: '总部运营中心', 
-    services: ['标书翻译', '服务商注册', '法律咨询', '资源对接'], 
-    continent: '亚洲', 
-    serviceType: '跨境企服', 
-    rating: 5.0, 
-    responseTime: '即时', 
-    successCases: 999 
-  },
+// ==================== 1. 从 API 加载真实服务网点数据 ====================
+const allPoints = ref<any[]>([])
 
-  // 🌏 亚洲
-  { id: 'AS01', city: '新加坡', country: '新加坡', lat: 1.35, lng: 103.82, manager: 'Tan先生', services: ['金融牌照', '离岸架构', '税务筹划'], continent: '亚洲', serviceType: '跨境企服', rating: 4.9, responseTime: '2小时', successCases: 156 },
-  { id: 'AS02', city: '金边', country: '柬埔寨', lat: 11.56, lng: 104.93, manager: 'Sok经理', services: ['特区入驻', '劳工政策'], continent: '亚洲', serviceType: '外贸服务', rating: 4.6, responseTime: '4小时', successCases: 89 },
-  { id: 'AS03', city: '宿务', country: '菲律宾', lat: 10.31, lng: 123.89, manager: 'Santos先生', services: ['BPO外包', '物流服务'], continent: '亚洲', serviceType: '外贸服务', rating: 4.5, responseTime: '6小时', successCases: 72 },
-  { id: 'AS04', city: '马尼拉', country: '菲律宾', lat: 14.60, lng: 120.98, manager: 'Cruz女士', services: ['制造业咨询', '港口对接'], continent: '亚洲', serviceType: '出海投资', rating: 4.7, responseTime: '3小时', successCases: 95 },
-  { id: 'AS05', city: '曼谷', country: '泰国', lat: 13.75, lng: 100.50, manager: 'Sompong先生', services: ['BOI申请', '税务筹划'], continent: '亚洲', serviceType: '跨境企服', rating: 4.8, responseTime: '2小时', successCases: 142 },
-  { id: 'AS06', city: '东京', country: '日本', lat: 35.68, lng: 139.65, manager: '佐藤先生', services: ['技术认证', '知识产权'], continent: '亚洲', serviceType: '知识产权', rating: 4.9, responseTime: '1小时', successCases: 203 },
-  { id: 'AS07', city: '胡志明市', country: '越南', lat: 10.82, lng: 106.63, manager: '阮经理', services: ['建厂选址', '劳工招聘'], continent: '亚洲', serviceType: '出海投资', rating: 4.7, responseTime: '3小时', successCases: 118 },
-  { id: 'AS08', city: '河内', country: '越南', lat: 21.03, lng: 105.85, manager: '黎经理', services: ['政府对接', '园区入驻'], continent: '亚洲', serviceType: '出海投资', rating: 4.6, responseTime: '4小时', successCases: 97 },
-  { id: 'AS09', city: '阿布扎比', country: '阿联酋', lat: 24.47, lng: 54.37, manager: 'Ahmed先生', services: ['能源项目', '自贸区注册'], continent: '亚洲', serviceType: '出海投资', rating: 4.8, responseTime: '2小时', successCases: 134 },
-  { id: 'AS10', city: '迪拜', country: '阿联酋', lat: 25.20, lng: 55.27, manager: 'Khalid先生', services: ['中东市场拓展', '展会对接'], continent: '亚洲', serviceType: '外贸服务', rating: 4.9, responseTime: '1小时', successCases: 178 },
-  { id: 'AS11', city: '吉隆坡', country: '马来西亚', lat: 3.14, lng: 101.69, manager: '李经理', services: ['清关服务', '本地化支持'], continent: '亚洲', serviceType: '外贸服务', rating: 4.7, responseTime: '3小时', successCases: 126 },
-  { id: 'AS12', city: '香港', country: '中国', lat: 22.32, lng: 114.17, manager: '陈经理', services: ['离岸公司', '跨境金融'], continent: '亚洲', serviceType: '跨境企服', rating: 4.9, responseTime: '1小时', successCases: 245 },
-  { id: 'AS13', city: '德黑兰', country: '伊朗', lat: 35.69, lng: 51.42, manager: 'Reza先生', services: ['能源合作', '政策咨询'], continent: '亚洲', serviceType: '出海投资', rating: 4.3, responseTime: '8小时', successCases: 54 },
-  { id: 'AS14', city: '雅加达', country: '印度尼西亚', lat: -6.21, lng: 106.85, manager: 'Budi先生', services: ['采矿许可', '环评服务'], continent: '亚洲', serviceType: '出海投资', rating: 4.5, responseTime: '5小时', successCases: 81 },
-
-  // 🌍 欧洲
-  { id: 'EU01', city: '柏林', country: '德国', lat: 52.52, lng: 13.41, manager: 'Schmidt先生', services: ['工业4.0认证', '欧盟准入'], continent: '欧洲', serviceType: '跨境企服', rating: 4.8, responseTime: '2小时', successCases: 167 },
-  { id: 'EU02', city: '莫斯科', country: '俄罗斯', lat: 55.76, lng: 37.62, manager: 'Ivanov先生', services: ['关税咨询', '物流通道'], continent: '欧洲', serviceType: '外贸服务', rating: 4.4, responseTime: '6小时', successCases: 73 },
-  { id: 'EU03', city: '巴黎', country: '法国', lat: 48.86, lng: 2.35, manager: 'Dubois女士', services: ['品牌注册', '展会对接'], continent: '欧洲', serviceType: '知识产权', rating: 4.7, responseTime: '3小时', successCases: 139 },
-  { id: 'EU04', city: '爱丁堡', country: '英国', lat: 55.95, lng: -3.19, manager: 'Campbell先生', services: ['金融服务', '法律合规'], continent: '欧洲', serviceType: '跨境企服', rating: 4.6, responseTime: '4小时', successCases: 102 },
-  { id: 'EU05', city: '曼彻斯特', country: '英国', lat: 53.48, lng: -2.24, manager: 'Brown女士', services: ['制造业对接', '供应链优化'], continent: '欧洲', serviceType: '出海投资', rating: 4.7, responseTime: '3小时', successCases: 115 },
-  { id: 'EU06', city: '伦敦', country: '英国', lat: 51.51, lng: -0.13, manager: 'Wilson先生', services: ['欧洲法律合规', '投资并购'], continent: '欧洲', serviceType: '跨境企服', rating: 4.9, responseTime: '1小时', successCases: 198 },
-  { id: 'EU07', city: '米兰', country: '意大利', lat: 45.46, lng: 9.19, manager: 'Rossi先生', services: ['时尚品牌', '设计产业'], continent: '欧洲', serviceType: '知识产权', rating: 4.6, responseTime: '4小时', successCases: 91 },
-  { id: 'EU08', city: '佛罗伦萨', country: '意大利', lat: 43.77, lng: 11.26, manager: 'Bianchi女士', services: ['文化创意', '艺术品交易'], continent: '欧洲', serviceType: '其他服务', rating: 4.5, responseTime: '5小时', successCases: 68 },
-  { id: 'EU09', city: '阿姆斯特丹', country: '荷兰', lat: 52.37, lng: 4.90, manager: 'Van Berg先生', services: ['物流枢纽', '税务筹划'], continent: '欧洲', serviceType: '外贸服务', rating: 4.8, responseTime: '2小时', successCases: 152 },
-  { id: 'EU10', city: '里斯本', country: '葡萄牙', lat: 38.72, lng: -9.14, manager: 'Silva女士', services: ['旅游业投资', '房地产'], continent: '欧洲', serviceType: '出海投资', rating: 4.4, responseTime: '6小时', successCases: 76 },
-
-  // 🌎 北美洲
-  { id: 'NA01', city: '洛杉矶', country: '美国', lat: 34.05, lng: -118.24, manager: 'Johnson先生', services: ['北美市场准入', '港口物流'], continent: '北美洲', serviceType: '外贸服务', rating: 4.8, responseTime: '2小时', successCases: 164 },
-  { id: 'NA02', city: '波士顿', country: '美国', lat: 42.36, lng: -71.06, manager: 'Williams女士', services: ['教育科技', '生物医药'], continent: '北美洲', serviceType: '出海投资', rating: 4.7, responseTime: '3小时', successCases: 128 },
-  { id: 'NA03', city: '纽约', country: '美国', lat: 40.71, lng: -74.01, manager: 'Davis先生', services: ['金融服务', '联合国对接'], continent: '北美洲', serviceType: '跨境企服', rating: 4.9, responseTime: '1小时', successCases: 215 },
-  { id: 'NA04', city: '华盛顿', country: '美国', lat: 38.91, lng: -77.04, manager: 'Miller女士', services: ['政府采购', '政策游说'], continent: '北美洲', serviceType: '报告下载', rating: 4.6, responseTime: '4小时', successCases: 103 },
-  { id: 'NA05', city: '哈瓦那', country: '古巴', lat: 23.11, lng: -82.37, manager: 'Rodriguez先生', services: ['拉美市场', '文化交流'], continent: '北美洲', serviceType: '其他服务', rating: 4.2, responseTime: '8小时', successCases: 47 },
-  { id: 'NA06', city: '多伦多', country: '加拿大', lat: 43.65, lng: -79.38, manager: 'Thompson先生', services: ['移民咨询', '资源开发'], continent: '北美洲', serviceType: '跨境企服', rating: 4.7, responseTime: '3小时', successCases: 137 },
-  { id: 'NA07', city: '墨西哥城', country: '墨西哥', lat: 19.43, lng: -99.13, manager: 'Garcia先生', services: ['制造业外包', '矿产贸易'], continent: '北美洲', serviceType: '出海投资', rating: 4.5, responseTime: '5小时', successCases: 84 },
-
-  // 🌍 非洲
-  { id: 'AF01', city: '约翰内斯堡', country: '南非', lat: -26.20, lng: 28.05, manager: 'Van Der Merwe先生', services: ['矿业投资', '基建项目'], continent: '非洲', serviceType: '出海投资', rating: 4.5, responseTime: '5小时', successCases: 79 },
-  { id: 'AF02', city: '马普托', country: '莫桑比克', lat: -25.97, lng: 32.57, manager: 'Macamo女士', services: ['港口开发', '能源合作'], continent: '非洲', serviceType: '出海投资', rating: 4.3, responseTime: '7小时', successCases: 56 },
-  { id: 'AF03', city: '卡萨布兰卡', country: '摩洛哥', lat: 33.57, lng: -7.59, manager: 'El Fassi先生', services: ['非洲门户', '法语区对接'], continent: '非洲', serviceType: '外贸服务', rating: 4.4, responseTime: '6小时', successCases: 68 },
-  { id: 'AF04', city: '达累斯萨拉姆', country: '坦桑尼亚', lat: -6.79, lng: 39.27, manager: 'Mwamba先生', services: ['农业项目', '交通基建'], continent: '非洲', serviceType: '出海投资', rating: 4.2, responseTime: '8小时', successCases: 51 },
-
-  // 🌏 大洋洲
-  { id: 'OC01', city: '悉尼', country: '澳大利亚', lat: -33.87, lng: 151.21, manager: 'Anderson女士', services: ['大洋洲项目支持', '矿产贸易'], continent: '大洋洲', serviceType: '出海投资', rating: 4.7, responseTime: '3小时', successCases: 129 },
-  { id: 'OC02', city: '墨尔本', country: '澳大利亚', lat: -37.81, lng: 144.96, manager: 'Taylor先生', services: ['教育产业', '农业出口'], continent: '大洋洲', serviceType: '外贸服务', rating: 4.6, responseTime: '4小时', successCases: 96 },
-  { id: 'OC03', city: '奥克兰', country: '新西兰', lat: -36.85, lng: 174.76, manager: 'Smith女士', services: ['乳制品', '旅游业'], continent: '大洋洲', serviceType: '外贸服务', rating: 4.5, responseTime: '5小时', successCases: 73 }
-]
-
-// ==================== 2. 数据处理与增强 ====================
-// 补全所有新国家的国旗代码
 const getCountryCode = (name: string) => {
   const map: Record<string, string> = {
     '新加坡': 'sg', '柬埔寨': 'kh', '菲律宾': 'ph', '泰国': 'th', '日本': 'jp',
@@ -448,8 +382,7 @@ const getCountryCode = (name: string) => {
   return map[name] || 'cn'
 }
 
-// ECharts 地图名称映射
-const nameMap = {
+const nameMap: Record<string, string> = {
   'Singapore': '新加坡', 'Cambodia': '柬埔寨', 'Philippines': '菲律宾',
   'Thailand': '泰国', 'Japan': '日本', 'Vietnam': '越南',
   'United Arab Emirates': '阿联酋', 'Malaysia': '马来西亚',
@@ -464,29 +397,40 @@ const nameMap = {
   'Australia': '澳大利亚', 'New Zealand': '新西兰'
 }
 
-// 数据增强：图片、描述、热度
-const enhancedPoints = servicePoints.map(p => ({
-  ...p,
-  desc: `提供${p.country}本地化一站式服务，包括公司注册、税务合规、法律咨询等。我们的团队拥有10年以上${p.country}市场经验，已服务超过${p.successCases}家中国企业成功出海。`,
-  mainService: p.services[0],
-  inquiryCount: Math.floor(Math.random() * 300) + 200, 
-  image: 
-    // ✅ 新增：上海总部专属封面
-    p.city === '上海' ? '/images/overseas/shanghai.jpeg' :
-    p.city === '新加坡' ? 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?q=80&w=800' :
-    p.city === '吉隆坡' ? 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?q=80&w=800' :
-    p.city === '迪拜' ? 'https://images.unsplash.com/photo-1512453979798-5ea90b7cadc9?q=80&w=800' :
-    p.city === '东京' ? 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800' :
-    p.city === '纽约' ? 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800' :
-    p.city === '伦敦' ? 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=800' :
-    p.city === '悉尼' ? 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=800' :
-    p.city === '巴黎' ? 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800' :
-    p.continent === '亚洲' ? 'https://images.unsplash.com/photo-1555217851-6141535bd771?q=80&w=800' :
-    p.continent === '欧洲' ? 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800' :
-    p.continent === '北美洲' ? 'https://images.unsplash.com/photo-1485738422979-f5c462d49f74?q=80&w=800' :
-    p.continent === '非洲' ? 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?q=80&w=800' :
-    'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=800'
-}))
+const cityImageMap: Record<string, string> = {
+  '上海': '/images/overseas/shanghai.jpeg',
+  '新加坡': 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?q=80&w=800',
+  '吉隆坡': 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?q=80&w=800',
+  '迪拜': 'https://images.unsplash.com/photo-1512453979798-5ea90b7cadc9?q=80&w=800',
+  '东京': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800',
+  '纽约': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800',
+  '伦敦': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=800',
+  '悉尼': 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=800',
+  '巴黎': 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800'
+}
+const continentImageMap: Record<string, string> = {
+  '亚洲': 'https://images.unsplash.com/photo-1555217851-6141535bd771?q=80&w=800',
+  '欧洲': 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?q=80&w=800',
+  '北美洲': 'https://images.unsplash.com/photo-1485738422979-f5c462d49f74?q=80&w=800',
+  '非洲': 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?q=80&w=800'
+}
+const defaultImage = 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?q=80&w=800'
+
+const enhancePoint = (raw: any) => {
+  const services = (() => { try { return JSON.parse(raw.servicesJson || '[]') } catch { return [] } })()
+  const sc = Number(raw.successCases) || 0
+  return {
+    ...raw,
+    services,
+    mainService: services[0] || '',
+    desc: raw.description || `提供${raw.country}本地化一站式服务，包括公司注册、税务合规、法律咨询等。我们的团队拥有10年以上${raw.country}市场经验，已服务超过${sc}家中国企业成功出海。`,
+    inquiryCount: Math.floor(sc * 1.5) + 200,
+    image: raw.coverImage || cityImageMap[raw.city] || continentImageMap[raw.continent] || defaultImage
+  }
+}
+
+// computed: enhanced list derived from API data
+const enhancedPoints = computed(() => allPoints.value.map(enhancePoint))
 
 // ==================== 3. 状态与筛选逻辑 ====================
 const mapLoaded = ref(false)
@@ -505,7 +449,7 @@ const continents = ['全部', '亚洲', '欧洲', '北美洲', '非洲', '大洋
 
 // 动态计算下拉国家列表
 const displayCountries = computed(() => {
-  let points = enhancedPoints
+  let points = enhancedPoints.value
   if (activeContinent.value !== '全部') {
     points = points.filter(p => p.continent === activeContinent.value)
   }
@@ -514,7 +458,7 @@ const displayCountries = computed(() => {
 
 // 核心筛选逻辑
 const filteredPoints = computed(() => {
-  return enhancedPoints.filter(p => {
+  return enhancedPoints.value.filter(p => {
     const matchType = activeType.value === '全部' || p.serviceType === activeType.value
     const matchCountry = activeCountry.value === '全部' || p.country === activeCountry.value
     const matchContinent = activeContinent.value === '全部' || p.continent === activeContinent.value
@@ -535,9 +479,9 @@ const displayStats = computed(() => {
 const handleMapClick = (params: any) => {
   let targetPoint = null
   if (params.componentType === 'series') {
-    targetPoint = enhancedPoints.find(p => p.city === params.name)
+    targetPoint = enhancedPoints.value.find(p => p.city === params.name)
   } else if (params.componentType === 'geo') {
-    targetPoint = enhancedPoints.find(p => p.country === params.name)
+    targetPoint = enhancedPoints.value.find(p => p.country === params.name)
   }
   selectedPoint.value = targetPoint || null
 }
@@ -578,14 +522,24 @@ watch(filteredPoints, (newPoints) => {
 
 // ==================== 5. 初始化 ====================
 onMounted(async () => {
+  // Load overseas points from real API
+  try {
+    const res: any = await $fetch('/api/v3/overseas-points')
+    const items = Array.isArray(res?.data) ? res.data : []
+    allPoints.value = items
+  } catch (e) {
+    console.error('海外网点加载失败:', e)
+    allPoints.value = []
+  }
+
   try {
     const response = await fetch('/maps/world.json')
     if (!response.ok) throw new Error('Map file not found')
     const geoJson = await response.json()
     echarts.registerMap('world', geoJson)
-    
+
     // 初始数据
-    const mapData = enhancedPoints.map(p => ({ name: p.city, value: [p.lng, p.lat] }))
+    const mapData = enhancedPoints.value.map(p => ({ name: p.city, value: [p.lng, p.lat] }))
     
     mapOptions.value = {
       backgroundColor: 'transparent',

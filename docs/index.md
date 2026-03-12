@@ -27,7 +27,8 @@
 | 6 | [DDL_Phase6_Demands_Extension.sql](./DDL_Phase6_Demands_Extension.sql) | demands 表字段扩展（8 列，幂等） |
 | 7 | [DDL_Phase7_Favorites.sql](./DDL_Phase7_Favorites.sql) | user_favorites 收藏表（幂等） |
 | 8 | [DDL_Phase8_Contents_Carousel.sql](./DDL_Phase8_Contents_Carousel.sql) | contents 表 cover_image + carousel 类型扩展 |
-| 9 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 9 | [DDL_Phase9_Overseas_Points.sql](./DDL_Phase9_Overseas_Points.sql) | overseas_points 表 + 39 条种子数据 |
+| 10 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -232,7 +233,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（25 个）
+## 8. 后端 Controller 清单（27 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -260,6 +261,8 @@
 | UserFavoritesV3Controller | /v3/member/favorites | 会员收藏（CRUD + ids） |
 | ContentsV3Controller | /v3/contents | 内容公共查询（仅 published） |
 | DashboardV3Controller | /v3/dashboard | 数据大屏统计（公共，无需认证） |
+| OverseasPointsV3Controller | /v3/overseas-points | 海外网点公共查询（公共，无需认证） |
+| AdminOverseasPointsV3Controller | /v3/admin/overseas-points | 海外网点管理（CRUD + stats） |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）

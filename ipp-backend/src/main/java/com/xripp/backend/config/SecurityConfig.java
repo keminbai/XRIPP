@@ -44,6 +44,8 @@ public class SecurityConfig {
                                 "/v3/contents",
                                 "/v3/contents/**",
                                 "/v3/dashboard/**",
+                                "/v3/overseas-points",
+                                "/v3/overseas-points/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

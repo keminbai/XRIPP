@@ -94,7 +94,7 @@
               <span class="w-1.5 h-8 bg-brand-600 rounded-full"></span> 平台介绍
             </h2>
             <p class="text-slate-600 leading-relaxed mb-8 text-justify">
-              XRIPP Global 是国内首个专注于国际公共采购的综合服务平台。我们依托上海市中小企业协会,深度整合<strong>联合国、世界银行</strong>资源,通过遍布全球的 47 个服务中心,为中国企业提供"家门口"的国际化服务。
+              XRIPP Global 是国内首个专注于国际公共采购的综合服务平台。我们依托上海中小企业国际合作协会,深度整合<strong>联合国、世界银行</strong>资源,通过遍布全球的 47 个服务中心,为中国企业提供"家门口"的国际化服务。
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div v-for="stat in platformStats" :key="stat.label" class="text-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:shadow-md transition-all">
