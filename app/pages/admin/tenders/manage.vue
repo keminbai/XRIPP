@@ -252,15 +252,27 @@ const normalizeTender = (x: any) => ({
   isTop: Boolean(x.isTop ?? x.is_top ?? false)
 })
 
+const buildTenderQueryParams = () => {
+  const qs = new URLSearchParams({
+    tender_status: statusParamMap[activeTab.value]
+  })
+  qs.set('page', String(currentPage.value))
+  qs.set('page_size', String(pageSize.value))
+
+  if (filters.value.keyword) qs.set('keyword', filters.value.keyword)
+  if (filters.value.org) qs.set('organization', filters.value.org)
+  if (filters.value.category) qs.set('category', filters.value.category)
+  if (filters.value.dateRange?.length === 2) {
+    qs.set('published_from', filters.value.dateRange[0])
+    qs.set('published_to', filters.value.dateRange[1])
+  }
+  return qs
+}
+
 const loadTenders = async () => {
   apiLoading.value = true
   try {
-    const qs = new URLSearchParams({
-      page: String(currentPage.value),
-      page_size: String(pageSize.value),
-      tender_status: statusParamMap[activeTab.value],
-      keyword: filters.value.keyword || ''
-    })
+    const qs = buildTenderQueryParams()
     const res: any = await apiRequest(`/v3/admin/tenders?${qs.toString()}`)
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     apiTenders.value = items.map(normalizeTender)
@@ -371,8 +383,16 @@ const handleExport = async () => {
   if (!import.meta.client) return
   try {
     const { downloadExcel } = await import('@/utils/downloadExcel')
+    const qs = buildTenderQueryParams()
+    qs.delete('page')
+    qs.delete('page_size')
     await downloadExcel('/v3/admin/tenders/export', `标书列表_${activeTab.value}_${new Date().toISOString().slice(0, 10)}.xlsx`, {
-      tender_status: statusParamMap[activeTab.value] || ''
+      tender_status: qs.get('tender_status') || '',
+      keyword: qs.get('keyword') || '',
+      organization: qs.get('organization') || '',
+      category: qs.get('category') || '',
+      published_from: qs.get('published_from') || qs.get('created_from') || '',
+      published_to: qs.get('published_to') || qs.get('created_to') || ''
     })
     ElMessage.success('列表导出成功')
   } catch (e: any) {

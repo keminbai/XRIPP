@@ -566,7 +566,7 @@
       <template #footer>
         <el-button @click="publishDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handlePublish" :loading="submitLoading">
-          {{ isEdit ? '保存修改' : '提交审核' }}
+          {{ isEdit ? '保存修改' : (currentUserRole === 'admin' ? '创建并发布' : '提交审核') }}
         </el-button>
       </template>
     </el-dialog>
@@ -753,6 +753,7 @@ const apiLoading = ref(false)
 const currentSignupItem = ref<any>(null)
 const currentDisplayApplyItem = ref<any>(null)
 const currentDetailItem = ref<any>(null)
+const currentEditId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 
 const currentPage = ref(1)
@@ -809,17 +810,11 @@ const formRules = {
 
 // 统计数据
 const stats = computed(() => [
-  { label: '累计发布活动', value: allActivityList.value.length, icon: Calendar, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
+  { label: '累计发布活动', value: totalItems.value, icon: Calendar, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
   { label: '本月新增', value: '—', icon: Plus, bgClass: 'bg-green-50', textClass: 'text-green-600' },
-  { label: '累计参会', value: '—', icon: User, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
+  { label: '累计参会', value: allActivityList.value.reduce((sum, item) => sum + Number(item.signups || 0), 0), icon: User, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
   { label: '待审核', value: allActivityList.value.filter(i => i.status === 'auditing').length, icon: Monitor, bgClass: 'bg-orange-50', textClass: 'text-orange-600' }
 ])
-
-// ──────────────────────────────────────────────
-// 数据加载（真实 API）
-// TODO: 待后端实现 /v3/admin/activities 或 /v3/contents?content_type=activity 后
-//       按角色分流：admin → 全量管理视图，partner → 仅自身发布
-// ──────────────────────────────────────────────
 
 const fmtDate = (v: any) => {
   if (!v) return '-'
@@ -833,7 +828,7 @@ const mapAuditStatus = (raw: any) => {
   if (n === 30) return { status: 'published', statusLabel: '已发布' }
   if (n === 40) return { status: 'rejected',  statusLabel: '已驳回' }
   if (n === 50) return { status: 'offline',   statusLabel: '已下架' }
-  if (n === 10 || n === 20) return { status: 'auditing', statusLabel: '审核中' }
+  if (n === 0 || n === 10 || n === 20) return { status: 'auditing', statusLabel: '审核中' }
   return { status: 'draft', statusLabel: '草稿' }
 }
 
@@ -841,46 +836,190 @@ const mapSubType = (raw?: string) => {
   const m: Record<string, { subType: string; subTypeLabel: string; subTypeTag: string }> = {
     hengjia:  { subType: 'hengjia',  subTypeLabel: '亨嘉之会', subTypeTag: 'success' },
     charity:  { subType: 'charity',  subTypeLabel: '公益行',   subTypeTag: 'primary' },
-    overseas: { subType: 'overseas', subTypeLabel: '出海考察', subTypeTag: 'warning' },
-    forum:    { subType: 'forum',    subTypeLabel: '行业论坛', subTypeTag: 'info'    },
+    inspection: { subType: 'inspection', subTypeLabel: '出海考察', subTypeTag: 'warning' },
+    overseas: { subType: 'inspection', subTypeLabel: '出海考察', subTypeTag: 'warning' },
+    salon:    { subType: 'salon',    subTypeLabel: '行业沙龙', subTypeTag: 'info'    },
+    forum:    { subType: 'salon',    subTypeLabel: '行业沙龙', subTypeTag: 'info'    },
   }
-  return m[raw || ''] ?? { subType: 'forum', subTypeLabel: '行业论坛', subTypeTag: 'info' }
+  return m[raw || ''] ?? { subType: 'salon', subTypeLabel: '行业沙龙', subTypeTag: 'info' }
 }
 
-const mapActivityRow = (item: any) => {
+const mapFrontModuleLabel = (raw?: string) => {
+  const m: Record<string, string> = {
+    'home-banner': '首页轮播图',
+    'activity-center': '活动中心',
+    'resource-expansion': '资源拓展'
+  }
+  return m[String(raw || '')] || String(raw || '-')
+}
+
+const mapFrontPositionLabel = (module?: string, position?: string) => {
+  const mm: Record<string, Record<string, string>> = {
+    'home-banner': {
+      'banner-main': '轮播图主位',
+      'banner-sub': '轮播图副位'
+    },
+    'activity-center': {
+      top: '顶部焦点位',
+      list: '列表推荐位'
+    },
+    'resource-expansion': {
+      sidebar: '侧边栏',
+      footer: '底部栏'
+    }
+  }
+  return mm[String(module || '')]?.[String(position || '')] || String(position || '-')
+}
+
+const toCityArray = (item: any) => {
+  if (Array.isArray(item?.cities)) {
+    return item.cities.map((city: any) => String(city || '').trim()).filter(Boolean)
+  }
+  if (typeof item?.cities_json === 'string') {
+    try {
+      const parsed = JSON.parse(item.cities_json)
+      if (Array.isArray(parsed)) {
+        return parsed.map((city: any) => String(city || '').trim()).filter(Boolean)
+      }
+    } catch {}
+  }
+  const single = String(item?.city_name ?? item?.cityName ?? '').trim()
+  return single ? [single] : ['全国']
+}
+
+const mapActivityRow = (item: any = {}) => {
   const st = mapAuditStatus(item?.audit_status ?? item?.auditStatus)
   const tp = mapSubType(item?.sub_type ?? item?.subType)
+  const cities = toCityArray(item)
+  const frontModule = item?.front_module ?? item?.frontModule ?? ''
+  const frontPosition = item?.front_position ?? item?.frontPosition ?? ''
+  const rawIsFree = item?.is_free ?? item?.isFree
+  const isFree = rawIsFree === true || rawIsFree === 'true' || rawIsFree === 1 || rawIsFree === '1'
+  const feeType = String(item?.fee_type ?? item?.feeType ?? (isFree ? 'free' : 'paid'))
   return {
     id:             item?.id,
     ...tp,
     code:           item?.activity_no ?? item?.activityNo ?? `ACT-${item?.id ?? ''}`,
     title:          item?.title ?? '未命名活动',
-    cities:         item?.cities ?? ['全国'],
+    cities,
     ...st,
     publisher:      item?.partner_id ? '合伙人' : '总部',
-    publishDate:    fmtDate(item?.start_time ?? item?.startTime ?? item?.created_at ?? item?.createdAt),
-    image:          item?.cover_image ?? item?.coverImage ?? '',
+    publishDate:    fmtDate(item?.created_at ?? item?.createdAt ?? item?.updated_at ?? item?.updatedAt),
+    image:          item?.cover_image ?? item?.coverImage ?? item?.image_url ?? '',
+    coverImage:     item?.cover_image ?? item?.coverImage ?? item?.image_url ?? '',
     hasVideo:       !!(item?.video_url ?? item?.videoUrl),
-    feeItemId:      item?.is_free || item?.isFree ? 'free' : 'FEE001',
-    feeItemName:    item?.is_free || item?.isFree ? '免费' : '活动票',
+    videoUrl:       item?.video_url ?? item?.videoUrl ?? '',
+    feeItemId:      item?.fee_item_id ?? item?.feeItemId ?? (isFree ? 'free' : 'FEE001'),
+    feeItemName:    item?.fee_item_name ?? item?.feeItemName ?? (isFree ? '免费' : '活动票'),
     price:          Number(item?.fee ?? 0),
-    feeType:        item?.is_free || item?.isFree ? 'free' : 'paid',
-    signups:        Number(item?.signup_count ?? item?.signupCount ?? 0),
+    feeType,
+    memberPrice:    item?.member_price ?? item?.memberPrice ?? '',
+    signups:        Number(item?.signup_count ?? item?.signupCount ?? item?.current_participants ?? item?.currentParticipants ?? 0),
     maxLimit:       Number(item?.max_limit ?? item?.maxLimit ?? 0),
     agenda:         item?.agenda ?? '',
     summary:        item?.description ?? item?.summary ?? '',
+    date:           item?.start_time ?? item?.startTime ?? '',
+    frontModule,
+    frontModuleLabel: item?.front_module_label ?? item?.frontModuleLabel ?? mapFrontModuleLabel(frontModule),
+    frontPosition,
+    frontPositionLabel: item?.front_position_label ?? item?.frontPositionLabel ?? mapFrontPositionLabel(frontModule, frontPosition),
     rejectReason:   item?.change_reason ?? item?.changeReason ?? '',
+    partnerId:      item?.partner_id ?? item?.partnerId ?? null,
+    displayApplications: Array.isArray(item?.display_applications ?? item?.displayApplications)
+      ? (item?.display_applications ?? item?.displayApplications)
+      : [],
   }
 }
 
 const allActivityList = ref<any[]>([])
 
+const resetForm = () => {
+  currentEditId.value = null
+  form.value = {
+    subType: '',
+    title: '',
+    cities: [],
+    frontModule: '',
+    frontPosition: '',
+    coverImage: '',
+    videoUrl: '',
+    hasVideo: false,
+    summary: '',
+    agenda: '',
+    date: '',
+    maxLimit: 50,
+    feeItemId: 'free',
+    price: 0,
+    feeItemName: '免费',
+    feeType: 'paid',
+    normalPrice: '',
+    memberPrice: ''
+  }
+  imageFileList.value = []
+  videoFileList.value = []
+}
+
+const fillFormFromActivity = (item: any) => {
+  currentEditId.value = Number(item?.id || 0) || null
+  form.value = {
+    subType: item?.subType || '',
+    title: item?.title || '',
+    cities: Array.isArray(item?.cities) ? item.cities : [],
+    frontModule: item?.frontModule || '',
+    frontPosition: item?.frontPosition || '',
+    coverImage: item?.coverImage || item?.image || '',
+    videoUrl: item?.videoUrl || '',
+    hasVideo: item?.hasVideo || false,
+    summary: item?.summary || '',
+    agenda: item?.agenda || '',
+    date: item?.date || '',
+    maxLimit: item?.maxLimit ?? 50,
+    feeItemId: item?.feeItemId || 'free',
+    price: Number(item?.price || 0),
+    feeItemName: item?.feeItemName || '免费',
+    feeType: item?.feeType || 'paid',
+    normalPrice: String(item?.price || ''),
+    memberPrice: item?.memberPrice ?? item?.memberPrice ?? ''
+  }
+  imageFileList.value = form.value.coverImage
+    ? [{ name: 'cover-image', url: form.value.coverImage } as UploadUserFile]
+    : []
+  videoFileList.value = form.value.videoUrl
+    ? [{ name: 'promo-video', url: form.value.videoUrl } as UploadUserFile]
+    : []
+}
+
+const loadActivityDetail = async (id: number | string) => {
+  const res: any = await apiRequest(`/v3/partner/publishes/${id}`)
+  return mapActivityRow(res?.data || {})
+}
+
+const buildActivityPayload = () => ({
+  title: form.value.title.trim(),
+  sub_type: form.value.subType,
+  cities: form.value.cities,
+  front_module: form.value.frontModule,
+  front_position: form.value.frontPosition,
+  cover_image: form.value.coverImage,
+  video_url: form.value.videoUrl,
+  summary: form.value.summary || '',
+  agenda: form.value.agenda || '',
+  start_time: form.value.date || null,
+  max_limit: Number(form.value.maxLimit || 0),
+  is_free: form.value.feeItemId === 'free',
+  fee: form.value.feeItemId === 'free' ? 0 : Number(form.value.price || 0),
+  fee_item_id: form.value.feeItemId,
+  fee_item_name: form.value.feeItemName || (form.value.feeItemId === 'free' ? '免费' : ''),
+  fee_type: form.value.feeItemId === 'free' ? 'free' : form.value.feeType,
+  member_price: form.value.feeItemId === 'free'
+    ? 0
+    : (form.value.memberPrice === '' ? null : Number(form.value.memberPrice))
+})
+
 const loadActivities = async () => {
   apiLoading.value = true
   try {
-    // partner/publishes 通过 DataScope 自动隔离：admin 可见全量，partner 仅见自身
     const query: Record<string, any> = { page: currentPage.value, page_size: pageSize.value }
-    // 状态筛选可映射到 audit_status（published=30, auditing=0, rejected=40, offline=50）
     const statusMap: Record<string, number> = { published: 30, auditing: 0, rejected: 40, offline: 50 }
     if (filters.value.status && statusMap[filters.value.status] !== undefined) {
       query.audit_status = statusMap[filters.value.status]
@@ -904,7 +1043,6 @@ const loadActivities = async () => {
   }
 }
 
-// 报名列表（详情弹窗用，由 loadSignups 按需填充；当前后端无导出接口，受控降级）
 const signupList = ref<any[]>([])
 
 // All filtering is now server-side (keyword, audit_status, publisher passed as API params)
@@ -1040,28 +1178,7 @@ watch(() => [filters.value.status, filters.value.publisher], () => {
 
 const openPublishDialog = () => {
   isEdit.value = false
-  form.value = {
-    subType: '',
-    title: '',
-    cities: [],
-    frontModule: '',
-    frontPosition: '',
-    coverImage: '',
-    videoUrl: '',
-    hasVideo: false,
-    summary: '',
-    agenda: '',
-    date: '',
-    maxLimit: 50,
-    feeItemId: 'free',
-    price: 0,
-    feeItemName: '免费',
-    feeType: 'paid',
-    normalPrice: '',
-    memberPrice: ''
-  }
-  imageFileList.value = []
-  videoFileList.value = []
+  resetForm()
   publishDialogVisible.value = true 
 }
 
@@ -1071,71 +1188,74 @@ const handlePublish = () => {
   formRef.value.validate(async (valid) => {
     if (!valid) return ElMessage.warning('请填写必填项')
 
-    if (currentUserRole.value === 'partner') {
-      // partner 角色：调真实接口新建 / 编辑活动
-      submitLoading.value = true
-      try {
-        const body = {
-          title:      form.value.title,
-          start_time: form.value.date || null,
-          is_free:    form.value.feeItemId === 'free',
-          fee:        form.value.feeItemId === 'free' ? 0 : form.value.price,
-        }
-        if (isEdit.value && currentDetailItem.value?.id) {
-          // TODO: 编辑接口后端未实现，受控降级
-          ElMessage.warning('编辑活动接口未接入，当前为受控降级模式')
+    submitLoading.value = true
+    try {
+      const body = buildActivityPayload()
+      const res: any = isEdit.value && currentEditId.value
+        ? await apiRequest(`/v3/partner/publishes/${currentEditId.value}`, { method: 'PUT', body })
+        : await apiRequest('/v3/partner/publishes', { method: 'POST', body })
+
+      const saved = mapActivityRow(res?.data || {})
+      if (isEdit.value) {
+        if (currentUserRole.value === 'partner' && saved.status === 'auditing') {
+          ElMessage.success('修改已保存，并重新进入审核')
         } else {
-          await apiRequest('/v3/partner/publishes', { method: 'POST', body })
-          ElMessage.success('发布成功，已提交审核')
-          publishDialogVisible.value = false
-          await loadActivities()
+          ElMessage.success('活动修改已保存')
         }
-      } catch (e: any) {
-        ElMessage.error(e?.message || '发布失败，请稍后重试')
-      } finally {
-        submitLoading.value = false
+      } else if (currentUserRole.value === 'partner') {
+        ElMessage.success('活动已提交审核')
+      } else {
+        ElMessage.success('活动已创建并发布')
       }
-    } else {
-      // admin 角色：后端无直接新建活动接口，受控降级
-      ElMessage.warning('管理员新建活动接口未接入，当前为受控降级模式')
+      publishDialogVisible.value = false
+      await loadActivities()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '保存失败，请稍后重试')
+    } finally {
+      submitLoading.value = false
     }
   })
 }
 
-const handleEdit = (row: any) => {
-  isEdit.value = true
-  form.value = {
-    subType: row.subType || '',
-    title: row.title || '',
-    cities: row.cities || [],
-    frontModule: row.frontModule || '',
-    frontPosition: row.frontPosition || '',
-    coverImage: row.coverImage || row.image || '',
-    videoUrl: row.videoUrl || '',
-    hasVideo: row.hasVideo || false,
-    summary: row.summary || '',
-    agenda: row.agenda || '',
-    date: row.date || '',
-    maxLimit: row.maxLimit ?? 50,
-    feeItemId: row.feeItemId || 'free',
-    price: row.price || 0,
-    feeItemName: row.feeItemName || '免费',
-    feeType: row.feeType || 'paid',
-    normalPrice: row.normalPrice || '',
-    memberPrice: row.memberPrice || ''
+const handleEdit = async (row: any) => {
+  try {
+    const detail = await loadActivityDetail(row.id)
+    isEdit.value = true
+    fillFormFromActivity(detail)
+    publishDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.data?.message || e?.message || '读取活动详情失败')
   }
-  publishDialogVisible.value = true
 }
 
 const handleToggleStatus = (row: any) => {
-  // TODO: 后端无 /v3/admin/activities/{id}/transition 接口，受控降级
-  // 待实现后，调用方式同 tenders transition：POST to_status + reason
-  ElMessage.warning('活动状态切换接口未接入，当前为受控降级模式')
+  const action = row.status === 'published' ? '下架' : '上架'
+  ElMessageBox.confirm(`确定${action}活动 "${row.title}" 吗？`, '状态切换', {
+    confirmButtonText: `确认${action}`,
+    cancelButtonText: '取消',
+    type: row.status === 'published' ? 'warning' : 'success'
+  }).then(async () => {
+    try {
+      const toStatus = row.status === 'published' ? 'offline' : 'published'
+      await apiRequest(`/v3/partner/publishes/${row.id}/transition`, {
+        method: 'POST',
+        body: { to_status: toStatus, reason: `${currentUserRole.value}_${toStatus}` }
+      })
+      ElMessage.success(`活动已${action}`)
+      await loadActivities()
+    } catch (e: any) {
+      ElMessage.error(e?.data?.message || e?.message || '状态切换失败')
+    }
+  }).catch(() => {})
 }
 
-const handleViewDetail = (row: any) => {
-  currentDetailItem.value = row
-  detailDialogVisible.value = true
+const handleViewDetail = async (row: any) => {
+  try {
+    currentDetailItem.value = await loadActivityDetail(row.id)
+    detailDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.data?.message || e?.message || '读取活动详情失败')
+  }
 }
 
 const handleModuleChange = () => {
@@ -1167,14 +1287,17 @@ const handleFeeTypeChange = (value: string) => {
 
 const openDisplayApplyDialog = (row: any) => {
   currentDisplayApplyItem.value = row
+  const latest = Array.isArray(row?.displayApplications) ? row.displayApplications[0] : null
   displayApplyForm.value = {
-    displayArea: 'home',
-    displayTime: []
+    displayArea: latest?.displayArea || latest?.display_area || 'home',
+    displayTime: latest?.displayStartAt && latest?.displayEndAt
+      ? [latest.displayStartAt, latest.displayEndAt]
+      : []
   }
   displayApplyDialogVisible.value = true
 }
 
-const handleSubmitDisplayApply = () => {
+const handleSubmitDisplayApply = async () => {
   const range = displayApplyForm.value.displayTime
   if (!range || range.length !== 2) {
     return ElMessage.warning('请选择显示时间')
@@ -1186,22 +1309,64 @@ const handleSubmitDisplayApply = () => {
     return ElMessage.warning('显示结束时间不能超过活动开始时间')
   }
 
-  // TODO: 展示申请接口后端未实现，受控降级
-  ElMessage.warning('显示申请接口未接入，当前为受控降级模式')
+  submitLoading.value = true
+  try {
+    await apiRequest(`/v3/partner/publishes/${currentDisplayApplyItem.value.id}/display-apply`, {
+      method: 'POST',
+      body: {
+        display_area: displayApplyForm.value.displayArea,
+        display_time: range
+      }
+    })
+    ElMessage.success('显示申请已提交，等待后台审核')
+    displayApplyDialogVisible.value = false
+    await loadActivities()
+  } catch (e: any) {
+    ElMessage.error(e?.data?.message || e?.message || '显示申请提交失败')
+  } finally {
+    submitLoading.value = false
+  }
 }
 
 const viewSignups = (row: any) => { 
   currentSignupItem.value = row
-  signupDialogVisible.value = true 
+  signupList.value = []
+  signupDialogVisible.value = true
+  apiRequest(`/v3/partner/publishes/${row.id}/registrations`).then((res: any) => {
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    signupList.value = items.map((item: any) => ({
+      id: item?.id,
+      name: item?.contact_name ?? item?.contactName ?? '-',
+      company: item?.company_name ?? item?.companyName ?? '-',
+      phone: item?.phone ?? '-',
+      position: item?.position ?? '-',
+      time: fmtDate(item?.created_at ?? item?.createdAt),
+      paid: Boolean(item?.paid),
+      statusLabel: item?.registration_status_label ?? item?.registrationStatusLabel ?? ''
+    }))
+  }).catch((e: any) => {
+    signupList.value = []
+    ElMessage.error(e?.data?.message || e?.message || '读取报名名单失败')
+  })
 }
 
-const exportSignupList = () => {
+const exportSignupList = async () => {
   if (!currentSignupItem.value?.id) {
     return ElMessage.warning('无有效活动ID')
   }
-  // TODO: 后端 /api/admin/activities/{id}/export-signups 未实现，受控降级
-  // 待接口就绪后改为：window.open(`/api/admin/activities/${currentSignupItem.value.id}/export-signups`)
-  ElMessage.warning('报名导出接口未接入，当前为受控降级模式')
+  exportLoading.value = true
+  try {
+    const { downloadExcel } = await import('@/utils/downloadExcel')
+    await downloadExcel(
+      `/v3/partner/publishes/${currentSignupItem.value.id}/registrations/export`,
+      `${currentSignupItem.value.title || '活动'}_报名名单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    )
+    ElMessage.success('报名名单导出成功')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '报名名单导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 onMounted(() => {

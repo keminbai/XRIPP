@@ -39,8 +39,10 @@
         <el-select v-model="filters.status" placeholder="审核状态" class="w-40" clearable>
           <el-option label="待预审" value="submitted" />
           <el-option label="预审通过" value="precheck_passed" />
-          <el-option label="终审通过/已激活" value="active" />
-          <el-option label="审核未通过" value="rejected" />
+          <el-option label="预审未通过" value="precheck_failed" />
+          <el-option label="终审通过" value="final_review_passed" />
+          <el-option label="终审未通过" value="final_review_failed" />
+          <el-option label="已激活" value="active" />
           <el-option label="已停用" value="inactive" />
         </el-select>
         <el-date-picker
@@ -105,7 +107,7 @@
     </div>
 
     <el-dialog v-model="detailDialogVisible" :title="`${currentItem?.name || ''} - 服务商详情`" width="760px">
-      <div v-if="currentItem" class="space-y-4">
+      <div v-loading="detailLoading" v-if="currentItem" class="space-y-4">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="申请编号">{{ currentItem.applyNo }}</el-descriptions-item>
           <el-descriptions-item label="审核状态">
@@ -162,6 +164,7 @@ const totalItems = ref(0)
 
 const detailDialogVisible = ref(false)
 const currentItem = ref<SupplierRow | null>(null)
+const detailLoading = ref(false)
 
 const filters = ref({
   keyword: '',
@@ -171,13 +174,25 @@ const filters = ref({
 
 const statusMap = (s?: string) => {
   if (s === 'active') return { status: 'active', label: '已激活', tag: 'success' as const }
-  if (s === 'final_review_passed') return { status: 'active', label: '终审通过', tag: 'success' as const }
+  if (s === 'final_review_passed') return { status: 'final_review_passed', label: '终审通过', tag: 'success' as const }
   if (s === 'precheck_passed') return { status: 'precheck_passed', label: '预审通过', tag: 'primary' as const }
-  if (s === 'precheck_failed') return { status: 'rejected', label: '预审未通过', tag: 'danger' as const }
-  if (s === 'final_review_failed') return { status: 'rejected', label: '终审未通过', tag: 'danger' as const }
+  if (s === 'precheck_failed') return { status: 'precheck_failed', label: '预审未通过', tag: 'danger' as const }
+  if (s === 'final_review_failed') return { status: 'final_review_failed', label: '终审未通过', tag: 'danger' as const }
   if (s === 'inactive') return { status: 'inactive', label: '已停用', tag: 'info' as const }
   if (s === 'submitted') return { status: 'submitted', label: '待预审', tag: 'warning' as const }
   return { status: 'draft', label: '草稿', tag: 'info' as const }
+}
+
+const mainServiceLabel = (raw: unknown) => {
+  const v = String(raw || '').trim()
+  if (v === 'manufacturing') return '制造业'
+  if (v === 'trade') return '贸易类'
+  if (v === 'service') return '服务业'
+  if (v === 'bulk') return '大宗贸易'
+  if (v === 'construction') return '建筑业'
+  if (v === 'tech') return '科技型企业'
+  if (v === 'other') return '其他'
+  return v || '-'
 }
 
 const fmtDate = (v: unknown) => {
@@ -194,20 +209,22 @@ const fmtDate = (v: unknown) => {
 
 const mapRow = (item: any): SupplierRow => {
   const st = statusMap(item.onboardingStatus)
+  const serviceTypes = Array.isArray(item.serviceTypes) ? item.serviceTypes : []
+  const industry = mainServiceLabel(item.mainService) !== '-' ? mainServiceLabel(item.mainService) : (serviceTypes[0] || '-')
   return {
     id: Number(item.id),
     applyNo: `SO${String(item.id).padStart(6, '0')}`,
     name: item.companyName || '未命名企业',
-    contact: item.cityName || '-',
-    phone: item.onboardingStatusLabel || '-',
+    contact: item.contactName || '-',
+    phone: item.contactPhone || '-',
     partnerId: item.partnerId ?? null,
-    industry: '',
+    industry,
     status: st.status,
     statusLabel: st.label,
     statusTag: st.tag,
-    submitDate: fmtDate(item.createdAt),
-    reviewedDate: fmtDate(item.updatedAt),
-    rejectReason: ''
+    submitDate: fmtDate(item.submittedAt || item.createdAt),
+    reviewedDate: fmtDate(item.reviewedAt || item.updatedAt),
+    rejectReason: item.changeReason || ''
   }
 }
 
@@ -219,14 +236,7 @@ const loadList = async () => {
       page_size: pageSize.value
     }
     if (filters.value.status) {
-      const statusToApi: Record<string, string> = {
-        submitted: 'submitted',
-        precheck_passed: 'precheck_passed',
-        active: 'active',
-        rejected: 'precheck_failed',
-        inactive: 'inactive'
-      }
-      query.onboarding_status = statusToApi[filters.value.status] || filters.value.status
+      query.onboarding_status = filters.value.status
     }
     if (filters.value.keyword.trim()) {
       query.keyword = filters.value.keyword.trim()
@@ -275,9 +285,18 @@ const handleReset = async () => {
   ElMessage.info('筛选已重置')
 }
 
-const handleView = (row: SupplierRow) => {
+const handleView = async (row: SupplierRow) => {
   currentItem.value = row
   detailDialogVisible.value = true
+  detailLoading.value = true
+  try {
+    const res = await apiRequest<any>(`/v3/admin/supplier-onboarding/${row.id}`)
+    currentItem.value = mapRow(res?.data || row)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '读取服务商详情失败')
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 const handleExport = async () => {
@@ -285,13 +304,7 @@ const handleExport = async () => {
   try {
     const { downloadExcel } = await import('@/utils/downloadExcel')
     const params: Record<string, string> = {}
-    if (filters.value.status) {
-      const statusToApi: Record<string, string> = {
-        submitted: 'submitted', precheck_passed: 'precheck_passed',
-        active: 'active', rejected: 'precheck_failed', inactive: 'inactive'
-      }
-      params.onboarding_status = statusToApi[filters.value.status] || filters.value.status
-    }
+    if (filters.value.status) params.onboarding_status = filters.value.status
     if (filters.value.keyword?.trim()) params.keyword = filters.value.keyword.trim()
 
     await downloadExcel('/v3/admin/supplier-onboarding/export', `服务商名录_${new Date().toISOString().slice(0, 10)}.xlsx`, params)

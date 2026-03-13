@@ -43,7 +43,7 @@
             <template #reference>
               <div class="flex items-center gap-2 cursor-pointer text-white/80 hover:text-white bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
                 <el-icon><Location /></el-icon>
-                <span>{{ selectedCity || '上海' }}</span>
+                <span>{{ selectedCity || serviceCityOptions[0]?.name || '服务点位更新中' }}</span>
                 <el-icon class="text-xs"><ArrowDown /></el-icon>
               </div>
             </template>
@@ -51,8 +51,8 @@
               <el-input v-model="citySearchQuery" placeholder="输入城市名搜索..." size="small" prefix-icon="Search" clearable />
             </div>
             <div class="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-              <div v-for="city in filteredCities" :key="city" class="text-center p-2 rounded cursor-pointer text-sm transition-colors" :class="selectedCity === city ? 'bg-brand-50 text-brand-600 font-bold' : 'hover:bg-slate-50 hover:text-slate-900 text-slate-600'" @click="handleCitySelect(city)">
-                {{ city }}
+              <div v-for="city in filteredCities" :key="city.name" class="text-center p-2 rounded cursor-pointer text-sm transition-colors" :class="selectedCity === city.name ? 'bg-brand-50 text-brand-600 font-bold' : 'hover:bg-slate-50 hover:text-slate-900 text-slate-600'" @click="handleCitySelect(city.name)">
+                {{ city.name }}
               </div>
             </div>
          </el-popover>
@@ -77,9 +77,7 @@
         </div>
         <div class="flex-grow overflow-hidden relative h-6">
            <div class="animate-marquee whitespace-nowrap absolute top-0 text-xs text-slate-600 leading-6">
-             <span class="mr-12">📢 [享嘉之会] 2026全球公共采购高峰论坛正在报名中...</span>
-             <span class="mr-12">📢 [出海考察] 越南&马来西亚制造业考察团剩余名额 3 位...</span>
-             <span class="mr-12">📢 [行业沙龙] 医疗器械出海合规认证解析(线上直播)...</span>
+             <span v-for="(message, index) in marqueeMessages" :key="`${index}-${message}`" class="mr-12">{{ message }}</span>
            </div>
         </div>
       </div>
@@ -94,7 +92,7 @@
               <span class="w-1.5 h-8 bg-brand-600 rounded-full"></span> 平台介绍
             </h2>
             <p class="text-slate-600 leading-relaxed mb-8 text-justify">
-              XRIPP Global 是国内首个专注于国际公共采购的综合服务平台。我们依托上海中小企业国际合作协会,深度整合<strong>联合国、世界银行</strong>资源,通过遍布全球的 47 个服务中心,为中国企业提供"家门口"的国际化服务。
+              XRIPP Global 是国内首个专注于国际公共采购的综合服务平台。我们依托上海中小企业国际合作协会,深度整合<strong>联合国、世界银行</strong>资源,通过已接入的 {{ globalServicePointCount }} 个国内外服务点,为中国企业提供"家门口"的国际化服务。
             </p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div v-for="stat in platformStats" :key="stat.label" class="text-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:shadow-md transition-all">
@@ -104,12 +102,12 @@
             </div>
           </div>
           
-          <div class="relative h-full min-h-[300px] rounded-2xl overflow-hidden shadow-lg group cursor-pointer" @click="handleCitySelect('上海')">
+          <div class="relative h-full min-h-[300px] rounded-2xl overflow-hidden shadow-lg group cursor-pointer" @click="openSelectedCityDialog">
             <img src="https://images.unsplash.com/photo-1519501025264-65ba15a82390?q=80&w=1000" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
             <div class="absolute inset-0 bg-blue-900/70 flex flex-col items-center justify-center text-white p-8 text-center">
               <el-icon class="text-5xl mb-4"><MapLocation /></el-icon>
               <h3 class="text-2xl font-bold mb-2">城市合伙人网络</h3>
-              <p class="text-blue-100 text-sm mb-6">全国已开通 35 个城市服务中心</p>
+              <p class="text-blue-100 text-sm mb-6">全国已接入 {{ domesticServiceCityCount }} 个城市服务中心</p>
               <button class="px-6 py-2.5 bg-white text-blue-900 font-bold rounded-lg text-sm hover:bg-blue-50 transition-colors shadow-lg">
                 查找身边服务点
               </button>
@@ -145,17 +143,14 @@
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <el-select v-model="supplierFilters.province" placeholder="选择省份" clearable size="large">
-                  <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
+                <el-select v-model="supplierFilters.city" placeholder="选择城市" clearable size="large">
+                  <el-option v-for="city in supplierCityOptions" :key="city" :label="city" :value="city" />
                 </el-select>
                 <el-input v-model="supplierFilters.keyword" placeholder="输入关键词(如:地板)" clearable size="large">
                   <template #prefix><el-icon><Search /></el-icon></template>
                 </el-input>
                 <el-select v-model="supplierFilters.serviceType" placeholder="服务项目" clearable size="large">
-                  <el-option label="标书定制服务" value="bid_writing" />
-                  <el-option label="出海咨询" value="export_consulting" />
-                  <el-option label="认证服务" value="certification" />
-                  <el-option label="物流报关" value="logistics" />
+                  <el-option v-for="item in industryOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
                 <el-button type="primary" size="large" class="w-full" @click="searchSupplier">
                   <el-icon><Search /></el-icon> 查询服务商
@@ -671,19 +666,29 @@
     </el-dialog>
 
     <!-- 城市服务点弹窗 -->
-    <el-dialog v-model="cityDialogVisible" :title="cityDetail.name + '服务中心'" width="500px" align-center>
+    <el-dialog v-model="cityDialogVisible" :title="cityDetail.name ? `${cityDetail.name}服务网络` : '城市服务网络'" width="500px" align-center>
       <div class="space-y-4">
         <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
           <div class="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center text-2xl">🏢</div>
-          <div><div class="font-bold text-slate-900 text-lg">{{ cityDetail.manager }}</div><div class="text-xs text-slate-500">区域负责人</div></div>
-          <el-tag size="small" type="success" class="ml-auto">已认证</el-tag>
+          <div>
+            <div class="font-bold text-slate-900 text-lg">{{ cityDetail.name || '-' }}</div>
+            <div class="text-xs text-slate-500">公共大屏已统计到 {{ cityDetail.servicePointCount }} 个服务点位</div>
+          </div>
+          <el-tag size="small" type="success" class="ml-auto">真实统计</el-tag>
         </div>
         <div class="space-y-3 text-sm text-slate-600 px-2">
-          <div class="flex"><span class="w-20 text-slate-400">服务地址:</span><span class="flex-1">{{ cityDetail.address }}</span></div>
-          <div class="flex"><span class="w-20 text-slate-400">咨询热线:</span><span class="flex-1 font-mono font-bold text-brand-600">{{ cityDetail.phone }}</span></div>
+          <div class="flex"><span class="w-20 text-slate-400">城市服务点:</span><span class="flex-1">{{ cityDetail.servicePointCount }} 个</span></div>
+          <div class="flex items-start">
+            <span class="w-20 text-slate-400">最近接入:</span>
+            <div class="flex-1 flex flex-wrap gap-2">
+              <el-tag v-for="item in cityDetail.partnerExamples" :key="item" size="small" type="info">{{ item }}</el-tag>
+              <span v-if="cityDetail.partnerExamples.length === 0" class="text-xs text-slate-400">暂无公开点位名称，服务网络仍在持续更新。</span>
+            </div>
+          </div>
+          <div class="text-xs text-slate-400">当前页面仅展示真实城市服务网络统计，不展示虚构联系人和热线信息。</div>
         </div>
       </div>
-      <template #footer><el-button type="primary" class="w-full" @click="cityDialogVisible = false" size="large">立即联系</el-button></template>
+      <template #footer><el-button type="primary" class="w-full" @click="searchCitySuppliers" size="large">查看该城市服务商</el-button></template>
     </el-dialog>
 
     <!-- 服务商详情弹窗 -->
@@ -695,10 +700,10 @@
           <el-tag type="success">已认证</el-tag>
         </div>
         <div class="grid grid-cols-2 gap-4 text-sm">
-          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">企业性质</div><div class="font-bold text-slate-900">{{ currentSupplier.type }}</div></div>
+          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">服务商级别</div><div class="font-bold text-slate-900">{{ currentSupplier.typeLabel }}</div></div>
           <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">所在城市</div><div class="font-bold text-slate-900">{{ currentSupplier.city }}</div></div>
-          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">主营业务</div><div class="font-bold text-slate-900">{{ currentSupplier.category }}</div></div>
-          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">联系电话</div><div class="font-bold text-brand-600 font-mono">{{ currentSupplier.phone }}</div></div>
+          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">主营业务</div><div class="font-bold text-slate-900">{{ currentSupplier.mainBusiness }}</div></div>
+          <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-1">公开资料</div><div class="font-bold text-slate-900">{{ currentSupplier.companyPdfUrl ? '已提供 PDF 介绍' : '未提供 PDF 介绍' }}</div></div>
         </div>
         <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-2 text-sm">服务项目</div><div class="flex flex-wrap gap-2"><el-tag v-for="service in currentSupplier.services" :key="service" size="small">{{ service }}</el-tag></div></div>
         <div class="p-4 bg-slate-50 rounded-lg"><div class="text-slate-400 mb-2 text-sm">企业简介</div><div class="text-slate-600 text-sm leading-relaxed">{{ currentSupplier.intro }}</div></div>
@@ -773,11 +778,13 @@ import {
   View, HomeFilled, Bell, InfoFilled, Download, Picture, Setting,
   Lock, Trophy, CreditCard, Check, Calendar, VideoCamera
 } from '@element-plus/icons-vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getLoginUser, apiRequest } from '@/utils/request'
+import { useGlobalConfig } from '~/composables/useGlobalConfig'
 
 useHead({ title: '平台服务 - XRIPP全球公共采购服务平台' })
+const { industryOptions } = useGlobalConfig()
 
 type MemberLevel = 'NORMAL' | 'VIP' | 'SVIP'
 
@@ -887,11 +894,11 @@ const apiActivities = ref<any[]>([])
 
 const mapApiActivityToCard = (a: any) => ({
   id: a.id,
-  type: '活动',
-  date: a.startTime ? String(a.startTime).slice(0, 10) : '待定',
-  location: '待定',
+  type: a.type || '活动',
+  date: a.startTime ? String(a.startTime).slice(0, 10) : (a.date || '待定'),
+  location: a.location || a.cityName || '待定',
   title: a.title || '未命名活动',
-  image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+  image: a.image || a.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
   isPaid: !(a.isFree ?? true),
   price: Number(a.fee || 0)
 })
@@ -899,16 +906,85 @@ const mapApiActivityToCard = (a: any) => ({
 const loadActivities = async () => {
   try {
     const res: any = await $fetch('/api/v3/activities', {
-      query: { page: 1, page_size: 6 }
+      query: { page: 1, page_size: 6, display_area: 'activity' }
     })
     const items = res?.data?.items || []
-    apiActivities.value = items.map(mapApiActivityToCard)
+    apiActivities.value = items.length > 0
+      ? items.map(mapApiActivityToCard)
+      : []
+    if (apiActivities.value.length === 0) {
+      const fallbackRes: any = await $fetch('/api/v3/activities', {
+        query: { page: 1, page_size: 6 }
+      })
+      apiActivities.value = (fallbackRes?.data?.items || []).map(mapApiActivityToCard)
+    }
   } catch (e) {
     apiActivities.value = []
   }
 }
 
 const recentActivities = computed(() => apiActivities.value)
+const { stats: dashboardStats } = usePlatformStats()
+
+const domesticNetworkData = computed<Record<string, any>>(() => {
+  const raw = dashboardStats.value.domesticNetwork
+  return raw && typeof raw === 'object' ? raw : {}
+})
+
+const overseasNetworkData = computed<Record<string, any>>(() => {
+  const raw = dashboardStats.value.overseasNetwork
+  return raw && typeof raw === 'object' ? raw : {}
+})
+
+const serviceCityOptions = computed(() => {
+  const raw = Array.isArray(domesticNetworkData.value.cityPoints) ? domesticNetworkData.value.cityPoints : []
+  return raw
+    .map((item: any) => ({
+      name: String(item?.name || '').trim(),
+      value: Number(item?.value || 0)
+    }))
+    .filter((item: any) => item.name)
+})
+
+const domesticServiceCityCount = computed(() => Number(domesticNetworkData.value.cities || serviceCityOptions.value.length || 0))
+const globalServicePointCount = computed(() =>
+  Number(domesticNetworkData.value.count || 0) + Number(overseasNetworkData.value.count || 0)
+)
+
+const platformStats = computed(() => [
+  {
+    value: dashboardStats.value.totals.memberCount ? dashboardStats.value.totals.memberCount.toLocaleString() : '-',
+    label: '注册企业会员'
+  },
+  {
+    value: dashboardStats.value.totals.organizationCount ? dashboardStats.value.totals.organizationCount.toLocaleString() : '-',
+    label: '采购机构'
+  },
+  {
+    value: dashboardStats.value.totals.countryCount ? dashboardStats.value.totals.countryCount.toLocaleString() : '-',
+    label: '覆盖国家'
+  },
+  {
+    value: globalServicePointCount.value ? globalServicePointCount.value.toLocaleString() : '-',
+    label: '服务点位'
+  }
+])
+
+const marqueeMessages = computed(() => {
+  const items = recentActivities.value
+    .slice(0, 5)
+    .map((activity: any) => {
+      const title = String(activity?.title || '').trim()
+      if (!title) return ''
+      const type = String(activity?.type || activity?.tag || '平台活动').trim()
+      return `📢 [${type}] ${title}`
+    })
+    .filter(Boolean)
+
+  if (items.length > 0) return items
+
+  return ['📢 平台活动与服务动态持续更新中，请前往活动中心查看最新安排']
+})
 
 onMounted(() => {
   loadActivities()
@@ -949,9 +1025,6 @@ const trainingImages = [
   'https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=1200&auto=format&fit=crop'
 ]
 
-const cities = ['上海', '北京', '深圳', '广州', '杭州', '成都', '武汉', '南京', '苏州', '宁波', '天津', '重庆', '西安', '郑州', '长沙']
-const provinces = ['上海市', '北京市', '广东省', '浙江省', '江苏省', '四川省', '湖北省', '陕西省', '河南省', '湖南省']
-const platformStats = [{ value: '4,600+', label: '服务企业' }, { value: '26', label: '联合国机构' }, { value: '193', label: '覆盖国家' }, { value: '99.8%', label: '注册成功率' }]
 const newsList = ref<any[]>([])
 
 const loadNewsList = async () => {
@@ -974,14 +1047,15 @@ const loadNewsList = async () => {
   }
 }
 
-const selectedCity = ref('上海')
+const selectedCity = ref('')
 const citySearchQuery = ref('')
 const cityDialogVisible = ref(false)
-const cityDetail = ref({ name: '', manager: '', phone: '', address: '' })
+const cityDetail = ref({ name: '', servicePointCount: 0, partnerExamples: [] as string[] })
 
 const filteredCities = computed(() => {
-  if (!citySearchQuery.value) return cities
-  return cities.filter(city => city.includes(citySearchQuery.value))
+  const keyword = citySearchQuery.value.trim()
+  if (!keyword) return serviceCityOptions.value
+  return serviceCityOptions.value.filter(city => city.name.includes(keyword))
 })
 
 const signupDialogVisible = ref(false)
@@ -1009,18 +1083,8 @@ const dialogTitle = computed(() => !isLoggedIn.value ? '需要登录' : '立即�
 
 const handleActivityClick = (act: any) => {
   currentActivity.value = act
-  if (!isLoggedIn.value) {
-    signupDialogVisible.value = true
-  } else {
-    signupForm.value = {
-      company: '上海宏大进出口贸易有限公司',
-      contact: '张伟',
-      jobTitle: '采购总监',
-      phone: '13800138000',
-      subscribe: false
-    }
-    signupDialogVisible.value = true
-  }
+  signupForm.value = { company: '', contact: '', jobTitle: '', phone: '', subscribe: false }
+  signupDialogVisible.value = true
 }
 
 const goToLogin = () => {
@@ -1111,10 +1175,44 @@ const handleSubscribe = (act: any) => {
   ElMessage.success(`已订阅 "${act.title}",活动开始前将短信提醒您`)
 }
 
+const recentCityPartners = computed(() => {
+  const raw = Array.isArray(domesticNetworkData.value.list) ? domesticNetworkData.value.list : []
+  return raw.map((item: any) => ({
+    name: String(item?.name || '').trim(),
+    location: String(item?.location || '').trim()
+  }))
+})
+
 const handleCitySelect = (city: string) => {
+  if (!city) {
+    ElMessage.info('当前暂无可展示的城市服务点数据')
+    return
+  }
   selectedCity.value = city
-  cityDetail.value = { name: city, manager: '李经理', phone: '138-0000-8888', address: `${city}市高新技术产业园区服务中心305室` }
+  const cityStat = serviceCityOptions.value.find(item => item.name === city)
+  const partnerExamples = recentCityPartners.value
+    .filter(item => item.location === city)
+    .map(item => item.name)
+    .filter(Boolean)
+    .slice(0, 4)
+  cityDetail.value = {
+    name: city,
+    servicePointCount: Number(cityStat?.value || 0),
+    partnerExamples
+  }
   cityDialogVisible.value = true
+}
+
+const openSelectedCityDialog = () => {
+  handleCitySelect(selectedCity.value || serviceCityOptions.value[0]?.name || '')
+}
+
+const searchCitySuppliers = async () => {
+  cityDialogVisible.value = false
+  if (!cityDetail.value.name) return
+  activeTab.value = 'supplier'
+  supplierFilters.value.city = cityDetail.value.name
+  await searchSupplier()
 }
 
 const toggleExpertExpanded = () => {
@@ -1132,7 +1230,7 @@ const handleResourceClick = (res: any) => {
 }
 
 // ✅ 服务商相关数据
-const supplierFilters = ref({ province: '', keyword: '', serviceType: '' })
+const supplierFilters = ref({ city: '', keyword: '', serviceType: '' })
 const supplierList = ref<any[]>([])
 const hasSearched = ref(false)
 const supplierDetailVisible = ref(false)
@@ -1143,20 +1241,26 @@ const latestSuppliers = ref<any[]>([])
 
 // 将 API 返回的 supplier_onboarding 记录归一化为模板字段
 const mapSupplierItem = (item: any) => {
-  let services: string[] = []
-  try { services = JSON.parse(item.serviceTypesJson || '[]') } catch { services = [] }
+  const services = Array.isArray(item.serviceTypes) && item.serviceTypes.length
+    ? item.serviceTypes
+    : (() => {
+        try { return JSON.parse(item.serviceTypesJson || '[]') } catch { return [] }
+      })()
+  const mainBusiness = item.mainServiceLabel || services[0] || '综合服务'
   return {
     id: item.id,
     name: item.companyName || '未命名企业',
     city: item.cityName || '-',
-    category: services[0] || '综合服务',
+    category: mainBusiness,
+    mainBusiness,
     services,
     joinDate: item.joinDate || '',
     verified: true,
-    icon: '🏢',
-    type: '服务商',
-    phone: '-',
-    intro: item.intro || ''
+    icon: String(item.companyName || '企').trim().charAt(0) || '企',
+    typeLabel: item.applyTypeLabel || '普通服务商',
+    intro: item.intro || '暂无企业简介',
+    companyPdfUrl: item.companyPdfUrl || '',
+    image: item.coverImageUrl || item.promoImageUrl || 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=2070&auto=format&fit=crop'
   }
 }
 
@@ -1172,18 +1276,7 @@ const loadLatestSuppliers = async () => {
   }
 }
 
-// 省份 → 城市关键词映射（与 API city 参数对应）
-const provinceCityMap: Record<string, string> = {
-  '上海市': '上海', '北京市': '北京', '广东省': '深圳',
-  '河南省': '郑州', '浙江省': '杭州', '江苏省': '苏州',
-  '四川省': '成都', '湖北省': '武汉'
-}
-
-// 服务类型 → 关键词映射（用于 API keyword 搜索）
-const serviceTypeKwMap: Record<string, string> = {
-  'bid_writing': '标书', 'export_consulting': '咨询',
-  'certification': '认证', 'logistics': '物流'
-}
+const supplierCityOptions = computed(() => serviceCityOptions.value.map(item => item.name))
 
 const searchSupplier = async () => {
   hasSearched.value = true
@@ -1191,16 +1284,9 @@ const searchSupplier = async () => {
   try {
     const params: Record<string, string> = { page: '1', page_size: '50' }
 
-    if (supplierFilters.value.province) {
-      const city = provinceCityMap[supplierFilters.value.province]
-      if (city) params.city = city
-    }
-
-    let kw = supplierFilters.value.keyword.trim()
-    if (!kw && supplierFilters.value.serviceType) {
-      kw = serviceTypeKwMap[supplierFilters.value.serviceType] || ''
-    }
-    if (kw) params.keyword = kw
+    if (supplierFilters.value.city) params.city = supplierFilters.value.city
+    if (supplierFilters.value.keyword.trim()) params.keyword = supplierFilters.value.keyword.trim()
+    if (supplierFilters.value.serviceType) params.service_type = supplierFilters.value.serviceType
 
     const qs = new URLSearchParams(params).toString()
     const res: any = await apiRequest(`/v3/suppliers?${qs}`)
@@ -1220,7 +1306,7 @@ const searchSupplier = async () => {
 const clearSearch = () => {
   hasSearched.value = false
   supplierList.value = []
-  supplierFilters.value = { province: '', keyword: '', serviceType: '' }
+  supplierFilters.value = { city: '', keyword: '', serviceType: '' }
 }
 
 const viewSupplierDetail = (supplier: any) => {
@@ -1229,8 +1315,26 @@ const viewSupplierDetail = (supplier: any) => {
 }
 
 const downloadSupplierPDF = (supplier: any) => {
-  ElMessage.success({ message: `正在下载 "${supplier.name}" 的企业介绍PDF...`, duration: 2000 })
+  if (!supplier?.companyPdfUrl) {
+    ElMessage.info('该服务商暂未公开 PDF 介绍')
+    return
+  }
+  const url = resolveFileUrl(supplier.companyPdfUrl)
+  if (!import.meta.client) return
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
+
+const resolveFileUrl = (url: string) => {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  return url.startsWith('/') ? url : `/${url}`
+}
+
+watch(serviceCityOptions, (items) => {
+  if (!selectedCity.value && items.length > 0) {
+    selectedCity.value = items[0].name
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>

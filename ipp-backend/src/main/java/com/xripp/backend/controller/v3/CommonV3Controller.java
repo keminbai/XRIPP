@@ -59,10 +59,18 @@ public class CommonV3Controller {
             String url = "/uploads/" + datePath + "/" + safeFilename;
             log.info("[Upload] saved: {} -> {} ({}bytes)", originalFilename, url, file.getSize());
 
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("url", url);
+            data.put("fileName", originalFilename);
+            data.put("storedName", safeFilename);
+            data.put("fileExt", ext);
+            data.put("fileSize", file.getSize());
+            data.put("contentType", safe(file.getContentType()));
+
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("code", 200);
             result.put("message", "success");
-            result.put("data", Map.of("url", url));
+            result.put("data", data);
             return result;
 
         } catch (IOException e) {
@@ -85,5 +93,9 @@ public class CommonV3Controller {
         result.put("message", message);
         result.put("data", null);
         return result;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 }

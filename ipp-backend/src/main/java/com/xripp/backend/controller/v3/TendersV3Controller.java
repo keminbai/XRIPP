@@ -210,7 +210,7 @@ public class TendersV3Controller {
         m.put("categoryLabel", mapCategoryLabel(cat));
         m.put("price", t.getPrice() == null ? BigDecimal.ZERO : t.getPrice());
         m.put("isTop", Boolean.TRUE.equals(t.getIsTop()));
-        m.put("publishDate", formatDate(t.getCreatedAt()));
+        m.put("publishDate", formatDate(t.getPublishedAt() != null ? t.getPublishedAt() : t.getCreatedAt()));
         m.put("deadline", formatDateTime(t.getDeadlineAt()));
         return m;
     }

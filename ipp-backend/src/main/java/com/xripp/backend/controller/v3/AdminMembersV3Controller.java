@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 @RestController
@@ -33,7 +35,11 @@ public class AdminMembersV3Controller {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(name = "page_size", defaultValue = "20") long pageSize,
             @RequestParam(name = "member_level", required = false) String memberLevel,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String industry,
+            @RequestParam(name = "invitation_code", required = false) String invitationCode,
+            @RequestParam(name = "created_from", required = false) String createdFrom,
+            @RequestParam(name = "created_to", required = false) String createdTo
     ) {
         if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
@@ -50,15 +56,7 @@ public class AdminMembersV3Controller {
             qw.inSql("user_id", "SELECT id FROM sys_user WHERE partner_id = " + partnerId);
         }
 
-        if (memberLevel != null && !memberLevel.isBlank()) {
-            qw.eq("member_level", memberLevel.trim());
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            String kw = keyword.trim();
-            qw.and(w -> w.like("company_name", kw)
-                    .or().like("contact_person", kw)
-                    .or().like("contact_phone", kw));
-        }
+        applyMemberFilters(qw, memberLevel, keyword, industry, invitationCode, createdFrom, createdTo);
         qw.orderByDesc("created_at");
 
         Page<MemberProfile> p = new Page<>(page, pageSize);
@@ -186,6 +184,10 @@ public class AdminMembersV3Controller {
     public void export(
             @RequestParam(name = "member_level", required = false) String memberLevel,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String industry,
+            @RequestParam(name = "invitation_code", required = false) String invitationCode,
+            @RequestParam(name = "created_from", required = false) String createdFrom,
+            @RequestParam(name = "created_to", required = false) String createdTo,
             HttpServletResponse response
     ) throws Exception {
         if (!SecurityContextHolder.isAdmin() && !SecurityContextHolder.isPartner()) {
@@ -199,15 +201,7 @@ public class AdminMembersV3Controller {
             if (partnerId == null) { response.setStatus(403); return; }
             qw.inSql("user_id", "SELECT id FROM sys_user WHERE partner_id = " + partnerId);
         }
-        if (memberLevel != null && !memberLevel.isBlank()) {
-            qw.eq("member_level", memberLevel.trim());
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            String kw = keyword.trim();
-            qw.and(w -> w.like("company_name", kw)
-                    .or().like("contact_person", kw)
-                    .or().like("contact_phone", kw));
-        }
+        applyMemberFilters(qw, memberLevel, keyword, industry, invitationCode, createdFrom, createdTo);
         qw.orderByDesc("created_at");
 
         List<MemberProfile> all = memberProfileService.list(qw);
@@ -225,5 +219,64 @@ public class AdminMembersV3Controller {
             rows.add(dto);
         }
         ExcelExportUtil.write(response, "会员列表", MemberExportDTO.class, rows);
+    }
+
+    private void applyMemberFilters(
+            QueryWrapper<MemberProfile> qw,
+            String memberLevel,
+            String keyword,
+            String industry,
+            String invitationCode,
+            String createdFrom,
+            String createdTo
+    ) {
+        if (memberLevel != null && !memberLevel.isBlank()) {
+            qw.eq("member_level", memberLevel.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("company_name", kw)
+                    .or().like("contact_person", kw)
+                    .or().like("contact_phone", kw));
+        }
+        if (industry != null && !industry.isBlank()) {
+            qw.eq("industry", industry.trim());
+        }
+        if (invitationCode != null && !invitationCode.isBlank()) {
+            qw.like("invitation_code", invitationCode.trim());
+        }
+
+        Date createdFromDate = parseDateStart(createdFrom);
+        if (createdFromDate != null) {
+            qw.ge("created_at", createdFromDate);
+        }
+        Date createdToDate = parseDateEndExclusive(createdTo);
+        if (createdToDate != null) {
+            qw.lt("created_at", createdToDate);
+        }
+    }
+
+    private Date parseDateStart(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDate date = LocalDate.parse(raw.trim());
+            return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Date parseDateEndExclusive(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDate date = LocalDate.parse(raw.trim()).plusDays(1);
+            return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

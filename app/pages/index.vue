@@ -116,7 +116,7 @@
             <h2 class="text-3xl font-bold text-slate-900">最新采购商机</h2>
           </div>
           <button @click="navigateTo('/procurement')" class="hidden md:flex items-center gap-2 text-brand-600 hover:text-brand-700 font-bold text-base transition-colors group">
-            查看全部 117,153 条标书
+            查看全部 {{ totalTenders ? totalTenders.toLocaleString() : '0' }} 条标书
             <el-icon class="group-hover:translate-x-1 transition-transform"><ArrowRight /></el-icon>
           </button>
         </div>
@@ -251,7 +251,7 @@
               <span class="w-8 h-0.5 bg-brand-600"></span> Service Provider Showcase
             </div>
             <h2 class="text-3xl md:text-4xl font-bold text-slate-900">平台服务商风采</h2>
-            <p class="text-slate-500 mt-3 text-lg font-light">4,600+ 行业领军企业通过 XRIPP 平台成功拓展全球版图</p>
+            <p class="text-slate-500 mt-3 text-lg font-light">{{ supplierShowcaseSubtitle }}</p>
           </div>
           
           <div class="flex gap-3">
@@ -262,8 +262,8 @@
 
         <!-- 滚动容器 -->
         <div ref="memberScrollRef" class="flex gap-6 overflow-x-auto pb-12 snap-x snap-mandatory scroll-smooth no-scrollbar px-1">
-          <div v-for="company in memberShowcase" :key="company.name" class="min-w-[300px] flex-shrink-0 snap-start">
-            <div class="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-2xl hover:border-brand-200 hover:-translate-y-2 transition-all duration-500 cursor-pointer h-full relative overflow-hidden flex flex-col">
+          <div v-for="company in memberShowcase" :key="company.id" class="min-w-[300px] flex-shrink-0 snap-start">
+            <div class="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-2xl hover:border-brand-200 hover:-translate-y-2 transition-all duration-500 cursor-pointer h-full relative overflow-hidden flex flex-col" @click="navigateTo('/supplier-directory')">
               <!-- 封面图 -->
               <div class="h-32 bg-slate-200 relative overflow-hidden">
                 <img :src="company.image" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -288,7 +288,7 @@
                 
                 <!-- ✅ 修改:去掉"中标XX项",只保留行业标签和箭头 -->
                 <div class="mt-auto pt-4 border-t border-slate-50 flex justify-between items-center">
-                  <div class="text-xs text-slate-500">{{ company.industry }}</div>
+                  <div class="text-xs text-slate-500">{{ company.applyTypeLabel }}</div>
                   <el-icon class="text-slate-300 group-hover:text-brand-600 group-hover:translate-x-1 transition-all"><ArrowRight /></el-icon>
                 </div>
               </div>
@@ -335,6 +335,9 @@ const activities = ref<any[]>([])
 
 // 标书真实数据（/v3/tenders 已 permitAll）
 const tenders = ref<any[]>([])
+const totalTenders = ref(0)
+const memberShowcase = ref<any[]>([])
+const supplierTotal = ref(0)
 
 const fmtDeadline = (v: string) => (v ? v.slice(0, 10) : '-')
 
@@ -348,14 +351,7 @@ const mapTenderRow = (item: any) => ({
 })
 
 const displayTenders = computed(() => {
-  const orig = tenders.value.map(mapTenderRow)
-  if (orig.length === 0) return []
-  const list = [...orig]
-  // 数据不足时循环填充，保证界面最少展示 10 条
-  while (list.length < 10) {
-    list.push({ ...orig[list.length % orig.length], id: `TMP-${Math.random()}` })
-  }
-  return list.slice(0, 10)
+  return tenders.value.map(mapTenderRow).slice(0, 10)
 })
 
 // 收藏功能状态
@@ -414,22 +410,24 @@ const stats = computed(() => [
   { label: '招标信息总量', value: dashboardStats.value.totals.tenderCount ? dashboardStats.value.totals.tenderCount.toLocaleString() : '-', icon: '📄' },
   { label: '注册企业会员', value: dashboardStats.value.totals.memberCount ? dashboardStats.value.totals.memberCount.toLocaleString() : '-', icon: '🏢' },
   { label: '覆盖目标国家', value: String(dashboardStats.value.totals.countryCount), icon: '🌍' },
-  { label: '联合国年采购额', value: '$25.7B', icon: '💰' },
+  { label: '采购机构数', value: String(dashboardStats.value.totals.organizationCount || 0), icon: '🏛️' },
 ])
 
-// 平台服务商风采数据
-const memberShowcase = [
-  { name: '华为技术有限公司', logo: '华', industry: '通信/ICT', count: 58, image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop' },
-  { name: '中兴通讯股份有限公司', logo: '中', industry: '网络设备', count: 32, image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop' },
-  { name: '三一重工股份有限公司', logo: '三', industry: '工程机械', count: 45, image: 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=2070&auto=format&fit=crop' },
-  { name: '比亚迪股份有限公司', logo: '比', industry: '新能源汽车', count: 27, image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1932&auto=format&fit=crop' },
-  { name: '宁德时代', logo: '宁', industry: '动力电池', count: 19, image: 'https://images.unsplash.com/photo-1487958449943-2429e8be8625?q=80&w=2070&auto=format&fit=crop' },
-  { name: '迈瑞医疗', logo: '迈', industry: '医疗器械', count: 15, image: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2053&auto=format&fit=crop' },
-  { name: '腾讯云', logo: '腾', industry: '云计算', count: 36, image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop' },
-  { name: '阿里巴巴', logo: '阿', industry: '电子商务', count: 41, image: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2070&auto=format&fit=crop' },
-  { name: '京东物流', logo: '京', industry: '智慧物流', count: 22, image: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2070&auto=format&fit=crop' },
-  { name: '美的集团', logo: '美', industry: '智能家电', count: 18, image: 'https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=2000&auto=format&fit=crop' }
-]
+const fallbackSupplierImage = 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=2070&auto=format&fit=crop'
+
+const supplierShowcaseSubtitle = computed(() => {
+  if (!supplierTotal.value) return '公开服务商名录持续更新中，当前展示已通过审核并开放公开资料的服务商'
+  return `${supplierTotal.value.toLocaleString()} 家服务商已开放公开资料，覆盖多个重点行业与服务方向`
+})
+
+const mapSupplierCard = (item: any) => ({
+  id: String(item.id),
+  name: item.companyName || '未命名服务商',
+  logo: String(item.companyName || '?').trim().charAt(0) || '?',
+  industry: item.mainServiceLabel || item.mainService || '综合服务',
+  applyTypeLabel: item.applyTypeLabel || '服务商',
+  image: item.coverImageUrl || item.promoImageUrl || fallbackSupplierImage
+})
 
 // 会员滚动逻辑
 const memberScrollRef = ref<HTMLElement | null>(null)
@@ -444,11 +442,28 @@ onMounted(async () => {
   await Promise.allSettled([
     apiRequest('/v3/tenders?page=1&page_size=20').then((res: any) => {
       tenders.value = Array.isArray(res?.data?.items) ? res.data.items : []
+      totalTenders.value = Number(res?.data?.total ?? 0)
     }).catch(() => { tenders.value = [] }),
 
-    apiRequest('/v3/activities?page=1&page_size=4').then((res: any) => {
-      activities.value = Array.isArray(res?.data?.items) ? res.data.items : []
+    apiRequest('/v3/activities?page=1&page_size=4&display_area=home').then((res: any) => {
+      const items = Array.isArray(res?.data?.items) ? res.data.items : []
+      if (items.length > 0) {
+        activities.value = items
+        return
+      }
+      return apiRequest('/v3/activities?page=1&page_size=4').then((fallback: any) => {
+        activities.value = Array.isArray(fallback?.data?.items) ? fallback.data.items : []
+      })
     }).catch(() => { activities.value = [] }),
+
+    apiRequest('/v3/suppliers?page=1&page_size=10').then((res: any) => {
+      const items = Array.isArray(res?.data?.items) ? res.data.items : []
+      memberShowcase.value = items.map(mapSupplierCard)
+      supplierTotal.value = Number(res?.data?.total ?? items.length)
+    }).catch(() => {
+      memberShowcase.value = []
+      supplierTotal.value = 0
+    }),
 
     loadBanners()
   ])

@@ -18,6 +18,63 @@
 
       <el-tabs v-model="activeTab" type="card" class="demo-tabs">
 
+        <el-tab-pane label="活动显示申请" name="activity-display">
+          <div class="space-y-4 pt-4">
+            <div class="flex justify-between items-center">
+              <div class="text-xs text-slate-500">审核活动提交的首页/活动中心/平台服务推荐申请</div>
+              <el-select v-model="displayFilters.applyStatus" placeholder="状态筛选" class="w-40" clearable @change="loadActivityDisplays">
+                <el-option label="待审核" value="pending_review" />
+                <el-option label="已通过" value="approved" />
+                <el-option label="已驳回" value="rejected" />
+                <el-option label="已下线" value="offline" />
+              </el-select>
+            </div>
+
+            <el-table :data="activityDisplayList" border stripe v-loading="activityDisplayLoading">
+              <el-table-column prop="activityNo" label="活动编号" width="140" />
+              <el-table-column label="活动信息" min-width="280">
+                <template #default="{ row }">
+                  <div class="flex gap-3 items-center">
+                    <img v-if="row.coverImage" :src="row.coverImage" class="w-16 h-10 object-cover rounded border border-slate-200" />
+                    <div>
+                      <div class="font-semibold text-slate-800">{{ row.title }}</div>
+                      <div class="text-xs text-slate-500 mt-1">{{ row.cityName || '全国' }} | {{ row.publisher || '-' }}</div>
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="displayAreaLabel" label="显示区域" width="140" />
+              <el-table-column label="显示时段" width="220">
+                <template #default="{ row }">
+                  <div class="text-xs text-slate-600">
+                    <div>{{ row.displayStartAt || '-' }}</div>
+                    <div class="text-slate-400 mt-1">至 {{ row.displayEndAt || '-' }}</div>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column prop="sortOrder" label="顺序" width="80" />
+              <el-table-column label="状态" width="110">
+                <template #default="{ row }">
+                  <el-tag :type="row.applyStatus === 'approved' ? 'success' : row.applyStatus === 'pending_review' ? 'warning' : row.applyStatus === 'rejected' ? 'danger' : 'info'" size="small">
+                    {{ row.applyStatusLabel }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="changeReason" label="备注/原因" min-width="180" show-overflow-tooltip />
+              <el-table-column label="操作" width="220" fixed="right">
+                <template #default="{ row }">
+                  <div class="flex gap-2">
+                    <el-button v-if="row.applyStatus === 'pending_review'" type="success" size="small" plain @click="handleDisplayTransition(row, 'approved')">通过</el-button>
+                    <el-button v-if="row.applyStatus === 'pending_review'" type="danger" size="small" plain @click="handleDisplayReject(row)">驳回</el-button>
+                    <el-button v-if="row.applyStatus === 'approved'" type="warning" size="small" plain @click="handleDisplayTransition(row, 'offline')">下线</el-button>
+                    <el-button v-if="['rejected', 'offline'].includes(row.applyStatus)" type="primary" size="small" plain @click="handleDisplayTransition(row, 'approved')">重新启用</el-button>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+
         <!-- 1. 首页轮播图 -->
         <el-tab-pane label="首页轮播图" name="carousel">
           <div class="space-y-4 pt-4">
@@ -162,8 +219,11 @@ const activeTab = ref('carousel')
 // --- Data ---
 const carouselList = ref<any[]>([])
 const adsList = ref<any[]>([])
+const activityDisplayList = ref<any[]>([])
 const carouselLoading = ref(false)
 const adLoading = ref(false)
+const activityDisplayLoading = ref(false)
+const displayFilters = ref({ applyStatus: '' })
 
 const fmtDate = (v: any) => {
   if (!v) return '-'
@@ -188,6 +248,24 @@ const mapItem = (item: any) => ({
   publishStatus: item.publishStatus || item.publish_status || 'draft',
   publishStatusLabel: statusLabelMap[item.publishStatus || item.publish_status || 'draft'] || '未知',
   createdAt: item.createdAt || item.created_at || ''
+})
+
+const mapDisplayItem = (item: any) => ({
+  id: item.id,
+  activityId: item.activity_id || item.activityId,
+  activityNo: item.activity_no || '-',
+  title: item.title || '未命名活动',
+  cityName: item.city_name || '',
+  coverImage: item.cover_image || '',
+  publisher: item.publisher || '',
+  displayArea: item.display_area || item.displayArea || '',
+  displayAreaLabel: item.display_area_label || item.displayAreaLabel || '-',
+  applyStatus: item.apply_status || item.applyStatus || 'pending_review',
+  applyStatusLabel: item.apply_status_label || item.applyStatusLabel || '待审核',
+  displayStartAt: item.displayStartAt || item.display_start_at || '',
+  displayEndAt: item.displayEndAt || item.display_end_at || '',
+  sortOrder: Number(item.sort_order || 0),
+  changeReason: item.change_reason || item.changeReason || ''
 })
 
 // --- Load Data ---
@@ -218,6 +296,21 @@ const loadAds = async () => {
     ElMessage.error(e?.message || '加载广告位失败')
   } finally {
     adLoading.value = false
+  }
+}
+
+const loadActivityDisplays = async () => {
+  activityDisplayLoading.value = true
+  try {
+    const query: Record<string, any> = { page: 1, page_size: 50 }
+    if (displayFilters.value.applyStatus) query.apply_status = displayFilters.value.applyStatus
+    const res: any = await apiRequest('/v3/admin/activity-display-applications', { query })
+    activityDisplayList.value = (res?.data?.items || []).map(mapDisplayItem)
+  } catch (e: any) {
+    activityDisplayList.value = []
+    ElMessage.error(e?.message || '加载活动显示申请失败')
+  } finally {
+    activityDisplayLoading.value = false
   }
 }
 
@@ -315,6 +408,39 @@ const handleDelete = (item: any) => {
     .catch(() => {})
 }
 
+const handleDisplayTransition = async (item: any, toStatus: string) => {
+  try {
+    await apiRequest(`/v3/admin/activity-display-applications/${item.id}/transition`, {
+      method: 'POST',
+      body: { to_status: toStatus, reason: `display ${toStatus}` }
+    })
+    ElMessage.success(toStatus === 'approved' ? '显示申请已通过' : '显示申请已下线')
+    await loadActivityDisplays()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '操作失败')
+  }
+}
+
+const handleDisplayReject = (item: any) => {
+  ElMessageBox.prompt('请输入驳回原因', '驳回显示申请', {
+    confirmButtonText: '确认驳回',
+    cancelButtonText: '取消',
+    inputType: 'textarea',
+    inputValidator: (value) => value?.trim() ? true : '请输入驳回原因'
+  }).then(async ({ value }) => {
+    try {
+      await apiRequest(`/v3/admin/activity-display-applications/${item.id}/transition`, {
+        method: 'POST',
+        body: { to_status: 'rejected', reason: String(value || '') }
+      })
+      ElMessage.success('已驳回')
+      await loadActivityDisplays()
+    } catch (e: any) {
+      ElMessage.error(e?.message || '驳回失败')
+    }
+  }).catch(() => {})
+}
+
 // --- Other tabs (config-type, keep as-is) ---
 const aboutContent = ref({ title: '关于XRIPP', content: '...' })
 const handleAboutSave = () => ElMessage.success('保存成功')
@@ -322,6 +448,7 @@ const siteConfig = ref({ logo: 'XRIPP', siteName: 'XRIPP国际公共采购平台
 const handleSiteSave = () => ElMessage.success('设置保存成功')
 
 onMounted(() => {
+  loadActivityDisplays()
   loadCarousels()
   loadAds()
 })

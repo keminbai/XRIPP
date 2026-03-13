@@ -3,6 +3,7 @@ package com.xripp.backend.controller.v3;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.ActivityRegistration;
 import com.xripp.backend.service.IActivityRegistrationService;
+import com.xripp.backend.service.SupplierOnboardingPaymentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,12 +17,21 @@ import java.util.Map;
 public class InternalPaymentsV3Controller {
 
     private final IActivityRegistrationService activityRegistrationService;
+    private final SupplierOnboardingPaymentService supplierOnboardingPaymentService;
 
     @PostMapping("/callback")
     public V3Response<Map<String, Object>> callback(@RequestBody Map<String, Object> body) {
         Long registrationId = body.get("registration_id") == null
                 ? null
                 : Long.valueOf(String.valueOf(body.get("registration_id")));
+
+        if (registrationId == null
+                && (body.containsKey("order_no")
+                || body.containsKey("payment_order_id")
+                || "supplier_onboarding".equals(String.valueOf(body.getOrDefault("biz_type", ""))))) {
+            return V3Response.success(supplierOnboardingPaymentService.markSupplierOnboardingPaid(body));
+        }
+
         String payStatus = String.valueOf(body.getOrDefault("pay_status", ""));
 
         if (registrationId == null || registrationId <= 0) {

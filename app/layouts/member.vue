@@ -210,6 +210,7 @@ const menuItems = {
   console: [
     { name: '控制台首页', icon: Monitor, path: '/member' },
     { name: '我的订单', icon: Document, path: '/member/orders' },
+    { name: '我的服务商申请', icon: Trophy, path: '/member/supplier-applications' },
     { name: '我的收藏', icon: Star, path: '/member/favorites' },
   ],
   service: [

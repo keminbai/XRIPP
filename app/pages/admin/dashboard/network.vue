@@ -1,9 +1,17 @@
 ﻿<template>
   <div class="space-y-6">
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <div class="font-bold">功能规划中</div>
+      <div class="mt-1">
+        当前页面仍是本地演示表单，未接后端持久化，也不会影响公共大屏。
+        公共大屏服务网络数据已改为直接读取真实 `partners` 与 `overseas_points` 统计。
+      </div>
+    </div>
+
     <div class="bg-white p-6 rounded-xl border border-slate-200">
       <div class="mb-6">
         <h3 class="text-lg font-bold text-slate-800">服务网络配置</h3>
-        <p class="text-xs text-slate-500 mt-1">配置首页数据看板展示的服务网络分布数据</p>
+        <p class="text-xs text-slate-500 mt-1">规划中的后台配置页，当前仅用于梳理未来配置字段</p>
       </div>
 
       <el-form :model="form" label-width="150px" class="max-w-3xl">
@@ -23,7 +31,7 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSaveConfig">保存配置</el-button>
+          <el-button type="primary" @click="handleSaveConfig">记录规划项</el-button>
           <el-button @click="handleResetConfig">重置配置</el-button>
         </el-form-item>
       </el-form>
@@ -32,11 +40,11 @@
     <div class="bg-white p-6 rounded-xl border border-slate-200">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h3 class="text-lg font-bold text-slate-800">服务网点数据录入与发布</h3>
-          <p class="text-xs text-slate-500 mt-1">服务点城市设置，自动匹配服务点总数与省份数量</p>
+          <h3 class="text-lg font-bold text-slate-800">服务网点数据录入草稿</h3>
+          <p class="text-xs text-slate-500 mt-1">仅保留为未来配置原型，不代表当前线上真实数据源</p>
         </div>
         <div class="flex gap-2">
-          <el-button type="success" @click="handlePublish">发布数据</el-button>
+          <el-button type="success" @click="handlePublish">标记已梳理</el-button>
           <el-button @click="handleResetData">清空录入</el-button>
         </div>
       </div>
@@ -151,13 +159,13 @@ const cities = ref([
 
 const autoConfig = ref({ autoTotalPoints: true, autoProvinceCount: true })
 
-const handleSaveConfig = () => ElMessage.success('服务网络配置已保存')
+const handleSaveConfig = () => ElMessage.info('当前页面未接后端，已仅作为规划项记录')
 const handleResetConfig = () => {
   form.value = { showPoints: true, showMap: true, showPartners: true, mapType: 'china' }
   ElMessage.success('已重置配置')
 }
 
-const handlePublish = () => ElMessage.success('服务网点数据已发布')
+const handlePublish = () => ElMessage.info('当前页面未接发布链路，公共大屏不会读取这里的数据')
 const handleResetData = () => {
   summary.value = { asOfDate: '', totalPoints: 0, totalCountries: 0, totalProvinces: 0, totalPartners: 0 }
   cities.value = []

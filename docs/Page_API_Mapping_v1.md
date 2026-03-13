@@ -18,7 +18,11 @@
 |---|---|---|---|---|---|
 | 联采会员申请提交 | `/member/un-apply` | 本地模拟 | `/api/v3/member-verifications` | POST | Batch B |
 | 我的认证状态 | `/member/*` | 待统一 | `/api/v3/member-verifications/me` | GET | 与提交同迭代 |
-| 供应商入驻提交 | `/member/*supplier*` | 待核 | `/api/v3/supplier-onboarding` | POST | Batch B |
+| 供应商入驻草稿/支付单创建 | `/member/supplier-apply` | ✅ 已接入 | `/api/v3/member/supplier-apply/draft` | POST | 保存资料并生成支付单 |
+| 供应商入驻支付后提交审核 | `/member/supplier-apply` | ✅ 已接入 | `/api/v3/member/supplier-apply/{id}/submit` | POST | 仅已支付后可提交 |
+| 我的服务商申请列表 | `/member/supplier-applications` | ✅ 已接入 | `/api/v3/member/supplier-apply` | GET | 会员侧状态追踪入口 |
+| 我的服务商申请详情 | `/member/supplier-applications` | ✅ 已接入 | `/api/v3/member/supplier-apply/{id}` | GET | 返回 detail/attachments/certificates/paymentOrder |
+| 我的服务商申请支付状态 | `/member/supplier-applications` | ✅ 已接入 | `/api/v3/member/supplier-apply/{id}/payment` | GET | 支付二维码与支付状态刷新 |
 | 我的订单列表 | `/member/orders` | 待核 | `/api/v3/orders` | GET | Batch A |
 | 我的订单详情 | `/member/orders/{id}` | 待核 | `/api/v3/orders/{id}` | GET | Batch A |
 
@@ -28,8 +32,9 @@
 |---|---|---|---|---|---|
 | 会员待审核列表 | `/admin/members/un-audit` | mock列表 | `/api/v3/admin/member-verifications` | GET | Batch A 首批 |
 | 会员审核动作 | `/admin/members/un-audit` | 本地改状态 | `/api/v3/admin/member-verifications/{id}/review` | POST | Batch B |
-| 供应商审核列表 | `/admin/*supplier*` | 待核 | `/api/v3/admin/supplier-onboarding` | GET | Batch A |
-| 供应商审核动作 | `/admin/*supplier*` | 待核 | `/api/v3/admin/supplier-onboarding/{id}/review` | POST | Batch B |
+| 供应商审核列表 | `/admin/suppliers/audit` | ✅ 已接入 | `/api/v3/admin/supplier-onboarding` | GET | 列表含联系人/支付/完整性 |
+| 供应商审核详情 | `/admin/suppliers/audit` | ✅ 已接入 | `/api/v3/admin/supplier-onboarding/{id}` | GET | 返回 detail/attachments/certificates/paymentOrder |
+| 供应商审核动作 | `/admin/suppliers/audit` | ✅ 已接入 | `/api/v3/admin/supplier-onboarding/{id}/transition` | POST | 基于状态机流转，不再使用 review 占位接口 |
 | 订单管理列表 | `/admin/tenders/orders` | 待核 | `/api/v3/orders` | GET | 先读后写 |
 | 订单状态流转 | `/admin/tenders/orders` | 后端已落地（待联调） | `/api/v3/admin/orders/{id}/transition` | POST | Batch B |
 | 标书管理列表 | `/admin/tenders/manage` | 待核 | `/api/v3/tenders` | GET | Batch C |

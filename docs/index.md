@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-12（第十五轮：前端 Mock 清理 Batch 3-4 + P0 会员注册全栈 + 质量审计修复）
+最后更新：2026-03-13（第三十二轮：标书发布时间口径收敛）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -28,13 +28,24 @@
 | 7 | [DDL_Phase7_Favorites.sql](./DDL_Phase7_Favorites.sql) | user_favorites 收藏表（幂等） |
 | 8 | [DDL_Phase8_Contents_Carousel.sql](./DDL_Phase8_Contents_Carousel.sql) | contents 表 cover_image + carousel 类型扩展 |
 | 9 | [DDL_Phase9_Overseas_Points.sql](./DDL_Phase9_Overseas_Points.sql) | overseas_points 表 + 39 条种子数据 |
-| 10 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 10 | [DDL_Phase10_SupplierOnboarding_Extension.sql](./DDL_Phase10_SupplierOnboarding_Extension.sql) | supplier_onboarding 增加 user_id + detail_json |
+| 11 | [DDL_Phase11_SupplierOnboarding_Payment.sql](./DDL_Phase11_SupplierOnboarding_Payment.sql) | supplier_onboarding 支付闭环扩展 + `payment_orders` |
+| 12 | [DDL_Phase12_SupplierOnboarding_FilesAndCertificates.sql](./DDL_Phase12_SupplierOnboarding_FilesAndCertificates.sql) | 附件/证书结构化表 + 完整性标记 |
+| 13 | [DDL_Seed_Data.sql](./DDL_Seed_Data.sql) | **测试账号 + 业务种子数据（幂等）** |
+| 14 | [DDL_Phase14_Activities_Closure.sql](./DDL_Phase14_Activities_Closure.sql) | activities 运营字段扩展 + 编辑/上下架闭环 |
+| 15 | [DDL_Phase15_ActivityDisplayApplications.sql](./DDL_Phase15_ActivityDisplayApplications.sql) | 活动显示申请表 + 审核/上下线闭环 |
+| 16 | [DDL_Phase16_Tenders_PublishedAt.sql](./DDL_Phase16_Tenders_PublishedAt.sql) | tenders `published_at` 补列 + 回填 + 发布时间索引 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
 - [Roadmap_Week2_Week4.md](./Roadmap_Week2_Week4.md)
 - [Mock_Removal_Execution_Checklist.md](./Mock_Removal_Execution_Checklist.md)
 - [API_Implementation_Plan_v1.md](./API_Implementation_Plan_v1.md)
+- [SupplierOnboarding_Closure_2026-03-13.md](./SupplierOnboarding_Closure_2026-03-13.md) — 服务商入驻闭环修复阶段记录
+- [ActivityContent_Closure_2026-03-13.md](./ActivityContent_Closure_2026-03-13.md) — 活动内容管理写闭环阶段记录
+- [ActivitySignup_Closure_2026-03-13.md](./ActivitySignup_Closure_2026-03-13.md) — 活动报名管理/导出闭环阶段记录
+- [ActivityDisplay_Closure_2026-03-13.md](./ActivityDisplay_Closure_2026-03-13.md) — 活动显示申请/审核闭环阶段记录
+- [TenderPublishDate_Closure_2026-03-13.md](./TenderPublishDate_Closure_2026-03-13.md) — 标书发布时间口径/DDL 留痕修复记录
 
 ## 2. 历史需求与参考文档（用于追溯，不直接覆盖权威契约）
 
@@ -152,6 +163,224 @@
   - login.vue：SMS timer onBeforeUnmount 清理（内存泄漏）+ 三表单独立 submitting ref
   - SecurityConfig：`/v3/auth/register` 加入 permitAll
 
+### Phase J — 标书分析脱 Mock + 供应商入驻全栈（2026-03-12 ✅）
+- ✅ `admin/tenders/analysis.vue`：移除 `generateMockData()`（240 条随机记录），改为 `GET /v3/admin/tenders/analysis`
+  - 后端新增 `/analysis` 端点：返回 published 标书的 organization/category/publishDate 轻量记录
+  - 前端组织筛选器改为动态（从真实数据提取去重），同比/环比从真实数据计算（原 yoy 硬编码）
+  - 导出报表从空操作改为真实 CSV 导出
+- ✅ `member/supplier-apply.vue`：移除 `setTimeout` 假提交，改为 `POST /v3/member/supplier-apply`
+  - DDL Phase 10：supplier_onboarding 增加 user_id + detail_json 列
+  - 后端 MemberSupplierApplyV3Controller：会员自助入驻（防重复提交 + 状态审计）
+  - 前端 30+ 表单字段映射为 company_name + city + service_types_json + detail_json（结构化 JSON）
+
+### Phase K — 服务商入驻闭环修复（2026-03-13 ✅）
+- ✅ 支付闭环：
+  - DDL Phase 11：`supplier_onboarding` 增加支付字段，新增 `payment_orders`
+  - 后端：草稿保存即创建平台订单 + 支付单 + 二维码
+  - 后端：支付回调写入 `payment_orders`，未支付不允许提交审核
+  - 前端：`member/supplier-apply.vue` 第 4 步改为真实二维码 + 刷新支付状态
+- ✅ 附件/资质结构化：
+  - DDL Phase 12：新增 `supplier_onboarding_files`、`supplier_onboarding_certificates`
+  - 上传接口返回文件名/大小/扩展名等元数据
+  - 会员端真实上传营业执照、开户许可证、封面、PDF、宣传图
+  - 草稿提交落库结构化附件与证书，不再只依赖 `detail_json`
+- ✅ 管理端复查：
+  - `AdminSupplierOnboardingV3Controller` 列表/详情返回联系人、主业务、附件、证书、支付单、提交快照
+  - `admin/suppliers/audit.vue` 重写为真实复查页，支持附件预览/下载、证书查看、支付复核、状态流转
+- ⚠️ 环境验证未完全通过：
+  - `npm run build` 受缺失 `@oxc-parser/binding-linux-x64-gnu` 影响失败
+  - `./mvnw -q test` 受 `JAVA_HOME` 未正确设置影响未执行
+
+### Phase L — 会员侧服务商申请状态闭环（2026-03-13 ✅）
+- ✅ 新增 `member/supplier-applications.vue`
+  - 列表查看本人全部服务商申请
+  - 详情查看 `detail/detailJson/submittedSnapshot/attachments/certificates/paymentOrder`
+  - 时间轴展示支付、提交、审核、激活进度
+- ✅ 会员中心补入口
+  - `member.vue` 左侧菜单增加“我的服务商申请”
+  - `member/index.vue` 常用工具增加直达入口
+- ✅ 会员端支付后补齐提交审核动作
+  - 列表页、详情弹窗、支付弹窗均可在已支付后直接调用 `POST /v3/member/supplier-apply/{id}/submit`
+  - 避免用户支付完成后仍卡在 `pending_payment`
+- ✅ `MemberSupplierApplyV3Controller`
+  - `GET /v3/member/supplier-apply`
+  - `GET /v3/member/supplier-apply/{id}`
+  - 返回联系人、主业务、完整性标记、附件、证书、支付单、提交快照
+
+### Phase M — WSL 验证环境收敛（2026-03-13 ✅）
+- ✅ 前端验证结论澄清
+  - `/mnt/d` 挂载盘下 `npm ci` 会触发 `EPERM chmod`
+  - 当前系统 Node `18.19.1` 不满足 Nuxt 4 / Vite 7 最低要求
+  - 使用用户态 Node `20.19.0` + `/tmp` 镜像目录后，`npm ci` 与 `npm run build` 均通过
+- ✅ 后端验证结论澄清
+  - 使用本地 JDK 17 + 显式 truststore 后，`./mvnw -q test` 已可执行
+  - 当前失败不再是 `JAVA_HOME`，而是测试所依赖的 SQL Server `localhost:1433` 不可达
+
+### Phase N — 服务商入驻失败态修改重提（2026-03-13 ✅）
+- ✅ 原单重提策略落地
+  - `precheck_failed`、`final_review_failed` 回到原申请修改，不再要求新建申请
+  - 后端允许失败态重新进入 `draft`
+- ✅ 已支付失败单复用原支付结果
+  - 已支付/免支付申请修改资料后不再重复缴费
+  - 为避免免费切换套餐，已支付失败单暂锁定 `apply_type`
+- ✅ 会员端表单回填
+  - `member/supplier-applications.vue` 新增“修改后重提”
+
+### Phase O — 活动内容管理写闭环（2026-03-13 ✅）
+- ✅ DDL Phase 14：`activities` 增加活动编号、投放位置、城市 JSON、视频、议程、名额、会员价、变更原因等运营字段
+- ✅ `PartnerPublishesV3Controller`
+  - 新增 `GET /v3/partner/publishes/{id}` 详情接口
+  - 新增 `PUT /v3/partner/publishes/{id}` 编辑接口
+  - 新增 `POST /v3/partner/publishes/{id}/transition` 上下架接口
+  - 创建/编辑均完整落库活动表单字段，不再只写 `title/fee/start_time`
+- ✅ `Activity.java` 实体同步扩展
+- ✅ `admin/content/activities.vue`
+  - 编辑改为真实详情回填
+  - 新建/编辑改为真实 POST/PUT
+  - 上下架改为真实 transition
+  - 审核中状态与字段映射纠偏（`audit_status=0` 视为审核中）
+- ✅ `ActivitiesV3Controller`
+  - 公共活动接口补充 `startTime/isFree/summary/agenda/maxLimit/signupCount` 等真实字段
+  - 报名成功后回写 `current_participants`
+
+### Phase P — 管理端真实筛选与导出对齐（2026-03-13 ✅）
+- ✅ 标书管理做到“所筛即所导”
+  - `AdminTendersV3Controller` 列表/导出统一支持 `organization/category/published_from/published_to`
+  - `admin/tenders/manage.vue` 查询与导出统一透传采购组织、标书类别、发布日期范围
+- ✅ 会员管理收敛到真实字段
+  - `AdminMembersV3Controller` 列表/导出统一支持 `industry/invitation_code/created_from/created_to`
+  - `admin/members/list.vue` 移除数据库并不存在的省份/城市/状态/国际会员假筛选
+  - 移除客户端单页伪过滤，改为完全依赖后端筛选与分页结果
+- ✅ 本轮验证
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - `/tmp/ipp-backend-buildcheck` 下 `./mvnw -q -DskipTests compile` 通过
+
+### Phase Q — 公共大屏去假数据化（2026-03-13 ✅）
+- ✅ `DashboardV3Controller` 扩展真实统计契约
+  - 新增采购机构、会员等级、会员服务城市、国内外服务网络等聚合数据
+  - 国内网络读取 `partners.status=1`
+  - 国际网络读取 `overseas_points.status='active'`
+- ✅ `dashboard.vue` 改为真实数据驱动
+  - 移除 `localStorage('ipp-dashboard-config')` 对公共大屏的污染入口
+  - Page 1 平台采购数据、采购机构榜单/分布、中国热力图改为真实统计
+  - Page 2 会员等级占比、会员服务城市排名/地图改为真实统计
+  - Page 3 国内/国际服务网络改为真实 `partners` / `overseas_points`
+- ✅ `admin/dashboard/network.vue` 诚实化
+  - 明确标记为规划页，不再伪装成已接后端的配置入口
+- ✅ 本轮验证
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - `/tmp/ipp-backend-buildcheck` 下 `./mvnw -q -DskipTests compile` 通过
+
+### Phase R — 公开供应商名录真实投射（2026-03-13 ✅）
+- ✅ `/v3/suppliers` 公开接口增强
+  - 继续只读取 `active` 服务商
+  - 新增 `service_type`、`apply_type`、`keyword`、`city` 后端筛选
+  - 返回真实 `applyType/mainService/industryList/isoList/intro`
+  - 返回公开附件 `cover_image/promo_image/company_pdf`
+  - 不公开营业执照、银行许可证等审核附件
+- ✅ `supplier-directory.vue` 去假数据
+  - 客户端伪筛选移除，改为真实服务端筛选
+  - 详情弹窗改为真实公开资料，不再展示假联系人/邮箱/厂房占位
+  - PDF 下载接入真实 `companyPdfUrl`
+- ✅ 本阶段专项验证已完成
+  - `/tmp/ipp-backend-buildcheck` 下 `./mvnw -q -DskipTests compile` 通过
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+
+### Phase S — 首页公开入口去假数据化（2026-03-13 ✅）
+- ✅ `app/pages/index.vue` 首页核心数据改为真实投射
+  - “最新采购商机”列表改为真实 `tenders` 前 10 条切片，移除 `TMP-${Math.random()}` 补位假数据
+  - “查看全部”按钮显示真实标书总量，不再使用静态文案
+  - 统计卡片第 4 项改为真实 `organizationCount`
+- ✅ 平台服务商风采改为真实服务商数据
+  - 使用 `/v3/suppliers?page=1&page_size=10` 加载真实公开服务商
+  - 展示真实企业名称、主营服务、服务商级别、公开图片
+  - 无数据时显示诚实的空态文案，不再展示静态企业卡片
+- ✅ 本阶段专项验证已完成
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - 保留 chunk size warning，仅为构建体积提示，不影响本轮功能正确性
+
+### Phase T — 服务页平台数据去假化（2026-03-13 ✅）
+- ✅ `app/pages/services.vue` 平台大数改为真实统计
+  - 平台介绍区从硬编码 `4,600+ / 26 / 193 / 99.8%` 改为真实 `memberCount / organizationCount / countryCount / 服务点位`
+  - 服务点位数量复用 `/v3/dashboard/stats` 的 `domesticNetwork` 与 `overseasNetwork`
+- ✅ 服务页顶部通知与点位文案改为真实/诚实展示
+  - 滚动通知条改为读取真实活动标题，不再展示静态报名文案
+  - “47 个服务中心”“35 个城市服务中心”改为真实动态点位数量
+- ✅ 服务页服务商/城市交互继续收口
+  - 服务商筛选从静态“省份映射城市”改为真实城市筛选，候选来自 `domesticNetwork.cityPoints`
+  - 城市服务点弹窗移除虚构负责人/热线/地址，改为真实点位统计和最近接入点位
+  - 服务商详情弹窗移除假联系电话，改为展示真实服务商级别、主营业务、公开 PDF 状态
+  - 活动报名登录后不再自动填入假公司/联系人/手机号
+- ✅ 本阶段专项验证已完成
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - 保留 chunk size warning，仅为构建体积提示，不影响本轮功能正确性
+
+### Phase U — 后台服务商名录字段纠偏（2026-03-13 ✅）
+- ✅ `app/pages/admin/suppliers/list.vue` 列表字段映射拉正
+  - 联系人从 `cityName` 改回真实 `contactName`
+  - 联系电话从错误的 `onboardingStatusLabel` 改回真实 `contactPhone`
+  - 行业/主营业务改为真实 `mainService/serviceTypes`
+- ✅ 状态筛选口径拉正
+  - 移除笼统的“审核未通过”假聚合
+  - 改为明确区分 `precheck_failed` 与 `final_review_failed`
+- ✅ 详情弹窗改读真实详情接口
+  - `handleView()` 改为请求 `/v3/admin/supplier-onboarding/{id}`
+  - 可读取真实驳回原因、提交时间、审核时间等字段
+- ✅ 本阶段专项验证已完成
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - 保留 chunk size warning，仅为构建体积提示，不影响本轮功能正确性
+
+### Phase V — 活动报名管理闭环（2026-03-13 ✅）
+- ✅ 后端补齐活动报名管理接口
+  - `PartnerPublishesV3Controller` 新增 `GET /v3/partner/publishes/{id}/registrations`
+  - `PartnerPublishesV3Controller` 新增 `GET /v3/partner/publishes/{id}/registrations/export`
+  - 管理端/合伙人均按活动归属读取报名企业、联系人、电话、报名状态、支付状态、报名时间、支付时间
+- ✅ 后端导出复用现有 Excel 体系
+  - 新增 `ActivitySignupExportDTO`
+  - 复用 `ExcelExportUtil` 生成报名名单 Excel，无需新增表结构
+- ✅ `admin/content/activities.vue` 报名弹窗改为真实闭环
+  - 点击“报名管理”时读取真实报名记录
+  - “导出 Excel 名单”改为真实下载后端导出文件
+  - 不再保留静态假名单
+- ✅ 本阶段验证
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - `/tmp/ipp-backend-buildcheck` 下 `./mvnw -q -DskipTests compile` 通过
+
+### Phase W — 活动显示申请闭环（2026-03-13 ✅）
+- ✅ 新增独立显示申请模型
+  - DDL Phase 15：新增 `activity_display_applications`
+  - 显示申请具备独立状态流：`pending_review/approved/rejected/offline`
+- ✅ `PartnerPublishesV3Controller` 补齐活动显示申请写入口
+  - 新增 `POST /v3/partner/publishes/{id}/display-apply`
+  - 活动详情返回 `display_applications`
+  - 校验显示区域、显示时间范围、结束时间不得超过活动开始时间
+- ✅ `AdminActivityDisplayApplicationsV3Controller` 新建
+  - 新增后台显示申请列表接口
+  - 新增通过/驳回/下线/重新启用流转接口
+  - 同一区域有效显示项最多 10 条
+- ✅ 公共活动接口支持按显示区读取真实推荐
+  - `GET /v3/activities` 新增 `display_area=home|activity|service`
+  - 首页与服务页优先读取对应显示区活动，无数据再回退普通活动列表
+- ✅ 本轮补充修正
+  - 后台活动显示申请列表的 `keyword` 检索改为真正参与 SQL 过滤，避免伪分页
+- ✅ 本阶段验证
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - `/tmp/ipp-backend-buildcheck` 下 `./mvnw -q -DskipTests compile` 通过
+
+### Phase X — 标书发布时间口径收敛（2026-03-13 ✅）
+- ✅ 为 `tenders.published_at` 补正式迁移留痕
+  - 新增 `DDL_Phase16_Tenders_PublishedAt.sql`
+  - 补列、回填历史已发布数据、增加状态+发布时间索引
+- ✅ 管理端标书列表/导出统一切到发布时间口径
+  - `AdminTendersV3Controller` 列表与导出新增 `published_from/published_to`
+  - 继续兼容旧参数 `created_from/created_to`
+  - 真正筛选字段从 `created_at` 收敛为 `published_at`
+- ✅ 前端标书管理页同步改为发布时间参数
+  - `admin/tenders/manage.vue` 查询与导出改发 `published_from/published_to`
+  - 兼容旧查询串，避免历史链接立即失效
+- ✅ 本轮修正结论
+  - `publishDate` 问题不再只是“显示值修复”，而是展示、筛选、DDL 三处口径一致
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -160,18 +389,21 @@
 |---|---|---|
 | `admin/tenders/reference.vue` | 部分实现 | 列表真实+服务端分页；写操作（引用提交/抓取/删除）未接入 |
 | `admin/tenders/orders.vue` | ✅ 已接入 | 调用 /v3/admin/orders 真实数据+服务端分页 |
+| `admin/tenders/analysis.vue` | ✅ 已接入 | 移除 generateMockData()，调用 /v3/admin/tenders/analysis 真实统计 |
+| `member/supplier-apply.vue` | ✅ 已接入 | 支付闭环 + 真实上传 + 结构化附件/证书持久化 |
+| `member/supplier-applications.vue` | ✅ 已接入 | 我的服务商申请列表/详情/支付状态刷新/提交审核 |
 | `admin/members/orders.vue` | ✅ 已接入 | 列表/统计/创建/完成/取消全链路真实 API |
 | `admin/members/un-audit.vue` | 部分实现 | 审核主流程真实；证书上传依赖文件上传（Phase D 已就绪） |
 | `admin/members/list.vue` | ✅ 已接入 | admin + partner 均可访问（partner 按 partner_id 隔离） |
 | `admin/audit.vue` | ✅ 已接入 | 三 Tab 均已接入真实 API；需求审核已闭环 |
 | `admin/suppliers/list.vue` | ✅ 已接入 | 列表真实；admin + partner 均可访问（partner 隔离）；新增/编辑受控降级 |
-| `admin/suppliers/audit.vue` | 部分实现 | 主审核流真实（admin + partner 可查看）；证书上传/下载受控降级 |
+| `admin/suppliers/audit.vue` | ✅ 已接入 | 真实复查页：详情/附件/证书/支付/提交快照/状态流转 |
 | `admin/suppliers/analysis.vue` | ✅ 已接入 | 入驻申请口径统计（admin + partner 隔离） |
 | `admin/partner-publish.vue` | ✅ 已接入 | 合伙人发布管理（list/create/delete 真实） |
-| `admin/content/activities.vue` | 部分实现 | 列表+新建+审核真实；下架/导出受控降级 |
+| `admin/content/activities.vue` | ✅ 已接入 | 列表/详情/新建/编辑/审核/上下架/报名管理/显示申请均已接入真实 API |
 | `admin/content/trainings.vue` | 部分实现 | 列表+状态流转+创建真实；编辑受控降级 |
 | `admin/content/media.vue` | 部分实现 | 同培训 |
-| `admin/content/display.vue` | 未实现 | 三 Tab 均为占位提示；需 OSS 依赖 |
+| `admin/content/display.vue` | ✅ 已接入 | 轮播/广告真实内容管理 + 活动显示申请真实审核 |
 | `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
 | `admin/system/*.vue` | 降级标注 | 系统管理模块，已添加"暂未对接后端"横幅 |
 | `admin/business/*.vue` | 降级标注 | 业务配置模块，已添加"暂未对接后端"横幅 |
@@ -186,7 +418,7 @@
 | ~~种子数据执行~~ | ~~P0~~ | ✅ 已执行（2026-02-28 sqlcmd 确认） |
 | ~~DDL 执行验证~~ | ~~P0~~ | ✅ Phase 1-5 + 种子数据已全量执行确认 |
 | 活动审核仅单级 | P2 | 需求要求双级审核（一审+二审），需 operator/auditor 子角色 |
-| 微信支付集成 | P2 | 需商户号审批，当前无支付回调 |
+| 微信支付正式商户集成 | P2 | 当前已具备平台内支付闭环与回调入口，但仍非正式商户接入 |
 | SMS 短信服务 | P2 | 需第三方短信服务商接入 |
 | 限流 / CORS 细化 | P3 | 当前无 rate limiting，CORS 使用默认配置 |
 | 清理空 stub controller | P3 | SuppliersController.java / SysUserController.java 为空壳，可删除 |
@@ -199,16 +431,17 @@
 |---|---|---|---|
 | 用户登录/注册 | ✅ BCrypt-only 认证 + 注册 API | ✅ 已接入（含注册） | ✅ 可验收（种子数据 + 自注册） |
 | 标书发布/管理 | ✅ CRUD + 状态机 | ✅ 已接入 | ✅ 可验收 |
+| 标书分析统计 | ✅ /analysis 端点 | ✅ 已接入（图表+导出） | ✅ 可验收 |
 | 标书引用 | 读接口完成，写未实现 | 只读降级 | 仅读操作可验收 |
 | 标书防重复扣费 | ✅ tender_download_logs + dedup | 不涉及前端 | ✅ 可验收 |
 | 服务商名录 | ✅ 公共查询 | ✅ 已接入 | ✅ 可验收查询 |
-| 服务商审核 | ✅ 入库审核流 | ✅ 主流程真实 | ✅ 可验收主流程 |
+| 服务商审核 | ✅ 入库审核流 | ✅ 主流程真实 + 复查详情完整 | ✅ 可验收主流程 |
 | 服务商统计 | ✅ 聚合统计 | ✅ 已接入 | ✅ 可验收 |
 | 采购需求管理 | ✅ list + review | ✅ 已接入 | ✅ 可验收 |
 | 商机对接管理 | ✅ 同采购需求 | ✅ 已接入 | ✅ 可验收 |
-| 活动管理 | ✅ 列表/新建/审核 | ✅ 已接入 | ✅ 可验收主流程 |
+| 活动管理 | ✅ 列表/详情/新建/编辑/审核/上下架/显示申请 | ✅ 已接入 | ✅ 可验收主流程 |
 | 内容管理（培训/媒体） | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
-| 展示位管理 | 无后端 | 占位降级 | 暂不可验收 |
+| 展示位管理 | ✅ 活动显示申请 + 内容展示管理 | ✅ 已接入 | ✅ 可验收主流程 |
 | 订单管理 | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
 | 会员管理 | ✅ list + set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
@@ -221,7 +454,7 @@
 | 状态流转审计 | ✅ StateTransitionService 全覆盖 | 不涉及前端 | ✅ 可验收 |
 | 审核日志 | ✅ audit_logs 4 端点写入 | 不涉及前端 | ✅ 可验收 |
 | 海外服务 | 未实现 | 未接入 | 暂不可验收 |
-| 微信支付 | 未实现 | 未接入 | 暂不可验收 |
+| 微信支付 | ✅ 服务商入驻已具备平台内支付闭环与回调入口 | ✅ 已接入（服务商入驻） | ✅ 可验收入驻主流程（正式商户待接） |
 | SMS 短信 | 未实现 | 未接入 | 暂不可验收 |
 
 ## 7. ⚠️ 当前风险提醒
@@ -233,7 +466,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（27 个）
+## 8. 后端 Controller 清单（29 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -263,7 +496,9 @@
 | DashboardV3Controller | /v3/dashboard | 数据大屏统计（公共，无需认证） |
 | OverseasPointsV3Controller | /v3/overseas-points | 海外网点公共查询（公共，无需认证） |
 | AdminOverseasPointsV3Controller | /v3/admin/overseas-points | 海外网点管理（CRUD + stats） |
+| MemberSupplierApplyV3Controller | /v3/member/supplier-apply | 会员自助服务商入驻申请 |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
+| AdminActivityDisplayApplicationsV3Controller | /v3/admin/activity-display-applications | 活动显示申请审核/上下线 |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
 

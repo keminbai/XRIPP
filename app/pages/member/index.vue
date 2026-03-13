@@ -266,6 +266,7 @@ onMounted(loadRecentOrders)
 const tools = [
   { name: '发布需求', icon: Document, path: '/member/publish-demand', bgClass: 'bg-blue-100 text-blue-600' },
   { name: '服务商入驻', icon: Trophy, path: '/member/supplier-apply', bgClass: 'bg-purple-100 text-purple-600' },
+  { name: '我的服务商申请', icon: Tickets, path: '/member/supplier-applications', bgClass: 'bg-indigo-100 text-indigo-600' },
   { name: '联合国协助认证', icon: OfficeBuilding, path: '/member/un-apply', bgClass: 'bg-indigo-100 text-indigo-600' },
   { name: '标书定制服务', icon: Edit, path: '/member/tender-writing', bgClass: 'bg-orange-100 text-orange-600' },
   { name: '广告投放', icon: TrendCharts, path: '/member/ad-promotion', bgClass: 'bg-emerald-100 text-emerald-600' },

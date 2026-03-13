@@ -1,14 +1,8 @@
-<!-- 
+<!--
   ========================================================================
   文件路径: D:\ipp-platform\app\pages\admin\tenders\analysis.vue
-  版本: V1.3 终极增强版 (2026-02-04)
-  
-  ✅ 修复记录 (对应需求清单 Row 49):
-  1. [图表] 引入 ECharts 实现"日/月发布曲线"(折线图) 和 "类别占比"(饼图)
-  2. [交互] 实现真实的"按日/按月"维度切换，图表随之动态变化
-  3. [统计] 完善"同比/环比"计算逻辑，并在卡片中直观展示
-  4. [数据] 扩充 Mock 数据至 200+ 条，覆盖不同月份和组织，确保趋势可见
-  5. [健壮] 空数据兜底 + 图表销毁防泄漏
+  版本: V2.0 (2026-03-12)
+  数据来源: GET /v3/admin/tenders/analysis (真实接口，仅 published 标书)
   ========================================================================
 -->
 <template>
@@ -19,7 +13,7 @@
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="text-lg font-bold text-slate-800">标书发布统计</h3>
-          <p class="text-xs text-slate-500 mt-1">查看标书发布总量、增长趋势及类别构成</p>
+          <p class="text-xs text-slate-500 mt-1">数据来源：/v3/admin/tenders/analysis（真实接口，仅 published 标书）</p>
         </div>
         <div class="flex items-center gap-3">
           <el-radio-group v-model="trendMode" size="small" @change="updateCharts">
@@ -44,12 +38,7 @@
           @change="updateCharts"
         />
         <el-select v-model="filters.organization" placeholder="采购组织" class="w-32" clearable @change="updateCharts">
-          <el-option label="UNDP" value="UNDP" />
-          <el-option label="WHO" value="WHO" />
-          <el-option label="UNICEF" value="UNICEF" />
-          <el-option label="UNGM" value="UNGM" />
-          <el-option label="WorldBank" value="WorldBank" />
-          <el-option label="ADB" value="ADB" />
+          <el-option v-for="org in availableOrgs" :key="org" :label="org" :value="org" />
         </el-select>
         <el-select v-model="filters.category" placeholder="标书类别" class="w-32" clearable @change="updateCharts">
           <el-option label="医疗器械" value="medical" />
@@ -92,7 +81,7 @@
     </div>
 
     <!-- 3. 图表区域：发布趋势 & 占比分析 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div v-loading="loading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
         <h3 class="text-base font-bold text-slate-800 mb-6 flex items-center gap-2">
           <el-icon class="text-blue-500"><TrendCharts /></el-icon>
@@ -149,13 +138,14 @@
 </template>
 
 <script setup lang="ts">
-import { 
-  Files, TrendCharts, PieChart, DocumentCopy, 
-  Download, RefreshRight 
+import {
+  Files, TrendCharts, PieChart, DocumentCopy,
+  Download, RefreshRight
 } from '@element-plus/icons-vue'
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -164,6 +154,7 @@ const trendChartRef = ref<HTMLElement>()
 const pieChartRef = ref<HTMLElement>()
 let trendChart: echarts.ECharts | null = null
 let pieChart: echarts.ECharts | null = null
+const loading = ref(false)
 
 const filters = ref({
   dateRange: [] as string[],
@@ -171,26 +162,22 @@ const filters = ref({
   category: ''
 })
 
-// Mock 数据生成
-const generateMockData = () => {
-  const data = []
-  const orgs = ['UNDP', 'WHO', 'UNICEF', 'UNGM', 'WorldBank', 'ADB']
-  const cats = ['medical', 'it', 'construction', 'office', 'consulting']
-  const now = new Date()
-  
-  for (let i = 0; i < 240; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-    data.push({
-      id: i,
-      organization: orgs[Math.floor(Math.random() * orgs.length)],
-      category: cats[Math.floor(Math.random() * cats.length)],
-      publishDate: date.toISOString().split('T')[0]
-    })
-  }
-  return data
-}
+interface TenderRecord { organization: string; category: string; publishDate: string }
 
-const allTenders = ref(generateMockData())
+const allTenders = ref<TenderRecord[]>([])
+
+const loadAnalysisData = async () => {
+  loading.value = true
+  try {
+    const res = await apiRequest<any>('/v3/admin/tenders/analysis')
+    allTenders.value = Array.isArray(res?.data) ? res.data : []
+  } catch (e: any) {
+    allTenders.value = []
+    ElMessage.error(e?.message || '加载标书分析数据失败')
+  } finally {
+    loading.value = false
+  }
+}
 
 const filteredTenders = computed(() => {
   return allTenders.value.filter(item => {
@@ -204,25 +191,45 @@ const filteredTenders = computed(() => {
   })
 })
 
+const calcGrowth = (current: number, previous: number) => {
+  if (previous === 0) return current > 0 ? 100 : 0
+  return Math.round(((current - previous) / previous) * 100)
+}
+
 const stats = computed(() => {
   const list = filteredTenders.value
   const total = list.length
-  const currentMonth = new Date().toISOString().slice(0, 7)
-  const lastMonthDate = new Date(); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1)
-  const lastMonth = lastMonthDate.toISOString().slice(0, 7)
+  const now = new Date()
+
+  const fmt = (d: Date) => d.toISOString().slice(0, 7)
+  const currentMonth = fmt(now)
+  const prev1 = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonth = fmt(prev1)
+  const prev12 = new Date(now.getFullYear() - 1, now.getMonth(), 1)
+  const sameMonthLastYear = fmt(prev12)
 
   const thisMonthCount = list.filter(t => t.publishDate.startsWith(currentMonth)).length
   const lastMonthCount = list.filter(t => t.publishDate.startsWith(lastMonth)).length
-  const mom = lastMonthCount > 0 
-    ? Math.round(((thisMonthCount - lastMonthCount) / lastMonthCount) * 100) 
-    : 100
+  const sameMonthLastYearCount = list.filter(t => t.publishDate.startsWith(sameMonthLastYear)).length
+
+  const mom = calcGrowth(thisMonthCount, lastMonthCount)
+  const yoy = calcGrowth(thisMonthCount, sameMonthLastYearCount)
+
+  const uniqueOrgs = new Set(list.map(t => t.organization)).size
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const avgDaily = thisMonthCount > 0 ? (thisMonthCount / Math.min(now.getDate(), daysInMonth)).toFixed(1) : '0'
 
   return [
-    { label: '累计发布总量', value: total.toLocaleString(), icon: Files, bgClass: 'bg-purple-50', textClass: 'text-purple-600', yoy: 12.5, mom: 5.2 },
-    { label: '本月新增发布', value: thisMonthCount.toString(), icon: TrendCharts, bgClass: 'bg-blue-50', textClass: 'text-blue-600', yoy: 8.4, mom: mom },
-    { label: '活跃采购组织', value: '15', icon: DocumentCopy, bgClass: 'bg-green-50', textClass: 'text-green-600', yoy: 2.1, mom: 0 },
-    { label: '平均每日发布', value: (thisMonthCount / 30).toFixed(1), icon: PieChart, bgClass: 'bg-orange-50', textClass: 'text-orange-600', yoy: 4.5, mom: -1.2 }
+    { label: '累计发布总量', value: total.toLocaleString(), icon: Files, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
+    { label: '本月新增发布', value: thisMonthCount.toString(), icon: TrendCharts, bgClass: 'bg-blue-50', textClass: 'text-blue-600', yoy, mom },
+    { label: '活跃采购组织', value: String(uniqueOrgs), icon: DocumentCopy, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+    { label: '本月日均发布', value: avgDaily, icon: PieChart, bgClass: 'bg-orange-50', textClass: 'text-orange-600' }
   ]
+})
+
+const availableOrgs = computed(() => {
+  const orgs = new Set(allTenders.value.map(t => t.organization))
+  return [...orgs].sort()
 })
 
 const orgDistribution = computed(() => {
@@ -299,9 +306,10 @@ const updateCharts = () => {
   })
 }
 
-onMounted(() => {
-  trendChart = echarts.init(trendChartRef.value!)
-  pieChart = echarts.init(pieChartRef.value!)
+onMounted(async () => {
+  await loadAnalysisData()
+  if (trendChartRef.value) trendChart = echarts.init(trendChartRef.value)
+  if (pieChartRef.value) pieChart = echarts.init(pieChartRef.value)
   updateCharts()
   window.addEventListener('resize', () => {
     trendChart?.resize()
@@ -328,7 +336,26 @@ const handleReset = () => {
 }
 
 const handleExport = () => {
-  ElMessage.success('正在导出发布统计报表...')
+  const list = filteredTenders.value
+  if (!list.length) return ElMessage.warning('暂无可导出数据')
+  const nameMap: Record<string, string> = {
+    medical: '医疗器械', it: 'IT设备', construction: '建筑工程',
+    office: '办公用品', consulting: '咨询服务'
+  }
+  const headers = ['采购组织', '标书类别', '发布日期']
+  const esc = (v: string) => `"${(v || '').replace(/"/g, '""')}"`
+  const rows = list.map(r => [r.organization, nameMap[r.category] || r.category, r.publishDate])
+  const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\r\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `标书发布统计_${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+  ElMessage.success('导出成功')
 }
 
 const getOrgColor = (index: number) => {

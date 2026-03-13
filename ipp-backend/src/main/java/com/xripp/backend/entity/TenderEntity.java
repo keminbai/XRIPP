@@ -59,4 +59,7 @@ public class TenderEntity {
 
     @TableField("updated_at")
     private Date updatedAt;
+
+    @TableField("published_at")
+    private Date publishedAt;
 }

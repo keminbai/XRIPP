@@ -28,6 +28,43 @@
 - `FAILED`
 - `CLOSED`
 
+> 说明：上述为早期通用支付语义。当前服务商入驻链路已落地的运行值采用小写业务状态：
+- `pending`
+- `paid`
+- `waived`
+- `failed`
+- `closed`
+
+### 1.4.1 SupplierApplyType
+- `normal`
+- `strategic`
+
+### 1.4.2 SupplierOnboardingPaymentStatus
+- `unpaid`
+- `pending`
+- `paid`
+- `waived`
+- `failed`
+- `closed`
+
+### 1.4.3 SupplierOnboardingFileCategory
+- `cover_image`
+- `company_pdf`
+- `promo_image`
+- `business_license`
+- `bank_license`
+- `other`
+
+### 1.4.4 SupplierOnboardingCertificateType
+- `ISO9001`
+- `ISO14001`
+- `ISO45001`
+- `ISO13485`
+- `IATF16949`
+- `ISO22000`
+- `ISO27001`
+- `OTHER`
+
 ### 1.5 OrderType
 - `MEMBER_ORDER` 会员订单
 - `SERVICE_ORDER` 服务订单
@@ -62,6 +99,19 @@
 - `address`
 - `postcode`
 - `reviewEmail`
+
+### 2.1.1 服务商入驻扩展字段
+- `applyType`
+- `serviceTypes`
+- `productDesc`
+- `attachments`
+- `certificates`
+- `paymentStatus`
+- `paymentOrderId`
+- `paymentVerifiedAt`
+- `attachmentsCompleted`
+- `certificatesCompleted`
+- `submittedSnapshot`
 
 ### 2.2 UN 申请扩展
 - `ownershipTypeCode`

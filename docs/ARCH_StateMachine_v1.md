@@ -36,6 +36,7 @@
 
 ### 状态集合
 - `draft`
+- `pending_payment`
 - `submitted`
 - `precheck_passed`
 - `precheck_failed`
@@ -45,7 +46,10 @@
 - `inactive`
 
 ### 允许迁移
-- `draft -> submitted`
+- `draft -> pending_payment`
+- `draft -> submitted`（仅免支付场景）
+- `pending_payment -> submitted`（支付确认后）
+- `pending_payment -> draft`（重新编辑资料或关闭支付单）
 - `submitted -> precheck_passed`
 - `submitted -> precheck_failed`
 - `precheck_passed -> final_review_passed`
@@ -56,8 +60,35 @@
 - `precheck_failed -> draft`
 - `final_review_failed -> draft`
 
+### 前置守卫
+- 若 `payment_required=true`，则 `payment_status=paid|waived` 前不得进入 `submitted`
+- 审核侧（预审/终审/激活）必须再次校验支付已完成
+- 附件与资质完整性不足时，不应允许进入正式审核流
+
 ### 终态
 - 无绝对终态（可运营启停）
+
+### 支付执行单（payment_orders）
+字段：`pay_status`
+
+#### 状态集合
+- `created`
+- `pending`
+- `paid`
+- `closed`
+- `failed`
+- `refunded`
+
+#### 允许迁移
+- `created -> pending`
+- `pending -> paid`
+- `pending -> closed`
+- `pending -> failed`
+- `paid -> refunded`
+
+#### 说明
+- 一笔供应商入驻申请可关联多笔历史支付单，但同一时刻只允许 1 笔有效待支付单
+- 支付二维码必须一单一码
 
 ## 5. 状态机：活动报名（activity_registration）
 字段：`registration_status`

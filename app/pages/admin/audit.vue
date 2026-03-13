@@ -178,8 +178,8 @@ const mapSupplierRow = (item: any) => ({
   id: item.id,
   rawId: item.id,
   company: item.companyName || '未命名企业',
-  contact: '-',
-  phone: '-',
+  contact: item.contactName || '-',
+  phone: item.contactPhone || '-',
   status: mapOnboardingStatus(item.onboardingStatus),
   submitTime: item.updatedAt || item.createdAt || '-'
 })

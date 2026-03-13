@@ -58,30 +58,30 @@
             </div>
           </div>
           <div class="panel flex-25">
-            <div class="panel-header"><el-icon><DataLine /></el-icon> 联合国采购数据</div>
+            <div class="panel-header"><el-icon><DataLine /></el-icon> 平台采购数据</div>
             <div class="panel-body pad un-data-body">
               <div class="un-grid-3">
                 <div class="un-card">
-                  <div class="un-label">年度采购总额</div>
-                  <div class="un-value grad-blue">{{ cfg.unData.totalAmount }}</div>
+                  <div class="un-label">已发布标书</div>
+                  <div class="un-value grad-blue">{{ cfg.platformData.totalPublished }}</div>
                 </div>
                 <div class="un-card">
-                  <div class="un-label">中国企业中标</div>
-                  <div class="un-value grad-yellow">{{ cfg.unData.cnAmount }}</div>
+                  <div class="un-label">采购机构数</div>
+                  <div class="un-value grad-yellow">{{ cfg.platformData.organizationCount }}</div>
                 </div>
                 <div class="un-card">
-                  <div class="un-label">同比增长</div>
-                  <div class="un-value grad-green">{{ cfg.unData.growthRate }}</div>
+                  <div class="un-label">本月新增标书</div>
+                  <div class="un-value grad-green">{{ cfg.platformData.monthlyPublished }}</div>
                 </div>
               </div>
               <div class="un-meta">
-                <span class="un-label">活跃机构</span>
-                <span class="un-value grad-blue">{{ cfg.unData.activeOrgs }} 个</span>
+                <span class="un-label">覆盖国家</span>
+                <span class="un-value grad-blue">{{ cfg.platformData.countryCount }} 个</span>
               </div>
             </div>
           </div>
           <div class="panel flex-25">
-            <div class="panel-header"><el-icon><Connection /></el-icon> 合作国际组织</div>
+            <div class="panel-header"><el-icon><Connection /></el-icon> 采购机构滚动榜</div>
             <div class="panel-body scroll-box">
               <div class="scroll-mask-t"></div><div class="scroll-mask-b"></div>
               <div class="scroll-track anim-scroll">
@@ -92,14 +92,14 @@
             </div>
           </div>
           <div class="panel flex-3">
-            <div class="panel-header"><el-icon><PieChart /></el-icon> 采购主体分布</div>
+            <div class="panel-header"><el-icon><PieChart /></el-icon> 采购机构分布</div>
             <div class="panel-body chart-wrap"><div ref="c_p1_pie" class="chart-el"></div></div>
           </div>
         </aside>
 
         <section class="col-center">
           <div class="panel panel-map">
-            <div class="map-overlay-title"><h2>公共采购项目热力分布</h2></div>
+            <div class="map-overlay-title"><h2>国内服务覆盖热力分布</h2></div>
             <div ref="c_p1_map" class="chart-el"></div>
 
             <!-- 第1页国际小图（左下角） -->
@@ -121,7 +121,7 @@
               </div>
               <div class="ms">
                 <div class="ms-v green">{{ cfg.tenderCount.toLocaleString() }}</div>
-                <div class="ms-l">累计商机</div>
+                <div class="ms-l">已发布标书</div>
               </div>
             </div>
           </div>
@@ -134,7 +134,7 @@
               <div class="kpi"><div class="kpi-l">招标信息总量</div><div class="kpi-v">{{ cfg.tenderCount.toLocaleString() }}</div></div>
               <div class="kpi"><div class="kpi-l">注册企业会员</div><div class="kpi-v">{{ cfg.memberCount.toLocaleString() }}</div></div>
               <div class="kpi"><div class="kpi-l">覆盖目标国家</div><div class="kpi-v">{{ cfg.countryCount }}</div></div>
-              <div class="kpi"><div class="kpi-l">联合国年采购额</div><div class="kpi-v">{{ cfg.unData.totalAmount }}</div></div>
+              <div class="kpi"><div class="kpi-l">本月新增标书</div><div class="kpi-v">{{ cfg.platformData.monthlyPublished }}</div></div>
             </div></div>
           </div>
           <div class="panel flex-35">
@@ -165,10 +165,10 @@
               </div>
               <!-- 四项数据：单行四列，避免高度溢出 -->
               <div class="mem-strip">
-                <div class="mem-cell"><span class="mc-v">{{ cfg.ungmCount.toLocaleString() }}</span><span class="mc-l">注册UNGM</span></div>
-                <div class="mem-cell"><span class="mc-v">{{ cfg.helpedProjects.toLocaleString() }}</span><span class="mc-l">助力项目</span></div>
+                <div class="mem-cell"><span class="mc-v">{{ cfg.svipCount.toLocaleString() }}</span><span class="mc-l">SVIP会员</span></div>
+                <div class="mem-cell"><span class="mc-v">{{ cfg.vipCount.toLocaleString() }}</span><span class="mc-l">VIP会员</span></div>
                 <div class="mem-cell"><span class="mc-v green">+{{ cfg.monthlyNewMembers }}</span><span class="mc-l">本月新增</span></div>
-                <div class="mem-cell"><span class="mc-v">{{ cfg.domesticCities }}</span><span class="mc-l">覆盖城市</span></div>
+                <div class="mem-cell"><span class="mc-v">{{ cfg.industryCount }}</span><span class="mc-l">覆盖行业</span></div>
               </div>
             </div>
           </div>
@@ -178,14 +178,14 @@
             <div class="panel-body chart-wrap"><div ref="c_p2_line" class="chart-el"></div></div>
           </div>
           <div class="panel flex-4">
-            <div class="panel-header"><el-icon><PieChart /></el-icon> 入驻企业类型占比</div>
+            <div class="panel-header"><el-icon><PieChart /></el-icon> 会员等级占比</div>
             <div class="panel-body chart-wrap"><div ref="c_p2_pie" class="chart-el"></div></div>
           </div>
         </aside>
 
         <section class="col-center">
           <div class="panel panel-map">
-            <div class="map-overlay-title"><h2>中国区域会员入驻分布</h2></div>
+            <div class="map-overlay-title"><h2>会员服务城市分布</h2></div>
             <div ref="c_p2_map" class="chart-el"></div>
             <div v-if="!maps.china" class="map-loading"><el-icon class="spin"><Loading /></el-icon><span>正在加载...</span></div>
           </div>
@@ -193,7 +193,7 @@
 
         <aside class="col-right">
           <div class="panel flex-4">
-            <div class="panel-header"><el-icon><Trophy /></el-icon> 城市会员入驻排名</div>
+            <div class="panel-header"><el-icon><Trophy /></el-icon> 会员服务城市排名</div>
             <div class="panel-body chart-wrap"><div ref="c_p2_bar" class="chart-el"></div></div>
           </div>
           <div class="panel flex-35">
@@ -210,7 +210,7 @@
           <div class="panel flex-2">
             <div class="panel-header"><el-icon><InfoFilled /></el-icon> 会员情况概述</div>
             <div class="panel-body pad text-body">
-              <p>至今XRIPP已发展了{{ cfg.memberCount.toLocaleString() }}多家会员单位，覆盖范围涉及国内大部分经济发达地区，并在医疗、基建、IT等领域形成了核心服务商集群。</p>
+              <p>至今XRIPP已发展了{{ cfg.memberCount.toLocaleString() }}家会员单位，当前会员服务已覆盖 {{ cfg.cityRank.length }} 个重点城市，并形成了 {{ cfg.industryCount }} 个行业方向的服务能力。</p>
             </div>
           </div>
         </aside>
@@ -360,95 +360,76 @@ const categoryMap: Record<string, string> = {
 // ═══ Config Data ═══
 const { stats: dashboardStats, loaded: statsLoaded } = usePlatformStats()
 const cfg = ref({
-  year: new Date().getFullYear().toString(), countryCount: 193, memberCount: 0, monthlyNewMembers: 0,
-  ungmCount: 3200, helpedProjects: 1253, domesticCities: 18,
+  year: new Date().getFullYear().toString(), countryCount: 0, memberCount: 0, monthlyNewMembers: 0,
+  vipCount: 0, svipCount: 0, industryCount: 0,
   tenderCount: 0,
-  unData: { totalAmount: '$25.7B', cnAmount: '$435M', growthRate: '↑ 12.3%', activeOrgs: 26 },
-  dp: { count: 18, provinces: 12, cities: 25 },
-  ip: { count: 28, countries: 15, cities: 42 },
-  orgList: [
-    { name: '联合国难民署', code: 'UNHCR' }, { name: '联合国开发计划署', code: 'UNDP' },
-    { name: '世界卫生组织', code: 'WHO' }, { name: '联合国儿童基金会', code: 'UNICEF' },
-    { name: '世界粮食计划署', code: 'WFP' }, { name: '联合国项目事务署', code: 'UNOPS' },
-    { name: '联合国粮农组织', code: 'FAO' }, { name: '世界银行', code: 'WB' },
-    { name: '亚洲开发银行', code: 'ADB' }, { name: '红十字国际委员会', code: 'ICRC' }
-  ],
+  platformData: { totalPublished: '0', organizationCount: '0', monthlyPublished: '0', countryCount: '0' },
+  dp: { count: 0, provinces: 0, cities: 0 },
+  ip: { count: 0, countries: 0, cities: 0 },
+  orgList: [] as { name: string; code: string }[],
+  orgPieData: [] as { name: string; value: number }[],
   topCat: [] as { name: string; value: number }[],
   topCtry: [] as { name: string; value: number }[],
+  memberLevelData: [] as { name: string; value: number }[],
   compTypes: [] as { name: string; value: number }[],
   trend: [] as { m: string; v: number }[],
-  cityRank: [
-    { name: '上海', value: 1204 }, { name: '深圳', value: 985 }, { name: '杭州', value: 856 },
-    { name: '苏州', value: 742 }, { name: '北京', value: 621 }, { name: '成都', value: 580 },
-    { name: '广州', value: 533 }, { name: '宁波', value: 490 }, { name: '南京', value: 420 }, { name: '青岛', value: 380 }
-  ],
+  cityRank: [] as { name: string; value: number }[],
   compNames: [] as string[],
-  provRank: [{name:'江苏',value:5},{name:'浙江',value:4},{name:'广东',value:3},{name:'四川',value:2},{name:'山东',value:2}],
-  ctryRank: [{name:'印度尼西亚',value:3},{name:'马来西亚',value:2},{name:'泰国',value:2},{name:'越南',value:1},{name:'肯尼亚',value:1}],
-  dpList: [
-    {name:'上海自贸区国际采购服务中心',location:'上海市'},
-    {name:'深圳前海国际采购服务中心',location:'广东省深圳市'},
-    {name:'苏州工业园区国际采购服务站',location:'江苏省苏州市'},
-    {name:'杭州跨境电商国际采购服务站',location:'浙江省杭州市'},
-    {name:'成都高新区国际采购对接中心',location:'四川省成都市'},
-    {name:'武汉光谷国际采购服务站',location:'湖北省武汉市'},
-    {name:'南京江北新区国际采购服务中心',location:'江苏省南京市'},
-    {name:'天津滨海新区国际采购服务中心',location:'天津市'},
-    {name:'青岛西海岸国际采购服务中心',location:'山东省青岛市'},
-    {name:'绵阳市国际公共采购服务中心',location:'四川省绵阳市'},
-    {name:'广州南沙国际采购服务站',location:'广东省广州市'},
-    {name:'宁波北仑国际采购服务中心',location:'浙江省宁波市'},
-    {name:'西安高新区国际采购对接中心',location:'陕西省西安市'},
-    {name:'郑州航空港国际采购服务站',location:'河南省郑州市'},
-    {name:'重庆两江新区国际采购服务中心',location:'重庆市'}
-  ],
-  ipList: [
-    {name:'印尼雅加达国际公共采购服务中心',location:'印度尼西亚雅加达'},
-    {name:'马来西亚吉隆坡服务点',location:'马来西亚吉隆坡'},
-    {name:'新加坡国际采购代表处',location:'新加坡'},
-    {name:'泰国曼谷服务点',location:'泰国曼谷'},
-    {name:'越南胡志明市服务点',location:'越南胡志明市'},
-    {name:'肯尼亚内罗毕代表处',location:'肯尼亚内罗毕'},
-    {name:'柬埔寨金边服务点',location:'柬埔寨金边'},
-    {name:'缅甸仰光服务站',location:'缅甸仰光'},
-    {name:'菲律宾马尼拉服务站',location:'菲律宾马尼拉'},
-    {name:'埃塞俄比亚亚的斯亚贝巴服务点',location:'埃塞俄比亚'}
-  ],
-  worldData: [
-    {name:'China',value:800},{name:'United States',value:280},{name:'Kenya',value:450},
-    {name:'Ukraine',value:410},{name:'Yemen',value:380},{name:'Afghanistan',value:320},
-    {name:'Malaysia',value:180},{name:'Switzerland',value:90},{name:'India',value:260},
-    {name:'Brazil',value:150},{name:'Nigeria',value:220},{name:'Indonesia',value:200}
-  ],
-  projectHeatData: [
-    { name: '上海市', value: 1520 },
-    { name: '广东省', value: 1380 },
-    { name: '浙江省', value: 1260 },
-    { name: '江苏省', value: 1180 },
-    { name: '北京市', value: 980 },
-    { name: '山东省', value: 860 },
-    { name: '四川省', value: 760 },
-    { name: '福建省', value: 690 },
-    { name: '湖北省', value: 620 },
-    { name: '河南省', value: 560 },
-    { name: '陕西省', value: 490 },
-    { name: '天津市', value: 430 }
-  ],
-  partners: ['上海','广东','浙江','江苏','北京'],
-  spCities: [
-    {name:'上海',co:[121.47,31.23],v:1204},{name:'深圳',co:[114.05,22.54],v:985},
-    {name:'杭州',co:[120.15,30.28],v:856},{name:'苏州',co:[120.59,31.30],v:742},
-    {name:'北京',co:[116.40,39.90],v:621},{name:'青岛',co:[120.38,36.07],v:533},
-    {name:'成都',co:[104.06,30.67],v:412},{name:'武汉',co:[114.30,30.59],v:356},
-    {name:'南京',co:[118.78,32.04],v:298},{name:'西安',co:[108.93,34.27],v:267},
-    {name:'天津',co:[117.20,39.13],v:245},{name:'绵阳',co:[104.74,31.46],v:156}
-  ],
-  intlCities: [
-    {name:'雅加达',co:[106.84,-6.21],v:3},{name:'吉隆坡',co:[101.69,3.14],v:2},
-    {name:'曼谷',co:[100.52,13.76],v:2},{name:'新加坡',co:[103.82,1.35],v:1},
-    {name:'胡志明',co:[106.63,10.82],v:1},{name:'内罗毕',co:[36.82,-1.29],v:1}
-  ]
+  provRank: [] as { name: string; value: number }[],
+  ctryRank: [] as { name: string; value: number }[],
+  dpList: [] as { name: string; location: string }[],
+  ipList: [] as { name: string; location: string }[],
+  worldData: [] as { name: string; value: number }[],
+  projectHeatData: [] as { name: string; value: number }[],
+  spCities: [] as { name: string; co: [number, number]; v: number }[],
+  intlCities: [] as { name: string; co: [number, number]; v: number }[]
 })
+
+const chinaCityCoordMap: Record<string, [number, number]> = {
+  北京: [116.40, 39.90],
+  上海: [121.47, 31.23],
+  深圳: [114.05, 22.54],
+  广州: [113.27, 23.13],
+  杭州: [120.15, 30.28],
+  苏州: [120.59, 31.30],
+  成都: [104.06, 30.67],
+  武汉: [114.30, 30.59],
+  南京: [118.78, 32.04],
+  西安: [108.93, 34.27],
+  天津: [117.20, 39.13],
+  绵阳: [104.74, 31.46],
+  青岛: [120.38, 36.07],
+  宁波: [121.55, 29.87],
+  郑州: [113.62, 34.75],
+  重庆: [106.55, 29.56],
+  长沙: [112.93, 28.23],
+  厦门: [118.10, 24.46],
+  福州: [119.30, 26.08],
+  合肥: [117.27, 31.86]
+}
+
+const normalizeCityName = (name: string) => String(name || '').trim().replace(/市$/, '')
+
+const toDomesticScatter = (items: Array<{ name: string; value: number }> = []) => {
+  return items
+    .map((item) => {
+      const normalized = normalizeCityName(item.name)
+      const co = chinaCityCoordMap[normalized]
+      if (!co) return null
+      return { name: normalized, co, v: Number(item.value || 0) }
+    })
+    .filter((item): item is { name: string; co: [number, number]; v: number } => Boolean(item))
+}
+
+const toOverseasScatter = (items: Array<{ city: string; lat: number; lng: number; value: number }> = []) => {
+  return items
+    .filter(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)))
+    .map(item => ({
+      name: item.city || '未命名',
+      co: [Number(item.lng), Number(item.lat)] as [number, number],
+      v: Number(item.value || 0)
+    }))
+}
 
 // ═══ Doubled lists ═══
 const dblOrg = computed(() => [...cfg.value.orgList, ...cfg.value.orgList])
@@ -524,6 +505,7 @@ async function initAllCharts() {
 }
 
 function renderP1() {
+  const orgPieData = cfg.value.orgPieData.slice(0, 6)
   mk(c_p1_pie.value, 'p1pie')?.setOption({
     tooltip: { trigger: 'item', formatter: '{b}: {d}%' },
     legend: { bottom: 0, textStyle: { color: '#cbd5e1', fontSize: 10 }, itemWidth: 10, itemHeight: 10 },
@@ -533,12 +515,13 @@ function renderP1() {
       center: ['50%', '42%'],
       itemStyle: { borderRadius: 5, borderColor: '#060c19', borderWidth: 2 },
       label: { show: true, color: '#fff', formatter: '{d}%', fontSize: 10 },
-      data: [
-        { value: 45, name: '联合国', itemStyle: { color: '#3b82f6' } },
-        { value: 30, name: '各国政府', itemStyle: { color: '#8b5cf6' } },
-        { value: 15, name: 'NGO组织', itemStyle: { color: '#10b981' } },
-        { value: 10, name: '其他', itemStyle: { color: '#f59e0b' } }
-      ]
+      data: orgPieData.length
+        ? orgPieData.map((item, index) => ({
+            value: item.value,
+            name: item.name,
+            itemStyle: { color: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#06b6d4', '#ec4899'][index % 6] }
+          }))
+        : [{ value: 1, name: '暂无数据', itemStyle: { color: '#334155' } }]
     }]
   })
 
@@ -546,17 +529,18 @@ function renderP1() {
   mk(c_p1_bar2.value, 'p1b2')?.setOption(hBar(cfg.value.topCtry, '#38bdf8', '#0284c7', 60))
 
   if (maps.value.china) {
+    const mapMax = Math.max(...cfg.value.projectHeatData.map(item => Number(item.value || 0)), 10)
     mk(c_p1_map.value, 'p1map')?.setOption({
       tooltip: {
         trigger: 'item',
-        formatter: (p: any) => `${p.name}<br/>项目数量: ${p.value || 0}`
+        formatter: (p: any) => `${p.name}<br/>服务覆盖数: ${p.value || 0}`
       },
       visualMap: {
         show: true,
         right: 10,
         bottom: 72,
         min: 0,
-        max: 1600,
+        max: mapMax,
         text: ['高', '低'],
         textStyle: { color: '#fff', fontSize: 10 },
         inRange: { color: ['#0f172a', '#1d4ed8', '#38bdf8'] },
@@ -571,7 +555,7 @@ function renderP1() {
         label: { show: true, color: 'rgba(255,255,255,0.65)', fontSize: 9 }
       },
       series: [{
-        name: '采购项目',
+        name: '服务覆盖',
         type: 'map',
         geoIndex: 0,
         label: {
@@ -589,13 +573,7 @@ function renderP1() {
   if (worldMini && maps.value.world) {
     worldMini.setOption({
       animation: false,
-      tooltip: { trigger: 'item', formatter: (p: any) => `${p.name}<br/>采购项目: ${p.value || 0}` },
-      visualMap: {
-        show: false,
-        min: 0,
-        max: 800,
-        inRange: { color: ['#102a54', '#2563eb', '#7dd3fc'] }
-      },
+      tooltip: { trigger: 'item', formatter: (p: any) => `${p.name}<br/>服务点: ${p.value?.[2] ?? 0}` },
       geo: {
         map: 'world',
         roam: false,
@@ -605,10 +583,15 @@ function renderP1() {
         emphasis: { itemStyle: { areaColor: '#1e3a8a' } }
       },
       series: [{
-        name: '国际采购热度',
-        type: 'map',
+        name: '国际服务点',
+        type: 'effectScatter',
         geoIndex: 0,
-        data: cfg.value.worldData
+        coordinateSystem: 'geo',
+        data: cfg.value.intlCities.map(c => ({ name: c.name, value: [...c.co, c.v] })),
+        symbolSize: (v: any) => Math.max(6, Math.min(12, 6 + v[2] * 2)),
+        itemStyle: { color: '#60a5fa', shadowBlur: 8, shadowColor: '#60a5fa' },
+        rippleEffect: { scale: 2.2, brushType: 'stroke' },
+        label: { show: false }
       }]
     }, true)
   }
@@ -645,7 +628,8 @@ function renderP2() {
       center: ['50%', '40%'],
       itemStyle: { borderRadius: 4, borderColor: '#060c19', borderWidth: 2 },
       label: { show: true, color: '#fff', formatter: '{d}%', fontSize: 10 },
-      data: cfg.value.compTypes.map((d, i) => ({ value: d.value, name: d.name, itemStyle: { color: tc[i] } }))
+      data: (cfg.value.memberLevelData.length ? cfg.value.memberLevelData : [{ name: '暂无数据', value: 1 }])
+        .map((d, i) => ({ value: d.value, name: d.name, itemStyle: { color: tc[i % tc.length] } }))
     }]
   })
 
@@ -708,26 +692,23 @@ function renderP2() {
           type: 'scatter',
           coordinateSystem: 'geo',
           name: '会员分布',
-          // ✅ 使用城市坐标数据（已有的 spCities）
           data: cfg.value.spCities.map(c => ({
             name: c.name,
-            value: [...c.co, c.v],  // [经度, 纬度, 会员数]
+            value: [...c.co, c.v],
             itemStyle: {
-              // ✅ 根据会员数量设置不同颜色
-              color: c.v > 900 ? '#f59e0b' :   // 橙色：超900
-                     c.v > 600 ? '#fbbf24' :   // 黄色：600-900
-                     c.v > 400 ? '#facc15' :   // 浅黄：400-600
-                     '#fde047'                 // 更浅：<400
+              color: c.v > 20 ? '#f59e0b' :
+                     c.v > 10 ? '#fbbf24' :
+                     c.v > 5 ? '#facc15' :
+                     '#fde047'
             }
           })),
-          // ✅ 气泡大小映射（会员越多，气泡越大）
           symbolSize: (val: any) => {
             const memberCount = val[2]
-            return Math.max(12, Math.min(40, memberCount / 30))
+            return Math.max(12, Math.min(40, 10 + memberCount * 2))
           },
           label: { 
-            show: true, 
-            formatter: '{b}',  // 显示城市名
+            show: true,
+            formatter: '{b}',
             position: 'top', 
             color: '#fff', 
             fontSize: 10,
@@ -822,95 +803,110 @@ watch(statsLoaded, (ready) => {
   if (!ready) return
   const d = dashboardStats.value
 
-  // Update cfg totals
   const t = d.totals
-  cfg.value.tenderCount = t.tenderCount || cfg.value.tenderCount
-  cfg.value.memberCount = t.memberCount || cfg.value.memberCount
-  cfg.value.countryCount = t.countryCount || cfg.value.countryCount
-  cfg.value.monthlyNewMembers = t.monthlyNewMembers || cfg.value.monthlyNewMembers
+  cfg.value.tenderCount = Number(t.tenderCount || 0)
+  cfg.value.memberCount = Number(t.memberCount || 0)
+  cfg.value.countryCount = Number(t.countryCount || 0)
+  cfg.value.monthlyNewMembers = Number(t.monthlyNewMembers || 0)
+  cfg.value.svipCount = Number(t.svipCount || 0)
+  cfg.value.vipCount = Number(t.vipCount || 0)
+  cfg.value.industryCount = Number(t.industryCount || 0)
+  cfg.value.platformData = {
+    totalPublished: String(t.tenderCount || 0),
+    organizationCount: String(t.organizationCount || 0),
+    monthlyPublished: String(t.monthlyTenderCount || 0),
+    countryCount: String(t.countryCount || 0)
+  }
 
-  // Category bar chart data (map English → Chinese)
-  if (d.tendersByCategory?.length) {
-    cfg.value.topCat = d.tendersByCategory.map(item => ({
-      name: categoryMap[item.name] || item.name,
-      value: item.value
+  cfg.value.topCat = (d.tendersByCategory || []).map(item => ({
+    name: categoryMap[item.name] || item.name,
+    value: Number(item.value || 0)
+  }))
+  cfg.value.topCtry = (d.tendersByCountry || []).map(item => ({
+    name: item.name, value: Number(item.value || 0)
+  }))
+  cfg.value.orgList = (d.tendersByOrganization || []).map(item => ({
+    name: item.name,
+    code: `TOP${item.value}`
+  }))
+  cfg.value.orgPieData = (d.tendersByOrganization || []).slice(0, 6).map(item => ({
+    name: item.name,
+    value: Number(item.value || 0)
+  }))
+  cfg.value.trend = (d.memberTrend || []).map(item => ({
+    m: item.month.replace(/^\d{4}-/, '').replace(/^0/, '') + '月',
+    v: Number(item.count || 0)
+  }))
+  cfg.value.compTypes = (d.membersByIndustry || []).map(item => ({
+    name: item.name,
+    value: Number(item.value || 0)
+  }))
+  cfg.value.memberLevelData = (d.memberLevels || []).map(item => ({
+    name: item.name,
+    value: Number(item.value || 0)
+  }))
+  cfg.value.cityRank = (d.memberCities || []).map(item => ({
+    name: normalizeCityName(item.name),
+    value: Number(item.value || 0)
+  }))
+  cfg.value.compNames = d.recentCompanies || []
+  cfg.value.projectHeatData = (d.provinceHeat || []).map(item => ({
+    name: item.name,
+    value: Number(item.value || 0)
+  }))
+
+  const domestic = d.domesticNetwork
+  if (domestic) {
+    cfg.value.dp = {
+      count: Number(domestic.count || 0),
+      provinces: Number(domestic.provinces || 0),
+      cities: Number(domestic.cities || 0)
+    }
+    cfg.value.provRank = (domestic.provinceRank || []).map(item => ({
+      name: item.name,
+      value: Number(item.value || 0)
+    }))
+    cfg.value.dpList = (domestic.list || []).map(item => ({
+      name: item.name,
+      location: item.location || '-'
+    }))
+    cfg.value.spCities = toDomesticScatter(domestic.cityPoints || [])
+  }
+
+  const overseas = d.overseasNetwork
+  if (overseas) {
+    cfg.value.ip = {
+      count: Number(overseas.count || 0),
+      countries: Number(overseas.countries || 0),
+      cities: Number(overseas.cities || 0)
+    }
+    cfg.value.ctryRank = (overseas.countryRank || []).map(item => ({
+      name: item.name,
+      value: Number(item.value || 0)
+    }))
+    cfg.value.ipList = (overseas.list || []).map(item => ({
+      name: item.name,
+      location: item.location || '-'
+    }))
+    cfg.value.intlCities = toOverseasScatter(overseas.points || [])
+    cfg.value.worldData = (overseas.countryRank || []).map(item => ({
+      name: item.name,
+      value: Number(item.value || 0)
     }))
   }
 
-  // Country bar chart data
-  if (d.tendersByCountry?.length) {
-    cfg.value.topCtry = d.tendersByCountry.map(item => ({
-      name: item.name, value: item.value
-    }))
-  }
-
-  // Member trend (month → short label)
-  if (d.memberTrend?.length) {
-    cfg.value.trend = d.memberTrend.map(item => ({
-      m: item.month.replace(/^\d{4}-/, '').replace(/^0/, '') + '月',
-      v: item.count
-    }))
-  }
-
-  // Industry pie chart
-  if (d.membersByIndustry?.length) {
-    cfg.value.compTypes = d.membersByIndustry.map(item => ({
-      name: item.name, value: item.value
-    }))
-  }
-
-  // Recent companies scroll list
-  if (d.recentCompanies?.length) {
-    cfg.value.compNames = d.recentCompanies
-  }
-
-  // Redraw charts with new data (setOption on existing instances)
   if (chartsInited.value) {
-    if (cfg.value.topCat.length) inst['p1b1']?.setOption(hBar(cfg.value.topCat, '#fbbf24', '#d97706', 80))
-    if (cfg.value.topCtry.length) inst['p1b2']?.setOption(hBar(cfg.value.topCtry, '#38bdf8', '#0284c7', 60))
-
-    if (cfg.value.trend.length && inst['p2line']) {
-      inst['p2line'].setOption({
-        xAxis: { data: cfg.value.trend.map(d => d.m) },
-        series: [{ data: cfg.value.trend.map(d => d.v) }]
-      })
-    }
-
-    if (cfg.value.compTypes.length && inst['p2pie']) {
-      const tc = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
-      inst['p2pie'].setOption({
-        series: [{
-          data: cfg.value.compTypes.map((d, i) => ({
-            value: d.value, name: d.name,
-            itemStyle: { color: tc[i % tc.length] }
-          }))
-        }]
-      })
-    }
+    renderP1()
+    renderP2()
+    renderP3()
+    resizeAll()
   }
 })
 
 // ═══ Lifecycle ═══
-function loadSaved() {
-  try {
-    const s = localStorage.getItem('ipp-dashboard-config')
-    if (s) {
-      const p = JSON.parse(s)
-      Object.keys(p).forEach(k => {
-        if (k in cfg.value) {
-          (cfg.value as any)[k] = typeof p[k] === 'object' && !Array.isArray(p[k]) && p[k]
-            ? { ...(cfg.value as any)[k], ...p[k] }
-            : p[k]
-        }
-      })
-    }
-  } catch {}
-}
-
 function onResize() { resizeAll() }
 
 onMounted(async () => {
-  loadSaved()
   await loadMaps()
   await initAllCharts()
   startAuto()

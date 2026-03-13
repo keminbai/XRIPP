@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -37,20 +38,28 @@ public class AdminTendersV3Controller {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(name = "page_size", defaultValue = "20") long pageSize,
             @RequestParam(name = "tender_status", required = false) String tenderStatus,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String organization,
+            @RequestParam(required = false) String category,
+            @RequestParam(name = "published_from", required = false) String publishedFrom,
+            @RequestParam(name = "published_to", required = false) String publishedTo,
+            @RequestParam(name = "created_from", required = false) String createdFrom,
+            @RequestParam(name = "created_to", required = false) String createdTo
     ) {
         if (!SecurityContextHolder.isAdmin()) {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
         QueryWrapper<TenderEntity> qw = new QueryWrapper<>();
-        if (tenderStatus != null && !tenderStatus.isBlank()) {
-            qw.eq("tender_status", tenderStatus.trim());
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            String kw = keyword.trim();
-            qw.and(w -> w.like("title", kw).or().like("tender_no", kw));
-        }
+        applyTenderFilters(
+                qw,
+                tenderStatus,
+                keyword,
+                organization,
+                category,
+                firstNonBlank(publishedFrom, createdFrom),
+                firstNonBlank(publishedTo, createdTo)
+        );
         qw.orderByDesc("updated_at");
 
         Page<TenderEntity> p = new Page<>(page, pageSize);
@@ -87,7 +96,7 @@ public class AdminTendersV3Controller {
         m.put("categoryLabel", mapCategoryLabel(safeOr(t.getCategory(), "other")));
         m.put("price", t.getPrice() == null ? BigDecimal.ZERO : t.getPrice());
         m.put("sales", t.getSales() == null ? 0 : t.getSales());
-        m.put("publishDate", formatDate(t.getCreatedAt()));
+        m.put("publishDate", formatDate(t.getPublishedAt() != null ? t.getPublishedAt() : t.getCreatedAt()));
         m.put("deadline", formatDateTime(t.getDeadlineAt()));
         m.put("status", safeOr(t.getTenderStatus(), "draft"));
         m.put("isTop", Boolean.TRUE.equals(t.getIsTop()));
@@ -127,6 +136,9 @@ public class AdminTendersV3Controller {
         t.setDeadlineAt(parseDate(body.get("deadline")));
 
         Date now = new Date();
+        if ("published".equals(tenderStatus)) {
+            t.setPublishedAt(now);
+        }
         t.setCreatedAt(now);
         t.setUpdatedAt(now);
         t.setChangedAt(now);
@@ -204,6 +216,9 @@ public class AdminTendersV3Controller {
                         "cannot transition from " + currentStatus + " to " + status);
             }
             t.setTenderStatus(status);
+            if ("published".equals(status) && t.getPublishedAt() == null) {
+                t.setPublishedAt(new Date());
+            }
         }
 
         t.setUpdatedAt(new Date());
@@ -252,6 +267,9 @@ public class AdminTendersV3Controller {
         }
 
         tender.setTenderStatus(toStatus);
+        if ("published".equals(toStatus) && tender.getPublishedAt() == null) {
+            tender.setPublishedAt(new Date());
+        }
         tender.setUpdatedAt(new Date());
         tender.setChangedAt(new Date());
         tender.setChangeReason(reason);
@@ -290,6 +308,33 @@ public class AdminTendersV3Controller {
         return V3Response.success(data);
     }
 
+    /**
+     * 标书分析数据 — 返回轻量级记录供前端聚合渲染图表
+     * 仅返回 published 状态的标书，字段：organization, category, publishDate
+     */
+    @GetMapping("/analysis")
+    public V3Response<List<Map<String, String>>> analysis() {
+        if (!SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        List<TenderEntity> tenders = tenderService.list(
+                new QueryWrapper<TenderEntity>()
+                        .eq("tender_status", "published")
+                        .orderByDesc("created_at")
+        );
+
+        List<Map<String, String>> items = new ArrayList<>();
+        for (TenderEntity t : tenders) {
+            Map<String, String> m = new HashMap<>();
+            m.put("organization", safeOr(t.getOrganizationName(), "Other"));
+            m.put("category", safeOr(t.getCategory(), "other"));
+            m.put("publishDate", formatDate(t.getPublishedAt() != null ? t.getPublishedAt() : t.getCreatedAt()));
+            items.add(m);
+        }
+        return V3Response.success(items);
+    }
+
     private Map<String, Object> toListItem(TenderEntity t) {
         Map<String, Object> m = new HashMap<>();
         m.put("id", t.getId());
@@ -304,7 +349,7 @@ public class AdminTendersV3Controller {
 
         m.put("price", t.getPrice() == null ? BigDecimal.ZERO : t.getPrice());
         m.put("sales", t.getSales() == null ? 0 : t.getSales());
-        m.put("publishDate", formatDate(t.getCreatedAt()));
+        m.put("publishDate", formatDate(t.getPublishedAt() != null ? t.getPublishedAt() : t.getCreatedAt()));
         m.put("status", safeOr(t.getTenderStatus(), "draft"));
         m.put("isTop", Boolean.TRUE.equals(t.getIsTop()));
         return m;
@@ -409,6 +454,12 @@ public class AdminTendersV3Controller {
     public void export(
             @RequestParam(name = "tender_status", required = false) String tenderStatus,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String organization,
+            @RequestParam(required = false) String category,
+            @RequestParam(name = "published_from", required = false) String publishedFrom,
+            @RequestParam(name = "published_to", required = false) String publishedTo,
+            @RequestParam(name = "created_from", required = false) String createdFrom,
+            @RequestParam(name = "created_to", required = false) String createdTo,
             HttpServletResponse response
     ) throws Exception {
         if (!SecurityContextHolder.isAdmin()) {
@@ -417,13 +468,15 @@ public class AdminTendersV3Controller {
         }
 
         QueryWrapper<TenderEntity> qw = new QueryWrapper<>();
-        if (tenderStatus != null && !tenderStatus.isBlank()) {
-            qw.eq("tender_status", tenderStatus.trim());
-        }
-        if (keyword != null && !keyword.isBlank()) {
-            String kw = keyword.trim();
-            qw.and(w -> w.like("title", kw).or().like("tender_no", kw));
-        }
+        applyTenderFilters(
+                qw,
+                tenderStatus,
+                keyword,
+                organization,
+                category,
+                firstNonBlank(publishedFrom, createdFrom),
+                firstNonBlank(publishedTo, createdTo)
+        );
         qw.orderByDesc("updated_at");
 
         List<TenderEntity> all = tenderService.list(qw);
@@ -447,5 +500,72 @@ public class AdminTendersV3Controller {
     private String formatDateTime(Date date) {
         if (date == null) return "";
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date);
+    }
+
+    private void applyTenderFilters(
+            QueryWrapper<TenderEntity> qw,
+            String tenderStatus,
+            String keyword,
+            String organization,
+            String category,
+            String publishedFrom,
+            String publishedTo
+    ) {
+        if (tenderStatus != null && !tenderStatus.isBlank()) {
+            qw.eq("tender_status", tenderStatus.trim());
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            qw.and(w -> w.like("title", kw).or().like("tender_no", kw));
+        }
+        if (organization != null && !organization.isBlank()) {
+            qw.eq("organization_name", organization.trim());
+        }
+        if (category != null && !category.isBlank()) {
+            qw.eq("category", category.trim());
+        }
+
+        Date publishedFromDate = parseDateStart(publishedFrom);
+        if (publishedFromDate != null) {
+            qw.ge("published_at", publishedFromDate);
+        }
+        Date publishedToDate = parseDateEndExclusive(publishedTo);
+        if (publishedToDate != null) {
+            qw.lt("published_at", publishedToDate);
+        }
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first.trim();
+        }
+        if (second != null && !second.isBlank()) {
+            return second.trim();
+        }
+        return null;
+    }
+
+    private Date parseDateStart(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDate date = LocalDate.parse(raw.trim());
+            return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Date parseDateEndExclusive(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            LocalDate date = LocalDate.parse(raw.trim()).plusDays(1);
+            return Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

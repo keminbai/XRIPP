@@ -62,27 +62,6 @@
           <el-option label="普通会员" value="NORMAL" />
         </el-select>
 
-        <!-- 省份→城市联动 -->
-        <el-select v-model="filters.province" placeholder="省份" class="w-32" clearable>
-          <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
-        </el-select>
-
-        <el-select v-model="filters.city" placeholder="城市" class="w-32" clearable>
-          <el-option v-for="c in cityOptions" :key="c" :label="c" :value="c" />
-        </el-select>
-
-        <el-select v-model="filters.status" placeholder="状态" class="w-28" clearable>
-          <el-option label="正常" value="active" />
-          <el-option label="已过期" value="expired" />
-          <el-option label="已禁用" value="disabled" />
-        </el-select>
-
-        <!-- 国际会员筛选 -->
-        <el-select v-model="filters.international" placeholder="国际会员" class="w-28" clearable>
-          <el-option label="是" value="yes" />
-          <el-option label="否" value="no" />
-        </el-select>
-
         <!-- 入驻时间 -->
         <el-date-picker
           v-model="filters.dateRange"
@@ -140,25 +119,7 @@
              </template>
           </el-table-column>
 
-          <el-table-column label="地区" width="120">
-            <template #default="scope">
-              {{ scope.row.province }} / {{ scope.row.city }}
-            </template>
-          </el-table-column>
-
-          <el-table-column label="状态" width="90" align="center">
-            <template #default="scope">
-              <div class="flex items-center justify-center gap-1.5">
-                <span class="w-2 h-2 rounded-full" :class="{
-                  'bg-green-500': scope.row.status === 'active',
-                  'bg-yellow-500': scope.row.status === 'expired',
-                  'bg-slate-400': scope.row.status === 'disabled'
-                }"></span>
-                <span class="text-xs">{{ scope.row.statusLabel }}</span>
-              </div>
-            </template>
-          </el-table-column>
-
+          <el-table-column prop="registerDate" label="注册时间" width="110" class-name="text-xs" />
           <el-table-column prop="expireDate" label="到期时间" width="110" class-name="text-xs" />
 
           <el-table-column label="操作" width="280" fixed="right">
@@ -226,13 +187,10 @@
         </div>
         <el-descriptions :column="2" class="mb-4">
           <el-descriptions-item label="邀请码">{{ currentMember.invitationCode }}</el-descriptions-item>
-          <el-descriptions-item label="当前状态">
-            <el-tag size="small" :type="getStatusType(currentMember.status)">{{ currentMember.statusLabel }}</el-tag>
-          </el-descriptions-item>
+          <el-descriptions-item label="会员等级">{{ currentMember.level }}</el-descriptions-item>
           <el-descriptions-item label="联系人">{{ currentMember.contactPerson }}</el-descriptions-item>
           <el-descriptions-item label="联系电话">{{ currentMember.contactPhone }}</el-descriptions-item>
           <el-descriptions-item label="电子邮箱">{{ currentMember.email }}</el-descriptions-item>
-          <el-descriptions-item label="所在城市">{{ currentMember.city }}</el-descriptions-item>
           <el-descriptions-item label="注册时间">{{ currentMember.registerDate }}</el-descriptions-item>
           <el-descriptions-item label="到期时间">{{ currentMember.expireDate }}</el-descriptions-item>
         </el-descriptions>
@@ -435,31 +393,7 @@ const filters = ref({
   invitationCode: '',
   industry: '',
   level: '',
-  status: '',
-  province: '',
-  city: '',
-  international: '',
   dateRange: [] as string[]
-})
-
-// 省份-城市联动
-const provinceCityMap: Record<string, string[]> = {
-  上海: ['上海'],
-  北京: ['北京'],
-  广东: ['广州', '深圳', '东莞'],
-  浙江: ['杭州', '宁波'],
-  江苏: ['苏州', '南京']
-}
-
-const provinces = Object.keys(provinceCityMap)
-
-const cityOptions = computed(() => {
-  if (!filters.value.province) return []
-  return provinceCityMap[filters.value.province] || []
-})
-
-watch(() => filters.value.province, () => {
-  filters.value.city = ''
 })
 
 watch(
@@ -477,6 +411,9 @@ const tableLoading = ref(false)
 
 function mapMemberItem(item: any) {
   const level = (item.memberLevel || item.level || 'normal').toUpperCase()
+  const expireDate = (item.vipExpireTime || item.expireDate || '').substring(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
+  const status = expireDate && expireDate < today ? 'expired' : 'active'
   return {
     id: item.id || item.userId,
     userId: item.userId || item.id,
@@ -487,13 +424,10 @@ function mapMemberItem(item: any) {
     industry: item.industry || '',
     invitationCode: item.invitationCode || '',
     level,
-    city: item.city || '',
-    province: item.province || '',
-    isInternational: item.isInternational || false,
-    status: item.status || 'active',
-    statusLabel: item.status === 'expired' ? '已过期' : item.status === 'disabled' ? '已禁用' : '正常',
+    status,
+    statusLabel: status === 'expired' ? '已过期' : '正常',
     registerDate: (item.createdAt || item.registerDate || '').substring(0, 10),
-    expireDate: (item.vipExpireTime || item.expireDate || '').substring(0, 10)
+    expireDate
   }
 }
 
@@ -508,6 +442,12 @@ async function loadMembers() {
     params.set('page_size', String(pageSize.value))
     if (filters.value.keyword) params.set('keyword', filters.value.keyword)
     if (filters.value.level) params.set('member_level', filters.value.level.toLowerCase())
+    if (filters.value.invitationCode) params.set('invitation_code', filters.value.invitationCode)
+    if (filters.value.industry) params.set('industry', filters.value.industry)
+    if (filters.value.dateRange?.length === 2) {
+      params.set('created_from', filters.value.dateRange[0])
+      params.set('created_to', filters.value.dateRange[1])
+    }
 
     const res = await apiRequest<any>(`/v3/admin/members?${params.toString()}`)
     const data = res.data || {}
@@ -527,64 +467,10 @@ async function loadMembers() {
 // 逻辑处理
 // ----------------------------------------------------
 
-// 列表过滤
-const filteredMemberList = computed(() => {
-  let list = allMemberList.value
-  
-  if (filters.value.keyword) {
-    const k = filters.value.keyword.toLowerCase()
-    list = list.filter(item => 
-      item.companyName.toLowerCase().includes(k) ||
-      item.contactPerson.toLowerCase().includes(k)
-    )
-  }
-  
-  if (filters.value.invitationCode) {
-    list = list.filter(item => item.invitationCode.includes(filters.value.invitationCode))
-  }
-
-  if (filters.value.industry) {
-    list = list.filter(item => item.industry === filters.value.industry)
-  }
-  
-  if (filters.value.level) {
-    list = list.filter(item => item.level === filters.value.level)
-  }
-  
-  if (filters.value.status) {
-    list = list.filter(item => item.status === filters.value.status)
-  }
-  
-  if (filters.value.province) {
-    list = list.filter(item => item.province === filters.value.province)
-  }
-
-  if (filters.value.city) {
-    list = list.filter(item => item.city === filters.value.city)
-  }
-
-  if (filters.value.international) {
-    const isIntl = filters.value.international === 'yes'
-    list = list.filter(item => item.isInternational === isIntl)
-  }
-
-  if (filters.value.dateRange?.length === 2) {
-    const [start, end] = filters.value.dateRange
-    list = list.filter(item => item.registerDate >= start && item.registerDate <= end)
-  }
-  
-  return list
-})
-
 // 样式工具
 const getLevelTag = (level: string) => {
   const map: Record<string, string> = { 'SVIP': 'danger', 'VIP': 'warning', 'NORMAL': 'primary' }
   return map[level] || 'info'
-}
-
-const getStatusType = (status: string) => {
-  const map: Record<string, string> = { 'active': 'success', 'expired': 'warning', 'disabled': 'info' }
-  return map[status] || 'info'
 }
 
 const getCurrentBenefitMax = () => {
@@ -672,8 +558,7 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 
 const pagedMemberList = computed(() => {
-  // Server-side pagination: filteredMemberList applies client-side filters to the API-loaded page
-  return filteredMemberList.value
+  return allMemberList.value
 })
 
 const clearSelection = () => {
@@ -707,7 +592,7 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  filters.value = { keyword: '', invitationCode: '', industry: '', level: '', status: '', city: '', province: '', international: '', dateRange: [] }
+  filters.value = { keyword: '', invitationCode: '', industry: '', level: '', dateRange: [] }
   currentPage.value = 1
   clearSelection()
   loadMembers()
@@ -719,7 +604,11 @@ const handleExport = async () => {
     const { downloadExcel } = await import('@/utils/downloadExcel')
     await downloadExcel('/v3/admin/members/export', `会员列表_${new Date().toISOString().slice(0, 10)}.xlsx`, {
       member_level: filters.value.level?.toLowerCase() || '',
-      keyword: filters.value.keyword || ''
+      keyword: filters.value.keyword || '',
+      invitation_code: filters.value.invitationCode || '',
+      industry: filters.value.industry || '',
+      created_from: filters.value.dateRange?.[0] || '',
+      created_to: filters.value.dateRange?.[1] || ''
     })
     ElMessage.success('导出成功')
   } catch (e: any) {
