@@ -1,28 +1,20 @@
-<!--
-  文件路径: D:\ipp-platform\app\pages\admin\finance\profit.vue
-  版本: V2.0 API对接版 (2026-03-12)
-
-  修复: 统计卡片从 /v3/admin/orders/stats + /v3/admin/partners 读取真实数据
-  注意: 分成配置/结算等核心功能需要独立后端API，暂标记"功能开发中"
--->
 <template>
   <div class="space-y-6">
-    <el-alert type="warning" :closable="false" show-icon>
+    <el-alert type="info" :closable="false" show-icon>
       <template #title>
-        <span class="font-bold">功能开发中</span> — 利润分成模块需要独立后端API（分成配置表、结算记录表），当前分成配置与结算操作仅为界面演示。统计卡片中的收入数据来自真实订单API。
+        分成统计与结算已接真实 API。当前按“已配置合伙人 + 已配置业务线 + 真实订单金额”实时计算，结算结果按月份落库。
       </template>
     </el-alert>
 
-    <!-- 统计卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
       <div
         v-for="(stat, i) in stats"
         :key="i"
-        class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm"
+        class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
-        <div class="flex items-center justify-between mb-3">
+        <div class="mb-3 flex items-center justify-between">
           <div class="text-sm text-slate-500">{{ stat.label }}</div>
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="stat.bgClass">
+          <div class="flex h-10 w-10 items-center justify-center rounded-lg" :class="stat.bgClass">
             <el-icon :class="stat.textClass"><component :is="stat.icon" /></el-icon>
           </div>
         </div>
@@ -30,51 +22,57 @@
       </div>
     </div>
 
-    <!-- Tab 切换 -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
       <el-tabs v-model="activeTab" class="p-6">
-        <!-- 分成配置 -->
         <el-tab-pane label="分成配置" name="config">
           <div class="space-y-4">
-            <div class="flex justify-between items-center mb-4">
+            <div class="mb-4 flex items-center justify-between">
               <div>
                 <h3 class="text-base font-bold text-slate-800">合伙人分成比例设置</h3>
-                <p class="text-xs text-slate-500 mt-1">设置各城市合伙人的分成比例</p>
+                <p class="mt-1 text-xs text-slate-500">每个合伙人一条配置，支持按业务线启停</p>
               </div>
               <div class="flex gap-2">
-                <el-button @click="openConfigDialog()">
-                  <el-icon class="mr-2"><Plus /></el-icon> 新增配置
+                <el-button @click="loadConfigData">
+                  刷新
                 </el-button>
-                <el-button type="primary" @click="handleSaveConfig">
-                  <el-icon class="mr-2"><Check /></el-icon> 保存配置
+                <el-button type="primary" @click="openConfigDialog()">
+                  <el-icon class="mr-2"><Plus /></el-icon>新增配置
                 </el-button>
               </div>
             </div>
 
-            <el-table :data="partnerConfig" border stripe>
+            <el-table :data="partnerConfig" border stripe v-loading="configLoading">
               <el-table-column prop="city" label="城市" width="120" />
-              <el-table-column prop="partnerName" label="合伙人" width="150" />
-              <el-table-column label="分成比例" width="200">
+              <el-table-column prop="partnerName" label="合伙人" min-width="160" />
+              <el-table-column label="分成比例" width="110" align="center">
                 <template #default="scope">
-                  <el-slider v-model="scope.row.percentage" :min="5" :max="30" show-stops />
-                  <div class="text-xs text-slate-500 mt-1">{{ scope.row.percentage }}%</div>
+                  <el-tag type="warning" size="small">{{ scope.row.percentage }}%</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="适用业务" min-width="250">
+              <el-table-column label="适用业务" min-width="220">
                 <template #default="scope">
-                  <el-checkbox-group v-model="scope.row.businessLines" size="small">
-                    <el-checkbox label="membership">会员费</el-checkbox>
-                    <el-checkbox label="tender">标书销售</el-checkbox>
-                    <el-checkbox label="training">培训收入</el-checkbox>
-                  </el-checkbox-group>
+                  <div class="flex flex-wrap gap-2">
+                    <el-tag
+                      v-for="line in scope.row.businessLines"
+                      :key="line"
+                      size="small"
+                      effect="plain"
+                    >
+                      {{ getBusinessLabel(line) }}
+                    </el-tag>
+                  </div>
                 </template>
               </el-table-column>
-              <el-table-column label="状态" width="100" align="center">
+              <el-table-column label="状态" width="110" align="center">
                 <template #default="scope">
-                  <el-switch v-model="scope.row.enabled" />
+                  <el-switch
+                    :model-value="scope.row.enabled"
+                    @change="value => handleToggleEnabled(scope.row, value)"
+                  />
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="140">
+              <el-table-column prop="updatedAt" label="更新时间" width="180" />
+              <el-table-column label="操作" width="150">
                 <template #default="scope">
                   <el-button link type="primary" @click="openConfigDialog(scope.row)">编辑</el-button>
                   <el-button link type="danger" @click="handleRemoveConfig(scope.row)">删除</el-button>
@@ -84,41 +82,44 @@
           </div>
         </el-tab-pane>
 
-        <!-- 分成统计 -->
         <el-tab-pane label="分成统计" name="stats">
           <div class="space-y-4">
-            <div class="mb-4">
-              <h3 class="text-base font-bold text-slate-800">各合伙人分成统计</h3>
-              <p class="text-xs text-slate-500 mt-1">查看各合伙人的分成金额和明细</p>
+            <div class="mb-4 flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">各合伙人分成统计</h3>
+                <p class="mt-1 text-xs text-slate-500">默认展示当月收入、当月分成、累计分成与结算状态</p>
+              </div>
+              <el-button @click="loadProfitStats">刷新统计</el-button>
             </div>
 
-            <el-table :data="profitStats" stripe :header-cell-style="{background:'#f8fafc', color:'#64748b'}">
+            <el-table
+              :data="profitStats"
+              stripe
+              v-loading="statsLoading"
+              :header-cell-style="{ background: '#f8fafc', color: '#64748b' }"
+            >
               <el-table-column prop="city" label="城市" width="120" />
-              <el-table-column prop="partnerName" label="合伙人" width="150" />
-              <el-table-column prop="percentage" label="分成比例" width="100">
+              <el-table-column prop="partnerName" label="合伙人" min-width="150" />
+              <el-table-column prop="percentage" label="分成比例" width="100" align="center">
                 <template #default="scope">
                   <el-tag size="small">{{ scope.row.percentage }}%</el-tag>
                 </template>
               </el-table-column>
-
               <el-table-column label="本月营收" width="150" align="right">
                 <template #default="scope">
-                  <span class="font-medium">¥{{ scope.row.monthRevenue.toLocaleString() }}</span>
+                  <span class="font-medium">¥{{ formatMoney(scope.row.monthRevenue) }}</span>
                 </template>
               </el-table-column>
-
               <el-table-column label="本月分成" width="150" align="right">
                 <template #default="scope">
-                  <span class="text-green-600 font-bold">¥{{ scope.row.monthProfit.toLocaleString() }}</span>
+                  <span class="font-bold text-green-600">¥{{ formatMoney(scope.row.monthProfit) }}</span>
                 </template>
               </el-table-column>
-
               <el-table-column label="累计分成" width="150" align="right">
                 <template #default="scope">
-                  <span class="font-medium">¥{{ scope.row.totalProfit.toLocaleString() }}</span>
+                  <span class="font-medium">¥{{ formatMoney(scope.row.totalProfit) }}</span>
                 </template>
               </el-table-column>
-
               <el-table-column label="结算状态" width="120" align="center">
                 <template #default="scope">
                   <el-tag :type="scope.row.settled ? 'success' : 'warning'" size="small">
@@ -126,7 +127,6 @@
                   </el-tag>
                 </template>
               </el-table-column>
-
               <el-table-column label="操作" width="150">
                 <template #default="scope">
                   <el-button link type="primary" size="small" @click="handleViewDetail(scope.row)">
@@ -147,14 +147,16 @@
           </div>
         </el-tab-pane>
 
-        <!-- 分成明细 -->
         <el-tab-pane label="分成明细" name="records">
           <div class="space-y-4">
-            <div class="flex gap-3 mb-4">
+            <div class="mb-4 flex gap-3">
               <el-select v-model="filters.city" placeholder="选择城市" class="w-32" clearable>
-                <el-option label="上海" value="上海" />
-                <el-option label="北京" value="北京" />
-                <el-option label="深圳" value="深圳" />
+                <el-option
+                  v-for="city in cityOptions"
+                  :key="city"
+                  :label="city"
+                  :value="city"
+                />
               </el-select>
               <el-date-picker
                 v-model="filters.dateRange"
@@ -167,9 +169,10 @@
               <el-button type="primary" plain @click="handleSearch">查询</el-button>
             </div>
 
-            <el-table :data="filteredRecords" stripe>
+            <el-table :data="filteredRecords" stripe v-loading="recordsLoading">
               <el-table-column prop="date" label="日期" width="120" />
               <el-table-column prop="city" label="城市" width="100" />
+              <el-table-column prop="partnerName" label="合伙人" width="150" />
               <el-table-column prop="orderNo" label="订单号" width="180">
                 <template #default="scope">
                   <span class="font-mono text-xs">{{ scope.row.orderNo }}</span>
@@ -182,13 +185,24 @@
               </el-table-column>
               <el-table-column label="订单金额" width="120" align="right">
                 <template #default="scope">
-                  ¥{{ scope.row.orderAmount.toLocaleString() }}
+                  ¥{{ formatMoney(scope.row.orderAmount) }}
                 </template>
               </el-table-column>
-              <el-table-column prop="percentage" label="分成比例" width="100" align="center" />
+              <el-table-column prop="percentage" label="分成比例" width="100" align="center">
+                <template #default="scope">
+                  {{ scope.row.percentage }}%
+                </template>
+              </el-table-column>
               <el-table-column label="分成金额" width="120" align="right">
                 <template #default="scope">
-                  <span class="text-green-600 font-bold">¥{{ scope.row.profitAmount.toLocaleString() }}</span>
+                  <span class="font-bold text-green-600">¥{{ formatMoney(scope.row.profitAmount) }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="100" align="center">
+                <template #default="scope">
+                  <el-tag :type="scope.row.settled ? 'success' : 'info'" size="small">
+                    {{ scope.row.settled ? '已结算' : '未结算' }}
+                  </el-tag>
                 </template>
               </el-table-column>
             </el-table>
@@ -197,17 +211,23 @@
       </el-tabs>
     </div>
 
-    <!-- 配置弹窗 -->
-    <el-dialog v-model="configDialogVisible" :title="configForm.id ? '编辑分成配置' : '新增分成配置'" width="600px">
+    <el-dialog v-model="configDialogVisible" :title="configForm.id ? '编辑分成配置' : '新增分成配置'" width="620px">
       <el-form :model="configForm" label-width="120px">
-        <el-form-item label="城市" required>
-          <el-input v-model="configForm.city" />
-        </el-form-item>
         <el-form-item label="合伙人" required>
-          <el-input v-model="configForm.partnerName" />
+          <el-select v-model="configForm.partnerId" class="!w-full" filterable placeholder="选择合伙人">
+            <el-option
+              v-for="partner in partnerOptions"
+              :key="partner.id"
+              :label="`${partner.cityName || '未设城市'} - ${partner.partnerName}`"
+              :value="partner.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="城市">
+          <el-input :model-value="selectedPartner?.cityName || ''" disabled />
         </el-form-item>
         <el-form-item label="分成比例" required>
-          <el-input-number v-model="configForm.percentage" :min="5" :max="30" :step="1" class="!w-full" />
+          <el-input-number v-model="configForm.percentage" :min="1" :max="100" :step="1" class="!w-full" />
         </el-form-item>
         <el-form-item label="适用业务">
           <el-checkbox-group v-model="configForm.businessLines">
@@ -222,131 +242,344 @@
       </el-form>
       <template #footer>
         <el-button @click="configDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveConfigDialog">保存</el-button>
+        <el-button type="primary" :loading="configSaving" @click="handleSaveConfigDialog">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Coin, TrendCharts, Money, UserFilled, Check, Plus } from '@element-plus/icons-vue'
-import { ref, computed, onMounted } from 'vue'
+import { Coin, TrendCharts, Money, UserFilled, Plus } from '@element-plus/icons-vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
-const activeTab = ref('config')
-const filters = ref({ city: '', dateRange: [] as string[] })
+type PartnerOption = {
+  id: number
+  partnerName: string
+  cityName: string
+}
 
-// Real data from APIs
+type ProfitConfig = {
+  id: number
+  partnerId: number
+  partnerName: string
+  city: string
+  percentage: number
+  businessLines: string[]
+  enabled: boolean
+  updatedAt: string
+}
+
+type ProfitStat = {
+  partnerId: number
+  city: string
+  partnerName: string
+  percentage: number
+  monthRevenue: number
+  monthProfit: number
+  totalProfit: number
+  settled: boolean
+  settlementMonth: string
+}
+
+type ProfitRecord = {
+  date: string
+  city: string
+  partnerName: string
+  orderNo: string
+  businessLine: string
+  orderAmount: number
+  percentage: number
+  profitAmount: number
+  settled: boolean
+}
+
+const activeTab = ref('config')
+const filters = ref({ city: '', dateRange: [] as Date[] })
+
 const totalRevenue = ref(0)
 const completedRevenue = ref(0)
 const partnerCount = ref(0)
 
+const configLoading = ref(false)
+const statsLoading = ref(false)
+const recordsLoading = ref(false)
+const configSaving = ref(false)
+
+const partnerOptions = ref<PartnerOption[]>([])
+const partnerConfig = ref<ProfitConfig[]>([])
+const profitStats = ref<ProfitStat[]>([])
+const profitRecords = ref<ProfitRecord[]>([])
+
+const configDialogVisible = ref(false)
+const configForm = ref({
+  id: 0,
+  partnerId: null as number | null,
+  percentage: 10,
+  businessLines: ['membership', 'tender'] as string[],
+  enabled: true
+})
+
 const stats = computed(() => [
-  { label: '平台总收入', value: `¥${completedRevenue.value.toLocaleString()}`, icon: Coin, bgClass: 'bg-green-50', textClass: 'text-green-600' },
-  { label: '订单总金额', value: `¥${totalRevenue.value.toLocaleString()}`, icon: Money, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
+  { label: '平台总收入', value: `¥${formatMoney(completedRevenue.value)}`, icon: Coin, bgClass: 'bg-green-50', textClass: 'text-green-600' },
+  { label: '订单总金额', value: `¥${formatMoney(totalRevenue.value)}`, icon: Money, bgClass: 'bg-orange-50', textClass: 'text-orange-600' },
   { label: '合伙人数', value: String(partnerCount.value), icon: UserFilled, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
   { label: '分成配置数', value: String(partnerConfig.value.length), icon: TrendCharts, bgClass: 'bg-purple-50', textClass: 'text-purple-600' }
 ])
 
-// Load real stats from APIs
+const selectedPartner = computed(() =>
+  partnerOptions.value.find(item => item.id === configForm.value.partnerId) || null
+)
+
+const cityOptions = computed(() => {
+  const set = new Set<string>()
+  partnerConfig.value.forEach(item => {
+    if (item.city) set.add(item.city)
+  })
+  return Array.from(set)
+})
+
+const filteredRecords = computed(() => profitRecords.value)
+
+const getBusinessLabel = (line: string) => {
+  const map: Record<string, string> = {
+    membership: '会员费',
+    tender: '标书销售',
+    training: '培训收入'
+  }
+  return map[line] || line || '未知'
+}
+
+const formatMoney = (value: unknown) => {
+  const amount = Number(value ?? 0)
+  return Number.isFinite(amount) ? amount.toLocaleString() : '0'
+}
+
+const monthValue = (date: Date | string | null | undefined) => {
+  if (!date) return ''
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const normalizeNumber = (value: unknown) => {
+  const num = Number(value ?? 0)
+  return Number.isFinite(num) ? num : 0
+}
+
 const loadRealStats = async () => {
   await Promise.allSettled([
     apiRequest('/v3/admin/orders/stats').then((res: any) => {
       const data = res?.data || {}
-      let total = 0
-      let completed = 0
-      Object.entries(data).forEach(([status, info]: [string, any]) => {
-        const amount = Number(info?.total_amount || info?.totalAmount || 0)
-        total += amount
-        if (status === 'completed' || status === 'paid') {
-          completed += amount
-        }
-      })
-      totalRevenue.value = total
-      completedRevenue.value = completed
+      totalRevenue.value = normalizeNumber(data?.totalAmount)
+      completedRevenue.value =
+        normalizeNumber(data?.inProgressAmount) +
+        normalizeNumber(data?.completedAmount)
     }),
-    apiRequest('/v3/admin/partners', { query: { page: 1, page_size: 1 } }).then((res: any) => {
-      partnerCount.value = Number(res?.data?.total ?? 0)
+    apiRequest('/v3/admin/partners', { query: { page: 1, page_size: 200 } }).then((res: any) => {
+      const data = res?.data
+      partnerCount.value = normalizeNumber(data?.total)
+      partnerOptions.value = Array.isArray(data?.items)
+        ? data.items.map((item: any) => ({
+            id: normalizeNumber(item.id),
+            partnerName: item.partnerName || '',
+            cityName: item.cityName || ''
+          }))
+        : []
     })
   ])
 }
 
-// 分成配置（暂无后端，本地状态）
-const partnerConfig = ref([
-  { id: 1, city: '上海', partnerName: '张三', percentage: 15, businessLines: ['membership', 'tender'], enabled: true },
-  { id: 2, city: '北京', partnerName: '李四', percentage: 18, businessLines: ['membership', 'tender', 'training'], enabled: true },
-  { id: 3, city: '深圳', partnerName: '王五', percentage: 12, businessLines: ['tender'], enabled: true }
-])
-
-// 分成统计（暂无后端，演示数据）
-const profitStats = ref([
-  { city: '上海', partnerName: '张三', percentage: 15, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: false },
-  { city: '北京', partnerName: '李四', percentage: 18, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: true },
-  { city: '深圳', partnerName: '王五', percentage: 12, monthRevenue: 0, monthProfit: 0, totalProfit: 0, settled: false }
-])
-
-// 分成明细（暂无后端，空数组）
-const profitRecords = ref<any[]>([])
-
-const filteredRecords = computed(() => {
-  let list = profitRecords.value
-  if (filters.value.city) list = list.filter(x => x.city === filters.value.city)
-  return list
-})
-
-const getBusinessLabel = (line: string) => {
-  const map: Record<string, string> = { membership: '会员费', tender: '标书销售', training: '培训收入' }
-  return map[line] || '未知'
+const loadConfigData = async () => {
+  configLoading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/profit-sharing/configs')
+    partnerConfig.value = Array.isArray(res?.data)
+      ? res.data.map((item: any) => ({
+          id: normalizeNumber(item.id),
+          partnerId: normalizeNumber(item.partnerId),
+          partnerName: item.partnerName || '',
+          city: item.city || '',
+          percentage: normalizeNumber(item.percentage),
+          businessLines: Array.isArray(item.businessLines) ? item.businessLines : [],
+          enabled: Boolean(item.enabled),
+          updatedAt: item.updatedAt || ''
+        }))
+      : []
+  } finally {
+    configLoading.value = false
+  }
 }
 
-// 保存配置（占位 — 需后端API）
-const handleSaveConfig = () => ElMessage.warning('分成配置保存功能需要后端API支持，当前为界面演示')
-const handleViewDetail = () => ElMessage.info('查看明细功能需要后端API支持')
-const handleSearch = () => ElMessage.info('分成明细查询功能需要后端API支持')
-
-const handleSettle = (row: any) => {
-  ElMessageBox.confirm(`确认结算 ${row.city} ${row.partnerName} 本月分成（¥${row.monthProfit.toLocaleString()}）吗？`, '确认结算', {
-    type: 'success'
-  }).then(() => {
-    row.settled = true
-    ElMessage.warning('结算功能需要后端API支持，当前为界面演示')
-  })
+const loadProfitStats = async () => {
+  statsLoading.value = true
+  try {
+    const res: any = await apiRequest('/v3/admin/profit-sharing/stats')
+    profitStats.value = Array.isArray(res?.data)
+      ? res.data.map((item: any) => ({
+          partnerId: normalizeNumber(item.partnerId),
+          city: item.city || '',
+          partnerName: item.partnerName || '',
+          percentage: normalizeNumber(item.percentage),
+          monthRevenue: normalizeNumber(item.monthRevenue),
+          monthProfit: normalizeNumber(item.monthProfit),
+          totalProfit: normalizeNumber(item.totalProfit),
+          settled: Boolean(item.settled),
+          settlementMonth: item.settlementMonth || monthValue(new Date())
+        }))
+      : []
+  } finally {
+    statsLoading.value = false
+  }
 }
 
-// 配置弹窗
-const configDialogVisible = ref(false)
-const configForm = ref({ id: 0, city: '', partnerName: '', percentage: 10, businessLines: [] as string[], enabled: true })
+const loadProfitRecords = async () => {
+  recordsLoading.value = true
+  try {
+    const query: Record<string, string> = {}
+    if (filters.value.city) {
+      query.city = filters.value.city
+    }
+    if (filters.value.dateRange.length === 2) {
+      query.month_from = monthValue(filters.value.dateRange[0])
+      query.month_to = monthValue(filters.value.dateRange[1])
+    }
+    const res: any = await apiRequest('/v3/admin/profit-sharing/records', { query })
+    profitRecords.value = Array.isArray(res?.data)
+      ? res.data.map((item: any) => ({
+          date: item.date || '',
+          city: item.city || '',
+          partnerName: item.partnerName || '',
+          orderNo: item.orderNo || '',
+          businessLine: item.businessLine || '',
+          orderAmount: normalizeNumber(item.orderAmount),
+          percentage: normalizeNumber(item.percentage),
+          profitAmount: normalizeNumber(item.profitAmount),
+          settled: Boolean(item.settled)
+        }))
+      : []
+  } finally {
+    recordsLoading.value = false
+  }
+}
 
-const openConfigDialog = (row?: any) => {
-  configForm.value = row ? { ...row } : { id: 0, city: '', partnerName: '', percentage: 10, businessLines: [], enabled: true }
+const loadAll = async () => {
+  await loadRealStats()
+  await Promise.all([loadConfigData(), loadProfitStats(), loadProfitRecords()])
+}
+
+const openConfigDialog = (row?: ProfitConfig) => {
+  configForm.value = row
+    ? {
+        id: row.id,
+        partnerId: row.partnerId,
+        percentage: row.percentage,
+        businessLines: [...row.businessLines],
+        enabled: row.enabled
+      }
+    : {
+        id: 0,
+        partnerId: null,
+        percentage: 10,
+        businessLines: ['membership', 'tender'],
+        enabled: true
+      }
   configDialogVisible.value = true
 }
 
-const handleSaveConfigDialog = () => {
-  if (!configForm.value.city || !configForm.value.partnerName) return ElMessage.warning('请填写城市和合伙人')
-  const payload = { ...configForm.value }
-  if (payload.id) {
-    const idx = partnerConfig.value.findIndex(x => x.id === payload.id)
-    if (idx !== -1) partnerConfig.value[idx] = payload
-  } else {
-    payload.id = Date.now()
-    partnerConfig.value.push(payload)
+const handleSaveConfigDialog = async () => {
+  if (!configForm.value.partnerId) {
+    ElMessage.warning('请选择合伙人')
+    return
   }
-  configDialogVisible.value = false
-  ElMessage.warning('已暂存到本地，需后端API支持才能持久化保存')
+  if (!configForm.value.businessLines.length) {
+    ElMessage.warning('请至少选择一个适用业务')
+    return
+  }
+
+  configSaving.value = true
+  try {
+    const payload = {
+      partner_id: configForm.value.partnerId,
+      percentage: configForm.value.percentage,
+      business_lines: configForm.value.businessLines,
+      enabled: configForm.value.enabled
+    }
+    if (configForm.value.id) {
+      await apiRequest(`/v3/admin/profit-sharing/configs/${configForm.value.id}`, {
+        method: 'PUT',
+        body: payload
+      })
+      ElMessage.success('分成配置已更新')
+    } else {
+      await apiRequest('/v3/admin/profit-sharing/configs', {
+        method: 'POST',
+        body: payload
+      })
+      ElMessage.success('分成配置已创建')
+    }
+    configDialogVisible.value = false
+    await Promise.all([loadConfigData(), loadProfitStats(), loadProfitRecords()])
+  } finally {
+    configSaving.value = false
+  }
 }
 
-const handleRemoveConfig = (row: any) => {
-  ElMessageBox.confirm(`确定删除 ${row.city} - ${row.partnerName} 吗？`, '提示', { type: 'warning' }).then(() => {
-    partnerConfig.value = partnerConfig.value.filter(x => x.id !== row.id)
-    ElMessage.success('已从本地移除')
+const handleToggleEnabled = async (row: ProfitConfig, enabled: boolean) => {
+  await apiRequest(`/v3/admin/profit-sharing/configs/${row.id}`, {
+    method: 'PUT',
+    body: {
+      partner_id: row.partnerId,
+      percentage: row.percentage,
+      business_lines: row.businessLines,
+      enabled
+    }
   })
+  ElMessage.success(enabled ? '配置已启用' : '配置已停用')
+  await Promise.all([loadConfigData(), loadProfitStats(), loadProfitRecords()])
 }
 
-onMounted(() => {
-  loadRealStats()
+const handleRemoveConfig = async (row: ProfitConfig) => {
+  await ElMessageBox.confirm(`确定删除 ${row.city || '未设城市'} - ${row.partnerName} 的分成配置吗？`, '提示', {
+    type: 'warning'
+  })
+  await apiRequest(`/v3/admin/profit-sharing/configs/${row.id}`, { method: 'DELETE' })
+  ElMessage.success('配置已删除')
+  await Promise.all([loadConfigData(), loadProfitStats(), loadProfitRecords()])
+}
+
+const handleViewDetail = async (row: ProfitStat) => {
+  activeTab.value = 'records'
+  filters.value.city = row.city
+  await loadProfitRecords()
+}
+
+const handleSearch = async () => {
+  await loadProfitRecords()
+}
+
+const handleSettle = async (row: ProfitStat) => {
+  await ElMessageBox.confirm(
+    `确认结算 ${row.city} ${row.partnerName} ${row.settlementMonth} 的分成（¥${formatMoney(row.monthProfit)}）吗？`,
+    '确认结算',
+    { type: 'success' }
+  )
+
+  await apiRequest('/v3/admin/profit-sharing/settlements', {
+    method: 'POST',
+    body: {
+      partner_id: row.partnerId,
+      settlement_month: row.settlementMonth
+    }
+  })
+  ElMessage.success('结算已完成')
+  await Promise.all([loadProfitStats(), loadProfitRecords()])
+}
+
+onMounted(async () => {
+  await loadAll()
 })
 </script>

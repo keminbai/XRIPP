@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-13（第四十轮：运行基线收敛与 S0/S1 恢复）
+最后更新：2026-03-13（第四十一轮：利润分成真实闭环）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -37,6 +37,7 @@
 | 16 | [DDL_Phase16_Tenders_PublishedAt.sql](./DDL_Phase16_Tenders_PublishedAt.sql) | tenders `published_at` 补列 + 回填 + 发布时间索引 |
 | 17 | [DDL_Phase17_ActivityRecords.sql](./DDL_Phase17_ActivityRecords.sql) | 活动记录表 + 现场照片结构化存储 |
 | 18 | [DDL_Phase18_Contents_ExtraJson.sql](./DDL_Phase18_Contents_ExtraJson.sql) | contents `extra_json` 扩展字段，正文/元数据分离 |
+| 19 | [DDL_Phase19_ProfitSharing.sql](./DDL_Phase19_ProfitSharing.sql) | 合伙人利润分成配置 + 月度结算表 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -56,6 +57,7 @@
 - [Claude_Windows_Execution_Runbook_2026-03-13.md](./Claude_Windows_Execution_Runbook_2026-03-13.md) — Claude Windows 环境恢复执行手册
 - [SQL_Runtime_Schema_Check_2026-03-13.sql](./SQL_Runtime_Schema_Check_2026-03-13.sql) — 关键表/列只读自检脚本
 - [TenderPublishDate_Closure_2026-03-13.md](./TenderPublishDate_Closure_2026-03-13.md) — 标书发布时间口径/DDL 留痕修复记录
+- [ProfitSharing_Closure_2026-03-13.md](./ProfitSharing_Closure_2026-03-13.md) — 合伙人利润分成配置/统计/结算真实闭环
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -506,6 +508,21 @@
   - `/api/v3/runtime-info`
   - 7 个关键接口验证结果
 
+### Phase AG — 合伙人利润分成真实闭环（2026-03-13 ✅）
+- ✅ DDL Phase 19
+  - 新增 `partner_profit_configs`
+  - 新增 `partner_profit_settlements`
+- ✅ 后端真实化
+  - 新增 `AdminProfitSharingV3Controller`
+  - 提供配置 CRUD、月度统计、订单明细、结算写库接口
+  - 分成归属优先取 `orders.partner_id`，缺失时回退 `sys_user.partner_id`
+- ✅ 前端真实化
+  - `admin/finance/profit.vue` 改为真实配置/统计/明细/结算页面
+  - 顶部统计卡片按 `/v3/admin/orders/stats` 真实契约读取
+- ✅ 启动护栏
+  - `DatabaseSchemaPreflightRunner` 新增 Phase 19 两张表检查
+  - 未执行 DDL 时后端启动 fail-fast，避免运行期再报 500
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -533,7 +550,7 @@
 | `admin/system/*.vue` | 降级标注 | 系统管理模块，已添加"暂未对接后端"横幅 |
 | `admin/business/*.vue` | 降级标注 | 业务配置模块，已添加"暂未对接后端"横幅 |
 | `admin/finance/pricing.vue` | 降级标注 | 定价配置，已添加"暂未对接后端"横幅 |
-| `admin/finance/profit.vue` | 部分实现 | 统计卡片接入真实 API；利润分成表仍为 mock |
+| `admin/finance/profit.vue` | ✅ 已接入 | 分成配置/统计/明细/结算均已接入真实 API；依赖 Phase 19 DDL |
 | `admin/index.vue` | 未实现 | 仪表盘统计为静态数据（低优先级） |
 
 ### 系统级待办
@@ -568,6 +585,7 @@
 | 内容管理（培训/媒体） | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
 | 展示位管理 | ✅ 活动显示申请 + 内容展示管理 | ✅ 已接入 | ✅ 可验收主流程 |
 | 订单管理 | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
+| 利润分成管理 | ✅ 配置/统计/明细/结算 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 19 DDL） |
 | 会员管理 | ✅ list/detail/create/update/delete/transition/set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
@@ -591,7 +609,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（29 个）
+## 8. 后端 Controller 清单（30 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -624,6 +642,7 @@
 | MemberSupplierApplyV3Controller | /v3/member/supplier-apply | 会员自助服务商入驻申请 |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 | AdminActivityDisplayApplicationsV3Controller | /v3/admin/activity-display-applications | 活动显示申请审核/上下线 |
+| AdminProfitSharingV3Controller | /v3/admin/profit-sharing | 合伙人利润分成配置/统计/明细/结算 |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
 

@@ -53,6 +53,8 @@ public class DatabaseSchemaPreflightRunner implements ApplicationRunner {
         checkTable(missingByScript, "docs/DDL_Phase17_ActivityRecords.sql", "activity_records");
         checkTable(missingByScript, "docs/DDL_Phase17_ActivityRecords.sql", "activity_record_photos");
         checkColumn(missingByScript, "docs/DDL_Phase18_Contents_ExtraJson.sql", "contents", "extra_json");
+        checkTable(missingByScript, "docs/DDL_Phase19_ProfitSharing.sql", "partner_profit_configs");
+        checkTable(missingByScript, "docs/DDL_Phase19_ProfitSharing.sql", "partner_profit_settlements");
 
         if (missingByScript.isEmpty()) {
             log.info("[SchemaPreflight] passed");
