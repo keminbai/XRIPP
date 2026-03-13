@@ -2,6 +2,8 @@ package com.xripp.backend.controller.v3;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.ContentEntity;
@@ -23,6 +25,7 @@ import java.util.*;
 public class ContentsV3Controller {
 
     private final IContentService contentService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -69,16 +72,17 @@ public class ContentsV3Controller {
         }
 
         Map<String, Object> m = toPublicItem(c);
-        m.put("body", c.getBody() == null ? "" : c.getBody());
+        m.put("body", resolveBodyText(c));
         return V3Response.success(m);
     }
 
     private Map<String, Object> toPublicItem(ContentEntity c) {
         Map<String, Object> m = new HashMap<>();
+        Map<String, Object> extra = parseJsonObject(resolveExtraJson(c));
         m.put("id", c.getId());
         m.put("title", safe(c.getTitle()));
         m.put("summary", safe(c.getSummary()));
-        m.put("coverImage", safe(c.getCoverImage()));
+        m.put("coverImage", safeOr(c.getCoverImage(), str(extra.get("coverImage"))));
         m.put("contentType", safeOr(c.getContentType(), "other"));
         m.put("cityName", safe(c.getCityName()));
         m.put("isPaid", Boolean.TRUE.equals(c.getIsPaid()));
@@ -86,6 +90,61 @@ public class ContentsV3Controller {
         m.put("publishDate", fmtDate(c.getCreatedAt()));
         m.put("updatedAt", fmtDate(c.getUpdatedAt()));
         return m;
+    }
+
+    private String resolveBodyText(ContentEntity c) {
+        if (c == null) {
+            return "";
+        }
+        if (looksLikeJsonObject(c.getBody())) {
+            Map<String, Object> legacy = parseJsonObject(c.getBody());
+            String text = str(firstNonNull(legacy.get("content"), legacy.get("body"), legacy.get("text")));
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return safe(c.getBody());
+    }
+
+    private String resolveExtraJson(ContentEntity c) {
+        if (c == null) {
+            return "";
+        }
+        if (c.getExtraJson() != null && !c.getExtraJson().isBlank()) {
+            return c.getExtraJson();
+        }
+        if (looksLikeJsonObject(c.getBody())) {
+            return c.getBody();
+        }
+        return "";
+    }
+
+    private boolean looksLikeJsonObject(String raw) {
+        return raw != null && raw.trim().startsWith("{");
+    }
+
+    private Map<String, Object> parseJsonObject(String raw) {
+        if (!looksLikeJsonObject(raw)) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(raw, new TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    private Object firstNonNull(Object... values) {
+        for (Object value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String str(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private String safe(String s) {

@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-13（第三十二轮：标书发布时间口径收敛）
+最后更新：2026-03-13（第四十轮：运行基线收敛与 S0/S1 恢复）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -35,6 +35,8 @@
 | 14 | [DDL_Phase14_Activities_Closure.sql](./DDL_Phase14_Activities_Closure.sql) | activities 运营字段扩展 + 编辑/上下架闭环 |
 | 15 | [DDL_Phase15_ActivityDisplayApplications.sql](./DDL_Phase15_ActivityDisplayApplications.sql) | 活动显示申请表 + 审核/上下线闭环 |
 | 16 | [DDL_Phase16_Tenders_PublishedAt.sql](./DDL_Phase16_Tenders_PublishedAt.sql) | tenders `published_at` 补列 + 回填 + 发布时间索引 |
+| 17 | [DDL_Phase17_ActivityRecords.sql](./DDL_Phase17_ActivityRecords.sql) | 活动记录表 + 现场照片结构化存储 |
+| 18 | [DDL_Phase18_Contents_ExtraJson.sql](./DDL_Phase18_Contents_ExtraJson.sql) | contents `extra_json` 扩展字段，正文/元数据分离 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -45,7 +47,19 @@
 - [ActivityContent_Closure_2026-03-13.md](./ActivityContent_Closure_2026-03-13.md) — 活动内容管理写闭环阶段记录
 - [ActivitySignup_Closure_2026-03-13.md](./ActivitySignup_Closure_2026-03-13.md) — 活动报名管理/导出闭环阶段记录
 - [ActivityDisplay_Closure_2026-03-13.md](./ActivityDisplay_Closure_2026-03-13.md) — 活动显示申请/审核闭环阶段记录
+- [ActivityRecord_Closure_2026-03-13.md](./ActivityRecord_Closure_2026-03-13.md) — 活动记录闭环阶段记录
+- [ContentMeta_Closure_2026-03-13.md](./ContentMeta_Closure_2026-03-13.md) — contents 正文/元数据分离 + 媒体/培训编辑闭环
+- [PartnerPublish_Closure_2026-03-13.md](./PartnerPublish_Closure_2026-03-13.md) — 合伙人活动发布入口真实编辑/上传闭环
+- [TrainingPage_Truthfulness_2026-03-13.md](./TrainingPage_Truthfulness_2026-03-13.md) — 培训页去伪能力、回到真实内容管理边界
+- [MemberCrud_Closure_2026-03-13.md](./MemberCrud_Closure_2026-03-13.md) — 会员管理真实 CRUD 闭环修复记录
+- [RuntimeRecovery_S0S1_2026-03-13.md](./RuntimeRecovery_S0S1_2026-03-13.md) — 运行实例漂移 + schema 漂移恢复方案
+- [Claude_Windows_Execution_Runbook_2026-03-13.md](./Claude_Windows_Execution_Runbook_2026-03-13.md) — Claude Windows 环境恢复执行手册
+- [SQL_Runtime_Schema_Check_2026-03-13.sql](./SQL_Runtime_Schema_Check_2026-03-13.sql) — 关键表/列只读自检脚本
 - [TenderPublishDate_Closure_2026-03-13.md](./TenderPublishDate_Closure_2026-03-13.md) — 标书发布时间口径/DDL 留痕修复记录
+- [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
+- [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
+- [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
+- [Bug_Template_2026-03-13.md](./Bug_Template_2026-03-13.md) — 缺陷登记模板
 
 ## 2. 历史需求与参考文档（用于追溯，不直接覆盖权威契约）
 
@@ -381,6 +395,117 @@
 - ✅ 本轮修正结论
   - `publishDate` 问题不再只是“显示值修复”，而是展示、筛选、DDL 三处口径一致
 
+### Phase Y — 内容元数据分离与媒体/培训编辑闭环（2026-03-13 ✅）
+- ✅ `contents` 模型职责收敛
+  - 新增 `DDL_Phase18_Contents_ExtraJson.sql`
+  - `body` 与 `extra_json` 分离，避免正文与元数据混存
+- ✅ `AdminContentsV3Controller`
+  - 新增 `PUT /v3/admin/contents/{id}`
+  - 列表/详情返回解析后的 `extraJson`
+  - 兼容历史 `body` JSON 数据回退解析
+- ✅ `ContentsV3Controller`
+  - 公共媒体详情优先渲染真实正文
+  - 旧数据不再把原始 JSON 暴露给前台页面
+- ✅ `admin/content/media.vue` 与 `admin/content/trainings.vue`
+  - 编辑改为真实详情加载与真实保存
+  - 结构化扩展字段统一写入 `extra_json`
+  - 不再保留“写接口未接入”的受控降级
+- ✅ 本阶段验证
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+  - `/tmp/ipp-backend-buildcheck/ipp-backend` 下 `./mvnw -q -DskipTests compile` 通过
+
+### Phase Z — 合伙人活动发布入口收敛（2026-03-13 ✅）
+- ✅ `admin/partner-publish.vue` 收敛为真实“合伙人活动发布入口”
+  - 去掉培训/商机伪能力表述，避免前端误导
+  - 状态口径改为 `auditing/published/rejected/offline`
+- ✅ 真实编辑闭环
+  - 查看详情改读 `GET /v3/partner/publishes/{id}`
+  - 编辑改为详情回填 + `PUT /v3/partner/publishes/{id}`
+  - 已发布/已下架活动支持“编辑重提”
+- ✅ 真实上传闭环
+  - 封面图/宣传视频接入 `/api/common/upload`
+  - 上传结果真实写入 `cover_image / video_url`
+- ✅ 本阶段验证
+  - `/tmp/ipp-platform-buildcheck` 下 `NUXT_TELEMETRY_DISABLED=1 NUXT_TELEMETRY_CONSENT=0 npm run build` 通过
+
+### Phase AA — 培训页去伪能力收敛（2026-03-13 ✅）
+- ✅ `admin/content/trainings.vue` 去掉不存在的培训报名/名单导出/独立显示申请入口
+- ✅ 页面语义回到真实内容管理能力
+  - “报名数据”改为“开课与名额”
+  - “累计学员”改为“已发布”
+  - 新增能力边界提示，明确培训当前不属于活动报名系统
+- ✅ 详情弹窗补充真实投放信息
+  - 前台位置
+  - 开课时间
+  - 名额限制
+- ✅ 本阶段验证
+  - `/tmp/ipp-platform-buildcheck` 下 `NUXT_TELEMETRY_DISABLED=1 NUXT_TELEMETRY_CONSENT=0 npm run build` 通过
+
+### Phase AB — 会员管理真实 CRUD 闭环（2026-03-13 ✅）
+- ✅ 根因修复
+  - 后台“新增会员保存后刷新消失”的根因确认为前端假 CRUD + 后端缺少写接口
+- ✅ 后端补齐真实写接口
+  - `AdminMembersV3Controller` 新增 `create/update/transition/delete`
+  - 新增会员时同步创建 `sys_user + member_profile`
+  - 邀请码解析为 `partner_id`，并拒绝已停用合伙人邀请码
+  - 删除前校验业务关联数据，避免误删有历史记录账号
+- ✅ 前端改为真实 API 驱动
+  - `admin/members/list.vue` 的新增、编辑、删除、启停、详情全部接真实接口
+  - 增加表格 loading 和保存 submitting
+  - 分页完全依赖后端，不再保留本地伪保存逻辑
+- ✅ 本阶段验证
+  - `/tmp/ipp-backend-buildcheck/ipp-backend` 下 `./mvnw -q -DskipTests compile` 通过
+  - `/tmp/ipp-platform-buildcheck` 下 `npm run build` 通过
+
+### Phase AC — 数据库 Schema 启动预检（2026-03-13 ✅）
+- ✅ 新增启动期预检
+  - 后端启动时校验当前数据库是否具备运行所需关键表/列
+  - 不再等用户点页面才看到一串 500
+- ✅ 当前预检覆盖关键迁移
+  - `DDL_Phase2_Migration.sql`
+  - `DDL_Phase14_Activities_Closure.sql`
+  - `DDL_Phase15_ActivityDisplayApplications.sql`
+  - `DDL_Phase17_ActivityRecords.sql`
+  - `DDL_Phase18_Contents_ExtraJson.sql`
+- ✅ 缺失时直接 fail fast
+  - 启动日志会明确指出缺哪张表/哪一列，以及应执行哪个 `docs/DDL_Phase*.sql`
+- ✅ 测试前检查文档同步
+  - `docs/TestEnv_Preflight_2026-03-13.md` 已补到 Phase 18 和新预检口径
+
+### Phase AD — 运行基线复核与恢复方案（2026-03-13 ✅）
+- ✅ 真实运行日志复核
+  - 确认当前环境的高频 500 不是随机控制器错误，而是“运行实例漂移 + 数据库 schema 漂移”
+- ✅ 已钉死的直接根因
+  - `POST /v3/admin/members` 返回 `Request method 'POST' is not supported`
+  - `GET /v3/admin/contents` 命中缺列 `contents.extra_json`
+  - `GET /v3/partner/publishes` 命中缺表 `activity_records`
+- ✅ 形成恢复工单
+  - 新增 `docs/RuntimeRecovery_S0S1_2026-03-13.md`
+  - 新增 `docs/SQL_Runtime_Schema_Check_2026-03-13.sql`
+- ✅ 修正文档口径
+  - `UAT_Alpha_TestPlan_2026-03-13.md` 不再把当前环境描述为“可直接启动 Alpha UAT”
+  - `TestEnv_Preflight_2026-03-13.md` 增补运行恢复入口
+
+### Phase AE — 运行版本识别护栏（2026-03-13 ✅）
+- ✅ 新增运行信息接口
+  - `GET /api/v3/runtime-info`
+  - 返回当前运行实例的版本标识、预检开关、启动时间、激活 profile
+- ✅ 所有响应附带版本头
+  - `X-XRIPP-Runtime-Version`
+  - `X-XRIPP-Schema-Preflight`
+- ✅ 目的
+  - 避免再次出现“仓库代码已更新，但 Windows 侧仍在跑旧实例”却难以识别的问题
+
+### Phase AF — Windows 协作执行手册（2026-03-13 ✅）
+- ✅ 新增 `docs/Claude_Windows_Execution_Runbook_2026-03-13.md`
+- ✅ 明确 Claude 在 Windows 侧的职责边界
+  - 只做 schema 自检、DDL 执行、后端重启、最小接口验证
+- ✅ 明确回传口径
+  - SQL 自检结果
+  - 实际执行 DDL
+  - `/api/v3/runtime-info`
+  - 7 个关键接口验证结果
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -399,10 +524,10 @@
 | `admin/suppliers/list.vue` | ✅ 已接入 | 列表真实；admin + partner 均可访问（partner 隔离）；新增/编辑受控降级 |
 | `admin/suppliers/audit.vue` | ✅ 已接入 | 真实复查页：详情/附件/证书/支付/提交快照/状态流转 |
 | `admin/suppliers/analysis.vue` | ✅ 已接入 | 入驻申请口径统计（admin + partner 隔离） |
-| `admin/partner-publish.vue` | ✅ 已接入 | 合伙人发布管理（list/create/delete 真实） |
+| `admin/partner-publish.vue` | ✅ 已接入 | 合伙人活动发布真实闭环：列表/详情/创建/编辑重提/撤回/文件上传 |
 | `admin/content/activities.vue` | ✅ 已接入 | 列表/详情/新建/编辑/审核/上下架/报名管理/显示申请均已接入真实 API |
-| `admin/content/trainings.vue` | 部分实现 | 列表+状态流转+创建真实；编辑受控降级 |
-| `admin/content/media.vue` | 部分实现 | 同培训 |
+| `admin/content/trainings.vue` | ✅ 已接入 | 列表/详情/新建/编辑/状态流转真实；已移除不存在的培训报名/显示申请假入口 |
+| `admin/content/media.vue` | ✅ 已接入 | 列表/详情/新建/编辑/状态流转真实 |
 | `admin/content/display.vue` | ✅ 已接入 | 轮播/广告真实内容管理 + 活动显示申请真实审核 |
 | `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
 | `admin/system/*.vue` | 降级标注 | 系统管理模块，已添加"暂未对接后端"横幅 |
@@ -443,7 +568,7 @@
 | 内容管理（培训/媒体） | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
 | 展示位管理 | ✅ 活动显示申请 + 内容展示管理 | ✅ 已接入 | ✅ 可验收主流程 |
 | 订单管理 | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
-| 会员管理 | ✅ list + set-level | ✅ 已接入 | ✅ 可验收 |
+| 会员管理 | ✅ list/detail/create/update/delete/transition/set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
 | 合伙人管理 | ✅ list + detail | ✅ 已接入 | ✅ 可验收 |

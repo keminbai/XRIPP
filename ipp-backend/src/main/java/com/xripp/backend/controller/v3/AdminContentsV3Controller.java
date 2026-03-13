@@ -2,6 +2,8 @@ package com.xripp.backend.controller.v3;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.xripp.backend.common.V3PageData;
 import com.xripp.backend.common.V3Response;
 import com.xripp.backend.entity.AuditLog;
@@ -17,7 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Slf4j
@@ -30,6 +33,7 @@ public class AdminContentsV3Controller {
     private final StateTransitionService stateTransitionService;
     private final IAuditLogService auditLogService;
     private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public V3Response<V3PageData<Map<String, Object>>> list(
@@ -81,7 +85,9 @@ public class AdminContentsV3Controller {
         }
 
         Map<String, Object> m = toItem(c);
-        m.put("body", safe(c.getBody()));
+        m.put("body", resolveBodyText(c));
+        m.put("extraJson", resolveExtraJson(c));
+        m.put("extra_json", resolveExtraJson(c));
         m.put("changeReason", safe(c.getChangeReason()));
         return V3Response.success(m);
     }
@@ -103,23 +109,8 @@ public class AdminContentsV3Controller {
         }
 
         ContentEntity c = new ContentEntity();
-        c.setTitle(title);
-        c.setContentType(contentType);
-        c.setSummary(str(String.valueOf(body.getOrDefault("summary", ""))));
-        c.setBody(str(String.valueOf(body.getOrDefault("body", ""))));
-        c.setCoverImage(str(String.valueOf(body.getOrDefault("cover_image", ""))));
-        c.setCityName(str(String.valueOf(body.getOrDefault("city_name", ""))));
+        applyContentBody(c, body);
         c.setPublishStatus("draft");
-
-        Object isPaidObj = body.get("is_paid");
-        c.setIsPaid(Boolean.TRUE.equals(isPaidObj) || "true".equals(String.valueOf(isPaidObj)));
-
-        Object feeObj = body.get("fee");
-        try {
-            c.setFee(feeObj != null ? new BigDecimal(String.valueOf(feeObj)) : BigDecimal.ZERO);
-        } catch (NumberFormatException ignored) {
-            c.setFee(BigDecimal.ZERO);
-        }
 
         Date now = new Date();
         c.setCreatedAt(now);
@@ -137,6 +128,46 @@ public class AdminContentsV3Controller {
                 "contentNo", toItem(c).get("contentNo"),
                 "status", "draft"
         ));
+    }
+
+    @Transactional
+    @PutMapping("/{id}")
+    public V3Response<Map<String, Object>> update(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (!SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        ContentEntity c = contentService.getById(id);
+        if (c == null) {
+            return V3Response.error("RESOURCE_NOT_FOUND", "content not found");
+        }
+
+        String title = str(String.valueOf(body.getOrDefault("title", "")));
+        if (title.isEmpty()) {
+            return V3Response.error("VALIDATION_ERROR", "title required");
+        }
+
+        String contentType = str(String.valueOf(body.getOrDefault("content_type", c.getContentType())));
+        if (contentType.isEmpty() || !List.of("activity", "media", "ad", "training", "carousel").contains(contentType)) {
+            return V3Response.error("VALIDATION_ERROR", "content_type must be activity|media|ad|training|carousel");
+        }
+
+        applyContentBody(c, body);
+        Date now = new Date();
+        c.setUpdatedAt(now);
+        c.setChangedAt(now);
+        c.setChangedBy(SecurityContextHolder.getCurrentUserId());
+        c.setChangeReason(str(String.valueOf(body.getOrDefault("change_reason", "admin_edit"))));
+        if (c.getPublishStatus() == null || c.getPublishStatus().isBlank()) {
+            c.setPublishStatus("draft");
+        }
+
+        contentService.updateById(c);
+
+        return V3Response.success(toItem(c));
     }
 
     @Transactional
@@ -257,6 +288,9 @@ public class AdminContentsV3Controller {
 
     private Map<String, Object> toItem(ContentEntity c) {
         Map<String, Object> m = new HashMap<>();
+        String extraJson = resolveExtraJson(c);
+        String bodyText = resolveBodyText(c);
+        Map<String, Object> extra = parseJsonObject(extraJson);
         m.put("id", c.getId());
         // contentNo: derived from content_type prefix + id, consistent with frontend expectation
         String typePrefix = switch (safeOr(c.getContentType(), "other")) {
@@ -270,7 +304,7 @@ public class AdminContentsV3Controller {
         m.put("contentNo", typePrefix + "-" + String.format("%07d", c.getId()));
         m.put("title", safe(c.getTitle()));
         m.put("summary", safe(c.getSummary()));
-        m.put("coverImage", safe(c.getCoverImage()));
+        m.put("coverImage", safeOr(c.getCoverImage(), str(extra.get("coverImage"))));
         m.put("contentType", safeOr(c.getContentType(), "other"));
         // expose as "status" to minimise frontend field mapping changes
         m.put("status", safeOr(c.getPublishStatus(), "draft"));
@@ -279,7 +313,97 @@ public class AdminContentsV3Controller {
         m.put("fee", c.getFee() == null ? BigDecimal.ZERO : c.getFee());
         m.put("publishDate", fmtDate(c.getCreatedAt()));
         m.put("updatedAt", fmtDate(c.getUpdatedAt()));
+        m.put("body", bodyText);
+        m.put("extraJson", extraJson);
+        m.put("extra_json", extraJson);
         return m;
+    }
+
+    private void applyContentBody(ContentEntity c, Map<String, Object> body) {
+        c.setTitle(str(String.valueOf(body.getOrDefault("title", ""))));
+        c.setContentType(str(String.valueOf(body.getOrDefault("content_type", safe(c.getContentType())))));
+        c.setSummary(str(String.valueOf(body.getOrDefault("summary", ""))));
+        c.setBody(str(firstNonNull(body.get("body"), body.get("content"))));
+        c.setExtraJson(normalizeJsonText(firstNonNull(body.get("extra_json"), body.get("extraJson"))));
+        if ((c.getExtraJson() == null || c.getExtraJson().isBlank()) && looksLikeJsonObject(c.getBody())) {
+            c.setExtraJson(c.getBody());
+            c.setBody(resolveBodyText(c));
+        }
+        Map<String, Object> extra = parseJsonObject(c.getExtraJson());
+        c.setCoverImage(str(firstNonNull(body.get("cover_image"), body.get("coverImage"), extra.get("coverImage"))));
+        c.setCityName(str(String.valueOf(body.getOrDefault("city_name", safe(c.getCityName())))));
+
+        Object isPaidObj = firstNonNull(body.get("is_paid"), body.get("isPaid"));
+        c.setIsPaid(Boolean.TRUE.equals(isPaidObj) || "true".equalsIgnoreCase(String.valueOf(isPaidObj)));
+
+        Object feeObj = body.get("fee");
+        try {
+            c.setFee(feeObj != null ? new BigDecimal(String.valueOf(feeObj)) : BigDecimal.ZERO);
+        } catch (NumberFormatException ignored) {
+            c.setFee(BigDecimal.ZERO);
+        }
+    }
+
+    private String resolveBodyText(ContentEntity c) {
+        if (c == null) {
+            return "";
+        }
+        if (looksLikeJsonObject(c.getBody())) {
+            Map<String, Object> legacy = parseJsonObject(c.getBody());
+            String text = str(firstNonNull(legacy.get("content"), legacy.get("body"), legacy.get("text")));
+            if (!text.isBlank()) {
+                return text;
+            }
+        }
+        return safe(c.getBody());
+    }
+
+    private String resolveExtraJson(ContentEntity c) {
+        if (c == null) {
+            return "";
+        }
+        if (c.getExtraJson() != null && !c.getExtraJson().isBlank()) {
+            return c.getExtraJson();
+        }
+        if (looksLikeJsonObject(c.getBody())) {
+            return c.getBody();
+        }
+        return "";
+    }
+
+    private boolean looksLikeJsonObject(String raw) {
+        return raw != null && raw.trim().startsWith("{");
+    }
+
+    private String normalizeJsonText(Object value) {
+        String raw = str(value);
+        if (raw.isBlank()) {
+            return "";
+        }
+        if (!looksLikeJsonObject(raw)) {
+            return "";
+        }
+        return raw;
+    }
+
+    private Map<String, Object> parseJsonObject(String raw) {
+        if (!looksLikeJsonObject(raw)) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(raw, new TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    private Object firstNonNull(Object... values) {
+        for (Object value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     /**
@@ -310,13 +434,15 @@ public class AdminContentsV3Controller {
         return (s == null || s.isBlank()) ? dft : s;
     }
 
-    private String str(String s) {
-        return s == null ? "" : s.trim();
+    private String str(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
+
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private String fmtDate(Date date) {
         if (date == null) return "";
-        return new SimpleDateFormat("yyyy-MM-dd").format(date);
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().format(DATE_FMT);
     }
 
     private byte mapContentStatusToNum(String status) {

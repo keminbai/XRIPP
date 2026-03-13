@@ -26,6 +26,9 @@ public class ContentEntity {
 
     private String body;
 
+    @TableField("extra_json")
+    private String extraJson;
+
     /** draft | pending_review | approved | published | rejected | offline */
     @TableField("publish_status")
     private String publishStatus;

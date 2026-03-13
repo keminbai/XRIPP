@@ -159,13 +159,18 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="状态" width="100">
+          <el-table-column label="状态" width="120">
             <template #default="scope">
-              <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full" :class="getStatusColor(scope.row.status)"></span>
-                <span class="text-xs" :class="getStatusTextColor(scope.row.status)">
-                  {{ scope.row.statusLabel }}
-                </span>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="getStatusColor(scope.row.status)"></span>
+                  <span class="text-xs" :class="getStatusTextColor(scope.row.status)">
+                    {{ scope.row.statusLabel }}
+                  </span>
+                </div>
+                <div class="text-[10px] mt-1" :class="scope.row.activityRecordCompleted ? 'text-green-600' : 'text-slate-400'">
+                  记录: {{ scope.row.activityRecordStatusLabel }}
+                </div>
               </div>
             </template>
           </el-table-column>
@@ -192,7 +197,7 @@
           </el-table-column>
 
           <!-- ✅ 核心修复：操作列补充审核按钮 -->
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="360" fixed="right">
             <template #default="scope">
               
               <!-- ✅ 审核中状态：显示审核按钮（仅总部） -->
@@ -230,6 +235,16 @@
               <div v-else class="flex gap-2 flex-wrap">
                 <el-button link type="primary" size="small" @click="handleEdit(scope.row)">
                   <el-icon class="mr-1"><Edit /></el-icon> 编辑
+                </el-button>
+                <el-button
+                  link
+                  type="warning"
+                  size="small"
+                  @click="openRecordDialog(scope.row)"
+                  v-if="['published', 'offline'].includes(scope.row.status) || scope.row.activityRecordStatus !== 'not_started'"
+                >
+                  <el-icon class="mr-1"><Picture /></el-icon>
+                  {{ scope.row.activityRecordCompleted ? '查看记录' : '活动记录' }}
                 </el-button>
                 <el-button 
                   link 
@@ -666,6 +681,117 @@
       </el-table>
     </el-dialog>
 
+    <!-- 活动记录弹窗 -->
+    <el-dialog
+      v-model="recordDialogVisible"
+      :title="`${currentRecordActivityItem?.title || '活动'} - 活动记录`"
+      width="960px"
+      :destroy-on-close="true"
+    >
+      <div v-if="currentRecordActivityItem" class="space-y-5">
+        <div class="flex justify-between items-center bg-amber-50 p-4 rounded-xl border border-amber-100">
+          <div class="text-sm text-amber-900 space-y-1">
+            <div class="font-bold text-base">{{ currentRecordActivityItem.title }}</div>
+            <div>
+              已报名 {{ currentRecordActivityItem.signups }} / {{ currentRecordActivityItem.maxLimit || '不限' }}
+              <span class="mx-2 text-amber-300">|</span>
+              记录状态
+              <el-tag size="small" :type="recordTagType(recordForm.completionStatus)" class="ml-1">
+                {{ recordForm.completionStatusLabel }}
+              </el-tag>
+            </div>
+            <div v-if="recordForm.completedAt" class="text-xs text-amber-700">完成时间：{{ fmtDateTime(recordForm.completedAt) }}</div>
+          </div>
+          <el-button
+            type="success"
+            size="small"
+            plain
+            :loading="exportLoading"
+            @click="exportSignupListByActivity(currentRecordActivityItem)"
+          >
+            导出参会名单
+          </el-button>
+        </div>
+
+        <el-form label-width="120px">
+          <el-form-item label="实际参与人数" required>
+            <div class="w-full">
+              <el-input-number v-model="recordForm.actualParticipants" :min="0" :max="99999" class="!w-full" />
+              <div class="text-xs text-slate-400 mt-1">
+                建议录入线下实际到场人数，用于活动复盘；可与报名人数不同。
+              </div>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="现场照片" required>
+            <div class="w-full">
+              <el-upload
+                action="#"
+                list-type="picture-card"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                :limit="12"
+                :http-request="uploadRecordPhoto"
+                :before-upload="beforeRecordPhotoUpload"
+                :on-remove="handleRecordPhotoRemove"
+                :file-list="recordPhotoFileList"
+              >
+                <el-icon><Plus /></el-icon>
+              </el-upload>
+              <div class="text-xs text-slate-400 mt-2">
+                至少上传 1 张现场照片；支持 JPG/PNG/WEBP，单张不超过 5MB。
+              </div>
+            </div>
+          </el-form-item>
+
+          <el-form-item label="活动总结" required>
+            <el-input
+              v-model="recordForm.summary"
+              type="textarea"
+              :rows="5"
+              maxlength="1000"
+              show-word-limit
+              placeholder="请输入活动总结、现场亮点、成果复盘等内容"
+            />
+          </el-form-item>
+        </el-form>
+
+        <div v-if="recordForm.photos.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div
+            v-for="photo in recordForm.photos"
+            :key="photo.url"
+            class="border border-slate-200 rounded-xl p-3 space-y-3"
+          >
+            <el-image
+              :src="photo.url"
+              fit="cover"
+              class="w-full h-40 rounded-lg border border-slate-100"
+              :preview-src-list="recordForm.photos.map(item => item.url)"
+              preview-teleported
+            />
+            <div class="text-xs text-slate-500 break-all">
+              {{ photo.fileName || '现场照片' }}
+              <span v-if="photo.fileSize"> · {{ formatFileSize(photo.fileSize) }}</span>
+            </div>
+            <div class="flex gap-3 text-xs">
+              <el-button link type="primary" @click="openFile(photo.url)">预览</el-button>
+              <el-button link type="success" @click="downloadFile(photo.url, photo.fileName)">下载</el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="recordDialogVisible = false">关闭</el-button>
+        <el-button type="info" @click="handleSaveRecord('draft')" :loading="recordSubmitting">
+          保存草稿
+        </el-button>
+        <el-button type="primary" @click="handleSaveRecord('completed')" :loading="recordSubmitting">
+          保存并标记完成
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 详情查看弹窗 -->
     <el-dialog 
       v-model="detailDialogVisible" 
@@ -713,6 +839,50 @@
           </div>
         </div>
 
+        <div>
+          <h4 class="text-sm font-bold mb-2">活动记录</h4>
+          <div v-if="currentDetailItem.activityRecordStatus === 'not_started'" class="p-4 bg-slate-50 rounded-lg text-sm text-slate-500">
+            暂无活动记录
+          </div>
+          <div v-else class="space-y-4">
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="记录状态">
+                <el-tag size="small" :type="recordTagType(currentDetailItem.activityRecordStatus)">
+                  {{ currentDetailItem.activityRecordStatusLabel }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="实际参与人数">{{ currentDetailItem.activityRecordActualParticipants || 0 }}</el-descriptions-item>
+              <el-descriptions-item label="现场照片">{{ currentDetailItem.activityRecord.photos.length }} 张</el-descriptions-item>
+              <el-descriptions-item label="完成时间">{{ fmtDateTime(currentDetailItem.activityRecord.completedAt) }}</el-descriptions-item>
+              <el-descriptions-item label="活动总结" :span="2">{{ currentDetailItem.activityRecord.summary || '无' }}</el-descriptions-item>
+            </el-descriptions>
+
+            <div v-if="currentDetailItem.activityRecord.photos.length" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                v-for="photo in currentDetailItem.activityRecord.photos"
+                :key="photo.url"
+                class="border border-slate-200 rounded-xl p-3 space-y-3"
+              >
+                <el-image
+                  :src="photo.url"
+                  fit="cover"
+                  class="w-full h-40 rounded-lg border border-slate-100"
+                  :preview-src-list="currentDetailItem.activityRecord.photos.map(item => item.url)"
+                  preview-teleported
+                />
+                <div class="text-xs text-slate-500 break-all">
+                  {{ photo.fileName || '现场照片' }}
+                  <span v-if="photo.fileSize"> · {{ formatFileSize(photo.fileSize) }}</span>
+                </div>
+                <div class="flex gap-3 text-xs">
+                  <el-button link type="primary" @click="openFile(photo.url)">预览</el-button>
+                  <el-button link type="success" @click="downloadFile(photo.url, photo.fileName)">下载</el-button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="currentDetailItem.coverImage">
           <h4 class="text-sm font-bold mb-2">封面图片</h4>
           <img :src="currentDetailItem.coverImage" class="w-full max-w-md rounded-lg border border-slate-200" />
@@ -731,27 +901,67 @@ import {
 } from '@element-plus/icons-vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { UploadProps, UploadUserFile, FormInstance } from 'element-plus'
+import type { UploadProps, UploadRequestOptions, UploadUserFile, FormInstance } from 'element-plus'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
 import { navigateTo } from '#app'
-import { apiRequest, getLoginUser } from '@/utils/request'
+import { apiFetchRaw, apiRequest, getLoginUser } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
 const { cityOptions } = useGlobalConfig()
 
+type ActivityRecordPhotoItem = {
+  id?: number | null
+  url: string
+  fileName: string
+  storedName?: string
+  fileExt?: string
+  fileSize?: number
+  contentType?: string
+  sortOrder?: number
+}
+
+type ActivityRecordItem = {
+  id: number | null
+  activityId: number | null
+  actualParticipants: number
+  summary: string
+  completionStatus: 'not_started' | 'draft' | 'completed' | string
+  completionStatusLabel: string
+  completed: boolean
+  completedAt: string
+  photoCount: number
+  photos: ActivityRecordPhotoItem[]
+}
+
+type UploadResponse = {
+  code: number | string
+  message: string
+  data?: {
+    url?: string
+    fileName?: string
+    storedName?: string
+    fileExt?: string
+    fileSize?: number
+    contentType?: string
+  } | null
+}
+
 // 状态管理
 const publishDialogVisible = ref(false)
 const displayApplyDialogVisible = ref(false)
 const signupDialogVisible = ref(false)
+const recordDialogVisible = ref(false)
 const detailDialogVisible = ref(false)
 const isEdit = ref(false)
 const submitLoading = ref(false)
 const exportLoading = ref(false)
+const recordSubmitting = ref(false)
 const currentUserRole = ref<'admin' | 'partner'>(getLoginUser()?.role === 'partner' ? 'partner' : 'admin')
 const apiLoading = ref(false)
 const currentSignupItem = ref<any>(null)
 const currentDisplayApplyItem = ref<any>(null)
+const currentRecordActivityItem = ref<any>(null)
 const currentDetailItem = ref<any>(null)
 const currentEditId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
@@ -771,6 +981,7 @@ const feeOptions = [
 
 const imageFileList = ref<UploadUserFile[]>([])
 const videoFileList = ref<UploadUserFile[]>([])
+const recordPhotoFileList = ref<UploadUserFile[]>([])
 
 // 表单数据结构
 const form = ref({
@@ -799,6 +1010,21 @@ const displayApplyForm = ref({
   displayTime: [] as string[]
 })
 
+const createEmptyActivityRecord = (): ActivityRecordItem => ({
+  id: null,
+  activityId: null,
+  actualParticipants: 0,
+  summary: '',
+  completionStatus: 'not_started',
+  completionStatusLabel: '未记录',
+  completed: false,
+  completedAt: '',
+  photoCount: 0,
+  photos: []
+})
+
+const recordForm = ref<ActivityRecordItem>(createEmptyActivityRecord())
+
 const formRules = {
   subType: [{ required: true, message: '请选择活动类型', trigger: 'change' }],
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -821,6 +1047,68 @@ const fmtDate = (v: any) => {
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return String(v).slice(0, 10)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const fmtDateTime = (v: any) => {
+  if (!v) return '-'
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return String(v)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+const formatFileSize = (size?: number) => {
+  if (!size || size <= 0) return ''
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${size} B`
+}
+
+const resolveFileUrl = (url?: string) => {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  if (import.meta.client) return new URL(url, window.location.origin).toString()
+  return url
+}
+
+const normalizeActivityRecordPhoto = (item: any = {}): ActivityRecordPhotoItem => ({
+  id: Number(item?.id || 0) || null,
+  url: String(item?.url ?? item?.file_url ?? item?.fileUrl ?? ''),
+  fileName: String(item?.file_name ?? item?.fileName ?? '现场照片'),
+  storedName: String(item?.stored_name ?? item?.storedName ?? ''),
+  fileExt: String(item?.file_ext ?? item?.fileExt ?? '').toLowerCase(),
+  fileSize: Number(item?.file_size ?? item?.fileSize ?? 0) || undefined,
+  contentType: String(item?.content_type ?? item?.contentType ?? ''),
+  sortOrder: Number(item?.sort_order ?? item?.sortOrder ?? 0),
+})
+
+const normalizeActivityRecord = (item: any = {}): ActivityRecordItem => {
+  const completionStatus = String(item?.completion_status ?? item?.completionStatus ?? 'not_started') || 'not_started'
+  const photos = Array.isArray(item?.photos) ? item.photos.map(normalizeActivityRecordPhoto) : []
+  return {
+    id: Number(item?.id || 0) || null,
+    activityId: Number(item?.activity_id ?? item?.activityId ?? 0) || null,
+    actualParticipants: Number(item?.actual_participants ?? item?.actualParticipants ?? 0) || 0,
+    summary: String(item?.summary ?? ''),
+    completionStatus,
+    completionStatusLabel: String(item?.completion_status_label ?? item?.completionStatusLabel ?? (completionStatus === 'completed' ? '已完成' : completionStatus === 'draft' ? '草稿' : '未记录')),
+    completed: Boolean(item?.completed ?? completionStatus === 'completed'),
+    completedAt: String(item?.completed_at ?? item?.completedAt ?? ''),
+    photoCount: Number(item?.photo_count ?? item?.photoCount ?? photos.length) || photos.length,
+    photos,
+  }
+}
+
+const toRecordPhotoFileList = (photos: ActivityRecordPhotoItem[]): UploadUserFile[] => photos.map((photo, index) => ({
+  name: photo.fileName || `现场照片${index + 1}`,
+  url: photo.url,
+  status: 'success',
+  uid: photo.url || `record-photo-${index}`,
+}))
+
+const recordTagType = (status?: string) => {
+  if (status === 'completed') return 'success'
+  if (status === 'draft') return 'warning'
+  return 'info'
 }
 
 const mapAuditStatus = (raw: any) => {
@@ -896,6 +1184,7 @@ const mapActivityRow = (item: any = {}) => {
   const rawIsFree = item?.is_free ?? item?.isFree
   const isFree = rawIsFree === true || rawIsFree === 'true' || rawIsFree === 1 || rawIsFree === '1'
   const feeType = String(item?.fee_type ?? item?.feeType ?? (isFree ? 'free' : 'paid'))
+  const activityRecord = normalizeActivityRecord(item?.activity_record ?? item?.activityRecord ?? {})
   return {
     id:             item?.id,
     ...tp,
@@ -925,6 +1214,11 @@ const mapActivityRow = (item: any = {}) => {
     frontPositionLabel: item?.front_position_label ?? item?.frontPositionLabel ?? mapFrontPositionLabel(frontModule, frontPosition),
     rejectReason:   item?.change_reason ?? item?.changeReason ?? '',
     partnerId:      item?.partner_id ?? item?.partnerId ?? null,
+    activityRecord,
+    activityRecordStatus: activityRecord.completionStatus,
+    activityRecordStatusLabel: activityRecord.completionStatusLabel,
+    activityRecordCompleted: activityRecord.completed,
+    activityRecordActualParticipants: activityRecord.actualParticipants,
     displayApplications: Array.isArray(item?.display_applications ?? item?.displayApplications)
       ? (item?.display_applications ?? item?.displayApplications)
       : [],
@@ -957,6 +1251,14 @@ const resetForm = () => {
   }
   imageFileList.value = []
   videoFileList.value = []
+}
+
+const resetRecordForm = (activityId?: number | null) => {
+  recordForm.value = {
+    ...createEmptyActivityRecord(),
+    activityId: activityId || null,
+  }
+  recordPhotoFileList.value = []
 }
 
 const fillFormFromActivity = (item: any) => {
@@ -992,6 +1294,11 @@ const fillFormFromActivity = (item: any) => {
 const loadActivityDetail = async (id: number | string) => {
   const res: any = await apiRequest(`/v3/partner/publishes/${id}`)
   return mapActivityRow(res?.data || {})
+}
+
+const loadActivityRecord = async (id: number | string) => {
+  const res: any = await apiRequest(`/v3/partner/publishes/${id}/record`)
+  return normalizeActivityRecord(res?.data || { activity_id: id })
 }
 
 const buildActivityPayload = () => ({
@@ -1069,18 +1376,42 @@ const getStatusTextColor = (status: string) => {
   return map[status] || 'text-slate-400'
 }
 
-// 上传处理
-const beforeImageUpload: UploadProps['beforeUpload'] = (rawFile) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
+const validateImageUpload = (rawFile: File, maxMb: number, label: string) => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
   if (!allowedTypes.includes(rawFile.type)) {
-    ElMessage.error('只支持 JPG/PNG 格式的图片')
+    ElMessage.error(`${label}只支持 JPG/PNG/WEBP 格式`)
     return false
   }
-  if (rawFile.size / 1024 / 1024 > 2) {
-    ElMessage.error('图片大小不能超过 2MB')
+  if (rawFile.size / 1024 / 1024 > maxMb) {
+    ElMessage.error(`${label}大小不能超过 ${maxMb}MB`)
     return false
   }
   return true
+}
+
+const openFile = (url?: string) => {
+  const resolved = resolveFileUrl(url)
+  if (!resolved || !import.meta.client) return
+  window.open(resolved, '_blank', 'noopener,noreferrer')
+}
+
+const downloadFile = (url?: string, fileName?: string) => {
+  const resolved = resolveFileUrl(url)
+  if (!resolved || !import.meta.client) return
+  const link = document.createElement('a')
+  link.href = resolved
+  link.target = '_blank'
+  if (fileName) {
+    link.download = fileName
+  }
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// 上传处理
+const beforeImageUpload: UploadProps['beforeUpload'] = (rawFile) => {
+  return validateImageUpload(rawFile, 2, '封面图片')
 }
 
 const handleImageSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
@@ -1118,6 +1449,47 @@ const handleVideoSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
 const handleUploadError: UploadProps['onError'] = (error) => {
   ElMessage.error('上传失败,请重试')
   console.error('Upload error:', error)
+}
+
+const beforeRecordPhotoUpload: UploadProps['beforeUpload'] = (rawFile) => {
+  return validateImageUpload(rawFile, 5, '现场照片')
+}
+
+const uploadRecordPhoto = async (options: UploadRequestOptions) => {
+  const formData = new FormData()
+  formData.append('file', options.file)
+  try {
+    const response = await apiFetchRaw<UploadResponse>('/common/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    if (Number(response?.code) !== 200 || !response?.data?.url) {
+      throw new Error(response?.message || '上传失败')
+    }
+    const photo = normalizeActivityRecordPhoto({
+      ...response.data,
+      url: response.data.url,
+      fileName: response.data.fileName || options.file.name,
+      sortOrder: recordForm.value.photos.length,
+    })
+    recordForm.value.photos = [...recordForm.value.photos, photo]
+    recordForm.value.photoCount = recordForm.value.photos.length
+    recordPhotoFileList.value = toRecordPhotoFileList(recordForm.value.photos)
+    options.onSuccess?.(response as any)
+    ElMessage.success('现场照片上传成功')
+  } catch (error: any) {
+    options.onError?.(error)
+    ElMessage.error(error?.message || '现场照片上传失败')
+  }
+}
+
+const handleRecordPhotoRemove: UploadProps['onRemove'] = (file) => {
+  const url = String(file.url || file.uid || '')
+  recordForm.value.photos = recordForm.value.photos
+    .filter(photo => photo.url !== url)
+    .map((photo, index) => ({ ...photo, sortOrder: index }))
+  recordForm.value.photoCount = recordForm.value.photos.length
+  recordPhotoFileList.value = toRecordPhotoFileList(recordForm.value.photos)
 }
 
 const handleApprove = (row: any) => {
@@ -1258,6 +1630,68 @@ const handleViewDetail = async (row: any) => {
   }
 }
 
+const openRecordDialog = async (row: any) => {
+  currentRecordActivityItem.value = row
+  resetRecordForm(Number(row?.id || 0) || null)
+  recordDialogVisible.value = true
+  try {
+    const record = await loadActivityRecord(row.id)
+    recordForm.value = record
+    recordPhotoFileList.value = toRecordPhotoFileList(record.photos)
+  } catch (e: any) {
+    resetRecordForm(Number(row?.id || 0) || null)
+    ElMessage.error(e?.data?.message || e?.message || '读取活动记录失败')
+  }
+}
+
+const handleSaveRecord = async (completionStatus: 'draft' | 'completed') => {
+  if (!currentRecordActivityItem.value?.id) {
+    return ElMessage.warning('无有效活动ID')
+  }
+  if (completionStatus === 'completed') {
+    if (!recordForm.value.actualParticipants || Number(recordForm.value.actualParticipants) <= 0) {
+      return ElMessage.warning('请填写实际参与人数')
+    }
+    if (!recordForm.value.summary.trim()) {
+      return ElMessage.warning('请填写活动总结')
+    }
+    if (!recordForm.value.photos.length) {
+      return ElMessage.warning('请至少上传一张现场照片')
+    }
+  }
+
+  recordSubmitting.value = true
+  try {
+    const res: any = await apiRequest(`/v3/partner/publishes/${currentRecordActivityItem.value.id}/record`, {
+      method: 'PUT',
+      body: {
+        actual_participants: Number(recordForm.value.actualParticipants || 0),
+        summary: recordForm.value.summary.trim(),
+        completion_status: completionStatus,
+        photos: recordForm.value.photos.map((photo, index) => ({
+          url: photo.url,
+          file_name: photo.fileName,
+          stored_name: photo.storedName,
+          file_ext: photo.fileExt,
+          file_size: photo.fileSize,
+          content_type: photo.contentType,
+          sort_order: index,
+        })),
+      },
+    })
+    const saved = normalizeActivityRecord(res?.data || {})
+    recordForm.value = saved
+    recordPhotoFileList.value = toRecordPhotoFileList(saved.photos)
+    ElMessage.success(completionStatus === 'completed' ? '活动记录已完成' : '活动记录草稿已保存')
+    recordDialogVisible.value = false
+    await loadActivities()
+  } catch (e: any) {
+    ElMessage.error(e?.data?.message || e?.message || '保存活动记录失败')
+  } finally {
+    recordSubmitting.value = false
+  }
+}
+
 const handleModuleChange = () => {
   form.value.frontPosition = ''
 }
@@ -1369,6 +1803,11 @@ const exportSignupList = async () => {
   }
 }
 
+const exportSignupListByActivity = async (row: any) => {
+  currentSignupItem.value = row
+  await exportSignupList()
+}
+ 
 onMounted(() => {
   loadActivities()
 })

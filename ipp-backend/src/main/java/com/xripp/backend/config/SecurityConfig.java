@@ -43,6 +43,7 @@ public class SecurityConfig {
                                 "/v3/activities/**",
                                 "/v3/contents",
                                 "/v3/contents/**",
+                                "/v3/runtime-info",
                                 "/v3/dashboard/**",
                                 "/v3/overseas-points",
                                 "/v3/overseas-points/**",

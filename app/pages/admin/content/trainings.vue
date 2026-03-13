@@ -8,7 +8,7 @@
   2. [收费逻辑] 关联后台收费项目 + 会员差异化定价
   3. [完整上传] 图片/视频上传功能
   4. [前台配置] 前台位置/城市选择器
-  5. [报名管理] 报名列表/进度条/导出
+  5. [运营收敛] 仅保留真实存在的发布/审核/上下架/前台投放配置能力
   
   📋 基于V3.0 cms.vue优化,保留所有优势功能
   ========================================================================
@@ -41,7 +41,7 @@
         <div class="flex justify-between items-center mb-4">
           <div>
             <h3 class="text-lg font-bold text-slate-800">培训课程管理</h3>
-            <p class="text-xs text-slate-500 mt-1">发布和管理培训课程,支持线上/线下/认证课程</p>
+            <p class="text-xs text-slate-500 mt-1">发布和管理培训课程，支持线上/线下/认证课程</p>
           </div>
           <el-button type="primary" color="#0f172a" @click="openPublishDialog">
             <el-icon class="mr-2"><Plus /></el-icon> 新建培训
@@ -84,6 +84,20 @@
               <el-button link type="primary" size="small" @click="navigateTo('/admin/audit')">
                 查看审核状态
               </el-button>
+            </div>
+          </template>
+        </el-alert>
+
+        <el-alert
+          title="能力边界说明"
+          type="info"
+          :closable="false"
+          class="mt-4"
+        >
+          <template #default>
+            <div class="text-sm">
+              当前培训页已接入真实的内容发布、编辑、审核、上下架与前台位置配置。
+              培训报名、名单导出、独立显示申请在现有系统中暂无对应后端模型，因此不再保留虚假入口。
             </div>
           </template>
         </el-alert>
@@ -171,22 +185,12 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="报名数据" width="140">
+          <el-table-column label="开课与名额" width="180">
             <template #default="scope">
-              <div>
-                <el-button link type="primary" size="small" @click="viewSignups(scope.row)">
-                  {{ scope.row.signups }} / {{ scope.row.maxLimit || '∞' }}
-                </el-button>
-                <el-progress 
-                  v-if="scope.row.maxLimit"
-                  :percentage="Math.round((scope.row.signups / scope.row.maxLimit) * 100)" 
-                  :stroke-width="4"
-                  :show-text="false"
-                  :color="scope.row.signups >= scope.row.maxLimit ? '#f56c6c' : '#67c23a'"
-                  class="mt-1"
-                />
-                <div v-if="scope.row.signups >= scope.row.maxLimit" class="text-[10px] text-red-500 mt-0.5">
-                  已满额
+              <div class="text-xs">
+                <div class="text-slate-700">{{ scope.row.date || '未设置开课时间' }}</div>
+                <div class="text-slate-400 mt-1">
+                  名额: {{ scope.row.maxLimit > 0 ? `${scope.row.maxLimit} 人` : '不限' }}
                 </div>
               </div>
             </template>
@@ -231,15 +235,6 @@
               <div v-else class="flex gap-2 flex-wrap">
                 <el-button link type="primary" size="small" @click="handleEdit(scope.row)">
                   <el-icon class="mr-1"><Edit /></el-icon> 编辑
-                </el-button>
-                <el-button 
-                  link 
-                  type="success" 
-                  size="small" 
-                  @click="openDisplayApplyDialog(scope.row)" 
-                  v-if="scope.row.status === 'published'"
-                >
-                  <el-icon class="mr-1"><Monitor /></el-icon> 申请显示
                 </el-button>
                 <el-button 
                   link 
@@ -594,101 +589,6 @@
       </template>
     </el-dialog>
 
-    <!-- 显示申请弹窗 -->
-    <el-dialog 
-      v-model="displayApplyDialogVisible" 
-      title="申请首页显示" 
-      width="600px"
-    >
-      <el-form :model="displayApplyForm" label-width="120px">
-        <el-form-item label="培训标题">
-          <el-input :value="currentDisplayApplyItem?.title" disabled />
-        </el-form-item>
-        
-        <el-form-item label="显示区域" required>
-          <el-select v-model="displayApplyForm.displayArea" class="w-full">
-            <el-option label="首页轮播" value="home" />
-            <el-option label="培训中心推荐" value="training" />
-            <el-option label="平台服务推荐" value="service" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="显示时间" required>
-          <el-date-picker
-            v-model="displayApplyForm.displayTime"
-            type="datetimerange"
-            range-separator="至"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
-            class="!w-full"
-            value-format="YYYY-MM-DD HH:mm:ss"
-          />
-        </el-form-item>
-
-        <el-alert 
-          title="提示" 
-          type="info" 
-          :closable="false"
-          class="mt-4"
-        >
-          <div class="text-xs">
-            1. 显示申请提交后需要总部审核<br>
-            2. 显示结束时间不能超过课程开始日期<br>
-            3. 每个区域最多同时显示10个内容
-          </div>
-        </el-alert>
-      </el-form>
-      
-      <template #footer>
-        <el-button @click="displayApplyDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitDisplayApply" :loading="submitLoading">
-          提交申请
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 报名名单弹窗 -->
-    <el-dialog v-model="signupDialogVisible" title="报名管理" width="900px">
-      <div class="flex justify-between items-center mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
-         <div class="text-sm text-blue-800">
-           <span class="font-bold text-lg mr-2">{{ currentSignupItem?.title }}</span>
-           <el-tag size="small" type="primary">
-             已报名: {{ currentSignupItem?.signups }} / {{ currentSignupItem?.maxLimit || '不限' }}
-           </el-tag>
-         </div>
-         <el-button 
-           type="success" 
-           size="small" 
-           plain 
-           icon="Download" 
-           :loading="exportLoading" 
-           @click="exportSignupList"
-         >
-           导出 Excel 名单
-         </el-button>
-      </div>
-      
-      <el-table :data="signupList" height="400" border stripe>
-        <el-table-column type="index" label="#" width="50" align="center" />
-        <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="company" label="公司名称" show-overflow-tooltip min-width="200" />
-        <el-table-column prop="phone" label="联系电话" width="120" />
-        <el-table-column prop="position" label="职位" width="100" />
-        <el-table-column prop="time" label="报名时间" width="160" />
-        <el-table-column prop="status" label="支付状态" width="100" align="center">
-           <template #default="scope">
-             <el-tag 
-               size="small" 
-               :type="scope.row.paid ? 'success' : 'danger'" 
-               effect="dark"
-             >
-               {{ scope.row.paid ? '已支付' : '待支付' }}
-             </el-tag>
-           </template>
-        </el-table-column>
-      </el-table>
-    </el-dialog>
-
     <!-- 详情查看弹窗 (培训专属) -->
     <el-dialog 
       v-model="detailDialogVisible" 
@@ -710,6 +610,15 @@
           <el-descriptions-item label="培训标题" :span="2">{{ currentDetailItem.title }}</el-descriptions-item>
           <el-descriptions-item label="投放城市" :span="2">
             {{ currentDetailItem.cities.join(', ') }}
+          </el-descriptions-item>
+          <el-descriptions-item label="前台位置">
+            {{ currentDetailItem.frontModuleLabel }} / {{ currentDetailItem.frontPositionLabel }}
+          </el-descriptions-item>
+          <el-descriptions-item label="开课时间">
+            {{ currentDetailItem.date || '未设置' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="名额限制">
+            {{ currentDetailItem.maxLimit > 0 ? `${currentDetailItem.maxLimit} 人` : '不限' }}
           </el-descriptions-item>
           <el-descriptions-item label="费用信息" :span="2">
             <div v-if="currentDetailItem.feeItemName !== '免费'">
@@ -763,8 +672,8 @@
 
 <script setup lang="ts">
 import { 
-  Search, Plus, Calendar, Monitor, More, VideoPlay, Location, 
-  Picture, Close, VideoCamera, User, Timer, Download, Star, Reading, Check, Edit, View, Warning
+  Search, Plus, Calendar, Monitor, VideoPlay, Location, 
+  Close, VideoCamera, Reading, Check, Edit, View, Warning
 } from '@element-plus/icons-vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -779,16 +688,12 @@ const { cityOptions } = useGlobalConfig()
 
 // 状态管理
 const publishDialogVisible = ref(false)
-const displayApplyDialogVisible = ref(false)
-const signupDialogVisible = ref(false)
 const isEdit = ref(false)
 const submitLoading = ref(false)
-const exportLoading = ref(false)
 const currentUserRole = ref<'admin' | 'partner'>(getLoginUser()?.role === 'partner' ? 'partner' : 'admin')
 const apiLoading = ref(false)
-const currentSignupItem = ref<any>(null)
-const currentDisplayApplyItem = ref<any>(null)
 const formRef = ref<FormInstance>()
+const currentEditId = ref<number | null>(null)
 
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -831,11 +736,6 @@ const form = ref({
   memberPrice: ''
 })
 
-const displayApplyForm = ref({
-  displayArea: 'home',
-  displayTime: [] as string[]
-})
-
 const formRules = {
   subType: [{ required: true, message: '请选择培训类型', trigger: 'change' }],
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -848,6 +748,16 @@ const formRules = {
 }
 
 const allTrainingList = ref<any[]>([])
+
+const parseExtraJson = (raw: any) => {
+  if (!raw || typeof raw !== 'string') return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
 
 const fmtDate = (v: any) => {
   if (!v) return '-'
@@ -869,15 +779,16 @@ const mapStatus = (raw?: string) => {
 
 const mapSubType = (category?: string) => {
   const c = String(category || '').toLowerCase()
-  if (c === 'medical') return { subType: 'offline', subTypeLabel: '线下培训', subTypeTag: 'success' }
-  if (c === 'it') return { subType: 'online', subTypeLabel: '线上课程', subTypeTag: 'primary' }
-  if (c === 'construction') return { subType: 'certification', subTypeLabel: '认证课程', subTypeTag: 'warning' }
+  if (c === 'offline') return { subType: 'offline', subTypeLabel: '线下培训', subTypeTag: 'success' }
+  if (c === 'online') return { subType: 'online', subTypeLabel: '线上课程', subTypeTag: 'primary' }
+  if (c === 'exam' || c === 'certification') return { subType: 'exam', subTypeLabel: '认证考试', subTypeTag: 'warning' }
   return { subType: 'corporate', subTypeLabel: '企业内训', subTypeTag: 'info' }
 }
 
 const mapTrainingRow = (item: any) => {
   const st = mapStatus(item?.status)
-  const tp = mapSubType(item?.category)
+  const extra = parseExtraJson(item?.extraJson ?? item?.extra_json)
+  const tp = mapSubType(extra.subType || item?.category)
   const price = Number(item?.price || 0)
   return {
     id: item?.id,
@@ -887,24 +798,50 @@ const mapTrainingRow = (item: any) => {
     subTypeTag: tp.subTypeTag,
     code: item?.contentNo || `TRN-${item?.id || ''}`,
     title: item?.title || '未命名培训',
-    cities: ['全国'],
     status: st.key,
     statusLabel: st.label,
     publisher: item?.publisher || '总部',
     publishDate: fmtDate(item?.publishDate || item?.createdAt || item?.updatedAt),
     image: item?.coverImage || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=200',
-    hasVideo: false,
-    feeItemId: price > 0 ? 'FEE003' : 'free',
-    feeItemName: price > 0 ? '培训基础课程' : '免费',
+    coverImage: item?.coverImage || '',
+    hasVideo: Boolean(extra.hasVideo),
+    videoUrl: extra.videoUrl || '',
+    feeItemId: extra.feeItemId || (price > 0 ? 'FEE003' : 'free'),
+    feeItemName: extra.feeItemName || (price > 0 ? '培训基础课程' : '免费'),
     price,
-    feeType: 'paid',
-    signups: Number(item?.signups || 0),
-    maxLimit: Number(item?.maxLimit || 0),
-    teamIntro: item?.teamIntro || '',
-    courseChapters: item?.courseChapters || '',
-    expertInfo: item?.expertInfo || '',
-    summary: item?.description || '',
-    rejectReason: item?.rejectReason || ''
+    feeType: extra.feeType || 'paid',
+    maxLimit: Number(extra.maxLimit || item?.maxLimit || 0),
+    teamIntro: extra.teamIntro || '',
+    courseChapters: extra.courseChapters || '',
+    expertInfo: extra.expertInfo || '',
+    summary: item?.summary || item?.description || '',
+    rejectReason: item?.changeReason || item?.rejectReason || '',
+    date: extra.date || '',
+    cities: item?.cityName ? [item.cityName] : ['全国'],
+    frontModule: extra.frontModule || '',
+    frontModuleLabel: extra.frontModule === 'home-banner'
+      ? '首页轮播图'
+      : extra.frontModule === 'training-center'
+        ? '培训中心'
+        : extra.frontModule === 'resource-expansion'
+          ? '资源拓展'
+          : (extra.frontModule || '-'),
+    frontPosition: extra.frontPosition || '',
+    frontPositionLabel: extra.frontPosition === 'banner-main'
+      ? '轮播图主位'
+      : extra.frontPosition === 'banner-sub'
+        ? '轮播图副位'
+        : extra.frontPosition === 'top'
+          ? '顶部焦点位'
+          : extra.frontPosition === 'list'
+            ? '列表推荐位'
+            : extra.frontPosition === 'sidebar'
+              ? '侧边栏'
+              : extra.frontPosition === 'footer'
+                ? '底部栏'
+                : (extra.frontPosition || '-'),
+    normalPrice: String(price || ''),
+    memberPrice: extra.memberPrice ?? '',
   }
 }
 
@@ -930,13 +867,8 @@ const loadTrainings = async () => {
 const stats = computed(() => [
   { label: '累计发布培训', value: String(allTrainingList.value.length), icon: Reading, bgClass: 'bg-green-50', textClass: 'text-green-600' },
   { label: '本月新增', value: String(allTrainingList.value.filter(i => String(i.publishDate).startsWith(new Date().toISOString().slice(0, 7))).length), icon: Calendar, bgClass: 'bg-blue-50', textClass: 'text-blue-600' },
-  { label: '累计学员', value: String(allTrainingList.value.reduce((n, i) => n + Number(i.signups || 0), 0)), icon: User, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
+  { label: '已发布', value: String(allTrainingList.value.filter(i => i.status === 'published').length), icon: Check, bgClass: 'bg-purple-50', textClass: 'text-purple-600' },
   { label: '待审核', value: String(allTrainingList.value.filter(i => i.status === 'auditing').length), icon: Monitor, bgClass: 'bg-orange-50', textClass: 'text-orange-600' }
-])
-
-const signupList = ref([
-  { name: '张伟', phone: '138****0001', company: '上海宏大贸易', position: '采购经理', time: '2026-01-22 10:30', paid: true },
-  { name: '李丽', phone: '139****0002', company: '苏州精密制造', position: '市场总监', time: '2026-01-22 11:15', paid: false }
 ])
 
 const filteredTrainingList = computed(() => {
@@ -1069,8 +1001,9 @@ watch(() => [filters.value.status, filters.value.publisher], () => {
   loadTrainings()
 })
 
-const openPublishDialog = () => { 
+const openPublishDialog = () => {
   isEdit.value = false
+  currentEditId.value = null
   form.value = {
     subType: '',
     title: '',
@@ -1098,19 +1031,43 @@ const openPublishDialog = () => {
   publishDialogVisible.value = true 
 }
 
-const handlePublish = async () => {
-  if (isEdit.value) {
-    ElMessage.warning('编辑接口未接入，当前为受控降级模式')
-    return
+const loadTrainingDetail = async (id: number) => {
+  const res: any = await apiRequest(`/v3/admin/contents/${id}`)
+  const item = res?.data || {}
+  const extra = parseExtraJson(item?.extraJson ?? item?.extra_json)
+  return {
+    id: Number(item?.id || 0) || null,
+    subType: extra.subType || '',
+    title: item?.title || '',
+    cities: item?.cityName ? [item.cityName] : ['全国'],
+    frontModule: extra.frontModule || '',
+    frontPosition: extra.frontPosition || '',
+    coverImage: item?.coverImage || extra.coverImage || '',
+    videoUrl: extra.videoUrl || '',
+    hasVideo: Boolean(extra.hasVideo),
+    summary: item?.summary || '',
+    teamIntro: extra.teamIntro || '',
+    courseChapters: extra.courseChapters || '',
+    expertInfo: extra.expertInfo || '',
+    date: extra.date || '',
+    maxLimit: Number(extra.maxLimit || 0),
+    feeItemId: extra.feeItemId || 'free',
+    price: Number(item?.fee || 0),
+    feeItemName: extra.feeItemName || '免费',
+    feeType: extra.feeType || 'paid',
+    normalPrice: String(item?.fee || ''),
+    memberPrice: extra.memberPrice ?? ''
   }
+}
 
+const handlePublish = async () => {
   if (!form.value.title?.trim()) {
     return ElMessage.warning('请填写培训标题')
   }
 
   submitLoading.value = true
   try {
-    const extraBody = JSON.stringify({
+    const extraJson = JSON.stringify({
       subType: form.value.subType,
       coverImage: form.value.coverImage,
       videoUrl: form.value.videoUrl,
@@ -1123,28 +1080,36 @@ const handlePublish = async () => {
       feeItemId: form.value.feeItemId,
       feeItemName: form.value.feeItemName,
       feeType: form.value.feeType,
+      memberPrice: form.value.memberPrice,
       frontModule: form.value.frontModule,
       frontPosition: form.value.frontPosition
     })
 
-    await apiRequest('/v3/admin/contents', {
-      method: 'POST',
+    const method = isEdit.value && currentEditId.value ? 'PUT' : 'POST'
+    const url = isEdit.value && currentEditId.value
+      ? `/v3/admin/contents/${currentEditId.value}`
+      : '/v3/admin/contents'
+
+    await apiRequest(url, {
+      method,
       body: {
         title: form.value.title.trim(),
         content_type: 'training',
         summary: form.value.summary || '',
-        body: extraBody,
+        body: '',
+        extra_json: extraJson,
+        cover_image: form.value.coverImage || '',
         city_name: (form.value.cities && form.value.cities.length > 0) ? form.value.cities[0] : '',
         is_paid: (form.value.price || 0) > 0,
         fee: form.value.price || 0
       }
     })
 
-    ElMessage.success('培训已创建（草稿），可在列表中上架发布')
+    ElMessage.success(isEdit.value ? '培训修改已保存' : '培训已创建（草稿），可在列表中上架发布')
     publishDialogVisible.value = false
     await loadTrainings()
   } catch (e: any) {
-    ElMessage.error(e?.message || '创建失败')
+    ElMessage.error(e?.message || '保存失败')
   } finally {
     submitLoading.value = false
   }
@@ -1169,31 +1134,43 @@ const handleToggleStatus = (row: any) => {
     .catch(() => {})
 }
 
-const handleEdit = (row: any) => {
-  isEdit.value = true
-  form.value = {
-    subType: row.subType || '',
-    title: row.title || '',
-    cities: row.cities || [],
-    frontModule: row.frontModule || '',
-    frontPosition: row.frontPosition || '',
-    coverImage: row.coverImage || row.image || '',
-    videoUrl: row.videoUrl || '',
-    hasVideo: row.hasVideo || false,
-    summary: row.summary || '',
-    teamIntro: row.teamIntro || '',
-    courseChapters: row.courseChapters || '',
-    expertInfo: row.expertInfo || '',
-    date: row.date || '',
-    maxLimit: row.maxLimit ?? 50,
-    feeItemId: row.feeItemId || 'free',
-    price: row.price || 0,
-    feeItemName: row.feeItemName || '免费',
-    feeType: row.feeType || 'paid',
-    normalPrice: row.normalPrice || '',
-    memberPrice: row.memberPrice || ''
+const handleEdit = async (row: any) => {
+  try {
+    const detail = await loadTrainingDetail(row.id)
+    isEdit.value = true
+    currentEditId.value = detail.id
+    form.value = {
+      subType: detail.subType || '',
+      title: detail.title || '',
+      cities: detail.cities || [],
+      frontModule: detail.frontModule || '',
+      frontPosition: detail.frontPosition || '',
+      coverImage: detail.coverImage || '',
+      videoUrl: detail.videoUrl || '',
+      hasVideo: detail.hasVideo || false,
+      summary: detail.summary || '',
+      teamIntro: detail.teamIntro || '',
+      courseChapters: detail.courseChapters || '',
+      expertInfo: detail.expertInfo || '',
+      date: detail.date || '',
+      maxLimit: detail.maxLimit ?? 50,
+      feeItemId: detail.feeItemId || 'free',
+      price: detail.price || 0,
+      feeItemName: detail.feeItemName || '免费',
+      feeType: detail.feeType || 'paid',
+      normalPrice: detail.normalPrice || '',
+      memberPrice: detail.memberPrice || ''
+    }
+    imageFileList.value = form.value.coverImage
+      ? [{ name: 'cover-image', url: form.value.coverImage } as UploadUserFile]
+      : []
+    videoFileList.value = form.value.videoUrl
+      ? [{ name: 'promo-video', url: form.value.videoUrl } as UploadUserFile]
+      : []
+    publishDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '读取培训详情失败')
   }
-  publishDialogVisible.value = true
 }
 
 const handleModuleChange = () => {
@@ -1221,39 +1198,6 @@ const handleFeeTypeChange = (value: string) => {
   } else if (value === 'paid') {
     form.value.memberPrice = ''
   }
-}
-
-const openDisplayApplyDialog = (row: any) => {
-  currentDisplayApplyItem.value = row
-  displayApplyForm.value = {
-    displayArea: 'home',
-    displayTime: []
-  }
-  displayApplyDialogVisible.value = true
-}
-
-const handleSubmitDisplayApply = () => {
-  const range = displayApplyForm.value.displayTime
-  if (!range || range.length !== 2) {
-    return ElMessage.warning('请选择显示时间')
-  }
-
-  const [start, end] = range
-  const courseStart = currentDisplayApplyItem.value?.date
-  if (courseStart && end > courseStart) {
-    return ElMessage.warning('显示结束时间不能超过课程开始日期')
-  }
-
-  ElMessage.warning('显示申请接口未接入，当前为受控降级模式')
-}
-
-const viewSignups = (row: any) => { 
-  currentSignupItem.value = row
-  signupDialogVisible.value = true 
-}
-
-const exportSignupList = () => {
-  ElMessage.warning('报名导出接口未接入，当前为受控降级模式')
 }
 
 onMounted(() => {

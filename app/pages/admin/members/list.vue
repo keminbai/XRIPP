@@ -23,7 +23,7 @@
           <el-button type="success" plain @click="handleExport">
             <el-icon class="mr-2"><Download /></el-icon> 导出列表
           </el-button>
-          <el-button type="primary" @click="handleAddMember">
+          <el-button v-if="currentUserRole === 'admin'" type="primary" @click="handleAddMember">
             <el-icon class="mr-2"><Plus /></el-icon> 新增会员
           </el-button>
         </div>
@@ -83,6 +83,7 @@
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="p-6">
         <el-table 
+          v-loading="tableLoading"
           :data="pagedMemberList" 
           stripe
           :header-cell-style="{background:'#f8fafc', color:'#64748b'}"
@@ -127,14 +128,14 @@
               <el-button link type="primary" size="small" @click="handleViewDetail(scope.row)">
                 详情
               </el-button>
-              <el-button link type="primary" size="small" @click="handleEdit(scope.row)">
+              <el-button v-if="currentUserRole === 'admin'" link type="primary" size="small" @click="handleEdit(scope.row)">
                 编辑
               </el-button>
               <!-- 🆕 P1修正：点击触发完整 Dialog -->
-              <el-button link type="warning" size="small" @click="openWelfareDialog(scope.row)">
+              <el-button v-if="currentUserRole === 'admin'" link type="warning" size="small" @click="openWelfareDialog(scope.row)">
                 <el-icon class="mr-1"><Present /></el-icon>福利
               </el-button>
-              <el-dropdown trigger="click" @command="(cmd) => handleMoreAction(cmd, scope.row)">
+              <el-dropdown v-if="currentUserRole === 'admin'" trigger="click" @command="(cmd) => handleMoreAction(cmd, scope.row)">
                 <el-button link type="info" size="small" class="ml-2">
                   更多 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
                 </el-button>
@@ -158,7 +159,7 @@
           </div>
           <el-pagination 
             background 
-            layout="total, prev, pager, next, jumper" 
+            layout="total, sizes, prev, pager, next, jumper" 
             :total="total"
             :page-size="pageSize"
             :current-page="currentPage"
@@ -197,7 +198,7 @@
       </div>
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="handleEditFromDetail(currentMember)">去编辑</el-button>
+        <el-button v-if="currentUserRole === 'admin'" type="primary" @click="handleEditFromDetail(currentMember)">去编辑</el-button>
       </template>
     </el-dialog>
 
@@ -209,6 +210,20 @@
       destroy-on-close
     >
       <el-form :model="formData" label-width="80px">
+        <el-alert
+          v-if="!isEditMode"
+          title="登录说明"
+          type="info"
+          :closable="false"
+          class="mb-4"
+        >
+          <template #default>
+            <div class="text-sm">
+              新会员登录账号默认为“联系电话”，初始密码可设置；如不填写则默认为 `123456`。
+            </div>
+          </template>
+        </el-alert>
+
         <el-form-item label="公司名称" required>
           <el-input v-model="formData.companyName" placeholder="请输入公司全称" />
         </el-form-item>
@@ -231,16 +246,6 @@
               <el-option label="服务业" value="服务业" />
             </el-select>
           </el-form-item>
-          <el-form-item label="所在城市">
-            <el-select v-model="formData.city" class="w-full">
-              <el-option label="上海" value="上海" />
-              <el-option label="北京" value="北京" />
-              <el-option label="深圳" value="深圳" />
-            </el-select>
-          </el-form-item>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
           <el-form-item label="会员等级">
              <el-select v-model="formData.level" class="w-full">
               <el-option label="SVIP" value="SVIP" />
@@ -248,19 +253,29 @@
               <el-option label="普通会员" value="NORMAL" />
             </el-select>
           </el-form-item>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
           <el-form-item label="邀请码">
             <el-input v-model="formData.invitationCode" placeholder="选填" />
+          </el-form-item>
+          <el-form-item label="账号状态" v-if="isEditMode">
+            <el-input :value="formData.statusLabel" disabled />
           </el-form-item>
         </div>
 
         <el-form-item label="电子邮箱">
           <el-input v-model="formData.email" placeholder="example@company.com" />
         </el-form-item>
+
+        <el-form-item label="初始密码" v-if="!isEditMode">
+          <el-input v-model="formData.password" placeholder="默认 123456，可选填写" show-password />
+        </el-form-item>
       </el-form>
 
       <template #footer>
         <el-button @click="formDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmitForm">确定保存</el-button>
+        <el-button type="primary" :loading="formSubmitting" @click="handleSubmitForm">确定保存</el-button>
       </template>
     </el-dialog>
 
@@ -333,13 +348,13 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, Search, View, Edit, Download, Key, Present, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Search, Download, Key, Present, ArrowDown } from '@element-plus/icons-vue'
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { benefitPolicy, getBenefitPolicy } from '@/composables/useBenefitPolicy'
 import type { BenefitType, MemberLevel } from '@/composables/useBenefitPolicy'
-import { apiRequest } from '@/utils/request'
+import { apiRequest, getLoginUser } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
@@ -350,6 +365,7 @@ const detailDialogVisible = ref(false)
 const formDialogVisible = ref(false)
 const isEditMode = ref(false)
 const currentMember = ref<any>(null)
+const currentUserRole = ref<'admin' | 'partner'>(getLoginUser()?.role === 'admin' ? 'admin' : 'partner')
 
 // 🆕 福利 Dialog 状态
 const welfareDialog = reactive({
@@ -381,8 +397,8 @@ const formData = ref({
   email: '',
   industry: '制造业',
   level: 'NORMAL',
-  city: '上海',
   invitationCode: '',
+  password: '',
   status: 'active',
   statusLabel: '正常'
 })
@@ -408,15 +424,16 @@ watch(
 
 const total = ref(0)
 const tableLoading = ref(false)
+const formSubmitting = ref(false)
 
 function mapMemberItem(item: any) {
-  const level = (item.memberLevel || item.level || 'normal').toUpperCase()
+  const level = String(item.memberLevel || item.level || 'normal').toUpperCase()
   const expireDate = (item.vipExpireTime || item.expireDate || '').substring(0, 10)
-  const today = new Date().toISOString().slice(0, 10)
-  const status = expireDate && expireDate < today ? 'expired' : 'active'
+  const status = item.status || 'active'
   return {
     id: item.id || item.userId,
     userId: item.userId || item.id,
+    username: item.username || '',
     companyName: item.companyName || '',
     contactPerson: item.contactPerson || '',
     contactPhone: item.contactPhone || '',
@@ -425,7 +442,7 @@ function mapMemberItem(item: any) {
     invitationCode: item.invitationCode || '',
     level,
     status,
-    statusLabel: status === 'expired' ? '已过期' : '正常',
+    statusLabel: item.statusLabel || (status === 'disabled' ? '已禁用' : status === 'expired' ? '已过期' : '正常'),
     registerDate: (item.createdAt || item.registerDate || '').substring(0, 10),
     expireDate
   }
@@ -487,6 +504,7 @@ const getCurrentBenefitMax = () => {
 // 点击新增
 const handleAddMember = () => {
   isEditMode.value = false
+  currentMember.value = null
   // 重置表单
   formData.value = {
     id: 0,
@@ -496,8 +514,8 @@ const handleAddMember = () => {
     email: '',
     industry: '制造业',
     level: 'NORMAL',
-    city: '上海',
     invitationCode: '',
+    password: '',
     status: 'active',
     statusLabel: '正常'
   }
@@ -505,11 +523,28 @@ const handleAddMember = () => {
 }
 
 // 点击编辑
-const handleEdit = (row: any) => {
-  isEditMode.value = true
-  // 浅拷贝数据到表单
-  formData.value = { ...row }
-  formDialogVisible.value = true
+const handleEdit = async (row: any) => {
+  try {
+    const res = await apiRequest<any>(`/v3/admin/members/${row.id}`)
+    const detail = mapMemberItem(res.data || {})
+    isEditMode.value = true
+    formData.value = {
+      id: detail.id,
+      companyName: detail.companyName,
+      contactPerson: detail.contactPerson,
+      contactPhone: detail.contactPhone,
+      email: detail.email,
+      industry: detail.industry || '制造业',
+      level: detail.level,
+      invitationCode: detail.invitationCode,
+      password: '',
+      status: detail.status,
+      statusLabel: detail.statusLabel
+    }
+    formDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '读取会员详情失败')
+  }
 }
 
 // 从详情页跳转编辑
@@ -520,36 +555,41 @@ const handleEditFromDetail = (row: any) => {
 }
 
 // 提交表单 (保存数据)
-const handleSubmitForm = () => {
+const handleSubmitForm = async () => {
+  if (formSubmitting.value) return
   if (!formData.value.companyName || !formData.value.contactPerson) {
     ElMessage.warning('请填写完整的公司名称和联系人信息')
     return
   }
-
-  if (isEditMode.value) {
-    // 编辑逻辑：找到对应 ID 更新
-    const index = allMemberList.value.findIndex(item => item.id === formData.value.id)
-    if (index !== -1) {
-      // 保留原有的注册时间等不可变字段
-      allMemberList.value[index] = { 
-        ...allMemberList.value[index],
-        ...formData.value 
-      }
-      ElMessage.success('会员信息更新成功')
-    }
-  } else {
-    // 新增逻辑：生成 ID 并添加到列表顶部
-    const newMember = {
-      ...formData.value,
-      id: Date.now(), // 模拟 ID
-      registerDate: new Date().toISOString().split('T')[0],
-      expireDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0] // 默认一年后过期
-    }
-    allMemberList.value.unshift(newMember)
-    ElMessage.success('新会员添加成功')
+  if (!formData.value.contactPhone) {
+    ElMessage.warning('请填写联系电话')
+    return
   }
-
-  formDialogVisible.value = false
+  try {
+    formSubmitting.value = true
+    const method = isEditMode.value ? 'PUT' : 'POST'
+    const url = isEditMode.value ? `/v3/admin/members/${formData.value.id}` : '/v3/admin/members'
+    await apiRequest(url, {
+      method,
+      body: {
+        company_name: formData.value.companyName,
+        contact_person: formData.value.contactPerson,
+        contact_phone: formData.value.contactPhone,
+        email: formData.value.email,
+        industry: formData.value.industry,
+        invitation_code: formData.value.invitationCode,
+        member_level: formData.value.level,
+        password: formData.value.password
+      }
+    })
+    ElMessage.success(isEditMode.value ? '会员信息更新成功' : '新会员添加成功')
+    formDialogVisible.value = false
+    await loadMembers()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '保存会员失败')
+  } finally {
+    formSubmitting.value = false
+  }
 }
 
 // 分页与选择逻辑
@@ -616,9 +656,14 @@ const handleExport = async () => {
   }
 }
 
-const handleViewDetail = (row: any) => {
-  currentMember.value = row
-  detailDialogVisible.value = true
+const handleViewDetail = async (row: any) => {
+  try {
+    const res = await apiRequest<any>(`/v3/admin/members/${row.id}`)
+    currentMember.value = mapMemberItem(res.data || {})
+    detailDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '读取会员详情失败')
+  }
 }
 
 // 🆕 打开福利分配弹窗
@@ -666,22 +711,32 @@ const handleMoreAction = (command: string, row: any) => {
   if (command === 'toggleStatus') {
     const action = row.status === 'active' ? '禁用' : '启用'
     ElMessageBox.confirm(`确定${action}会员 "${row.companyName}" 吗？`, '提示', { type: 'warning' })
-      .then(() => {
-        row.status = row.status === 'active' ? 'disabled' : 'active'
-        row.statusLabel = row.status === 'active' ? '正常' : '已禁用'
+      .then(async () => {
+        await apiRequest(`/v3/admin/members/${row.id}/transition`, {
+          method: 'POST',
+          body: { to_status: row.status === 'active' ? 'disabled' : 'active' }
+        })
         ElMessage.success(`已${action}`)
+        await loadMembers()
       })
+      .catch(() => {})
   } else if (command === 'delete') {
-    // 真实删除逻辑
     ElMessageBox.confirm('此操作将永久删除该会员, 是否继续?', '严重警告', { 
       type: 'error',
       confirmButtonText: '确认删除',
       cancelButtonText: '取消'
     })
-    .then(() => {
-      // 过滤掉当前 ID
-      allMemberList.value = allMemberList.value.filter(m => m.id !== row.id)
+    .then(async () => {
+      await apiRequest(`/v3/admin/members/${row.id}`, { method: 'DELETE' })
       ElMessage.success('删除成功')
+    })
+    .then(async () => {
+      await loadMembers()
+    })
+    .catch((e: any) => {
+      if (e && e !== 'cancel') {
+        ElMessage.error(e?.message || '删除失败')
+      }
     })
   }
 }

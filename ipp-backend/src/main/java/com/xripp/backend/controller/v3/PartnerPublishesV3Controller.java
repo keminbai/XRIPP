@@ -9,10 +9,14 @@ import com.xripp.backend.common.V3Response;
 import com.xripp.backend.dto.ActivitySignupExportDTO;
 import com.xripp.backend.entity.Activity;
 import com.xripp.backend.entity.ActivityDisplayApplication;
+import com.xripp.backend.entity.ActivityRecord;
+import com.xripp.backend.entity.ActivityRecordPhoto;
 import com.xripp.backend.entity.ActivityRegistration;
 import com.xripp.backend.entity.AuditLog;
 import com.xripp.backend.security.SecurityContextHolder;
 import com.xripp.backend.service.IActivityDisplayApplicationService;
+import com.xripp.backend.service.IActivityRecordPhotoService;
+import com.xripp.backend.service.IActivityRecordService;
 import com.xripp.backend.service.IActivityRegistrationService;
 import com.xripp.backend.service.IAuditLogService;
 import com.xripp.backend.service.IActivityService;
@@ -43,6 +47,8 @@ public class PartnerPublishesV3Controller {
 
     private final IActivityService activityService;
     private final IActivityDisplayApplicationService activityDisplayApplicationService;
+    private final IActivityRecordService activityRecordService;
+    private final IActivityRecordPhotoService activityRecordPhotoService;
     private final IActivityRegistrationService activityRegistrationService;
     private final StateTransitionService stateTransitionService;
     private final IAuditLogService auditLogService;
@@ -86,15 +92,26 @@ public class PartnerPublishesV3Controller {
 
         Page<Activity> p = new Page<>(page, pageSize);
         Page<Activity> result = activityService.page(p, qw);
-        Map<Long, Long> signupCounts = loadSignupCounts(
-                result.getRecords().stream()
-                        .map(Activity::getId)
+        List<Long> activityIds = result.getRecords().stream()
+                .map(Activity::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, Long> signupCounts = loadSignupCounts(activityIds);
+        Map<Long, ActivityRecord> activityRecords = loadActivityRecords(activityIds);
+        Map<Long, Integer> recordPhotoCounts = loadRecordPhotoCounts(
+                activityRecords.values().stream()
+                        .map(ActivityRecord::getId)
                         .filter(Objects::nonNull)
                         .toList()
         );
 
         List<Map<String, Object>> items = result.getRecords().stream()
-                .map(item -> toPublishItem(item, signupCounts.getOrDefault(item.getId(), 0L)))
+                .map(item -> toPublishItem(
+                        item,
+                        signupCounts.getOrDefault(item.getId(), 0L),
+                        activityRecords.get(item.getId()),
+                        recordPhotoCounts
+                ))
                 .toList();
 
         return V3Response.success(new V3PageData<>(
@@ -119,9 +136,49 @@ public class PartnerPublishesV3Controller {
             return V3Response.error("AUTH_FORBIDDEN", "forbidden");
         }
 
-        Map<String, Object> item = toPublishItem(activity, loadSignupCounts(List.of(id)).getOrDefault(id, 0L));
+        ActivityRecord activityRecord = loadActivityRecords(List.of(id)).get(id);
+        Map<Long, List<ActivityRecordPhoto>> recordPhotos = loadRecordPhotos(
+                activityRecord != null && activityRecord.getId() != null ? List.of(activityRecord.getId()) : List.of()
+        );
+        Map<String, Object> item = toPublishItem(
+                activity,
+                loadSignupCounts(List.of(id)).getOrDefault(id, 0L),
+                activityRecord,
+                loadRecordPhotoCounts(recordPhotos)
+        );
         item.put("display_applications", loadDisplayApplications(id));
+        item.put("activity_record", toActivityRecordItem(
+                id,
+                activityRecord,
+                activityRecord != null ? recordPhotos.getOrDefault(activityRecord.getId(), List.of()) : List.of()
+        ));
+        item.put("activityRecord", item.get("activity_record"));
         return V3Response.success(item);
+    }
+
+    @GetMapping("/{id}/record")
+    public V3Response<Map<String, Object>> record(@PathVariable Long id) {
+        if (!SecurityContextHolder.isPartner() && !SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        Activity activity = activityService.getById(id);
+        if (activity == null) {
+            return V3Response.error("RESOURCE_NOT_FOUND", "publish not found");
+        }
+        if (!canAccessActivity(activity)) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        ActivityRecord activityRecord = loadActivityRecords(List.of(id)).get(id);
+        Map<Long, List<ActivityRecordPhoto>> recordPhotos = loadRecordPhotos(
+                activityRecord != null && activityRecord.getId() != null ? List.of(activityRecord.getId()) : List.of()
+        );
+        return V3Response.success(toActivityRecordItem(
+                id,
+                activityRecord,
+                activityRecord != null ? recordPhotos.getOrDefault(activityRecord.getId(), List.of()) : List.of()
+        ));
     }
 
     @GetMapping("/{id}/registrations")
@@ -153,6 +210,116 @@ public class PartnerPublishesV3Controller {
                 "activity_id", id,
                 "items", items,
                 "total", items.size()
+        ));
+    }
+
+    @Transactional
+    @PutMapping("/{id}/record")
+    public V3Response<Map<String, Object>> saveRecord(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (!SecurityContextHolder.isPartner() && !SecurityContextHolder.isAdmin()) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+
+        Activity activity = activityService.getById(id);
+        if (activity == null) {
+            return V3Response.error("RESOURCE_NOT_FOUND", "publish not found");
+        }
+        if (!canAccessActivity(activity)) {
+            return V3Response.error("AUTH_FORBIDDEN", "forbidden");
+        }
+        if (!Objects.equals(activity.getAuditStatus(), AUDIT_APPROVED)
+                && !Objects.equals(activity.getAuditStatus(), AUDIT_OFFLINE)) {
+            return V3Response.error("STATE_INVALID_TRANSITION", "only published/offline activity can save record");
+        }
+
+        Integer actualParticipants = parseInteger(
+                firstNonNull(body.get("actual_participants"), body.get("actualParticipants")),
+                0
+        );
+        if (actualParticipants < 0) {
+            return V3Response.error("VALIDATION_ERROR", "actual_participants must be >= 0");
+        }
+
+        String summary = str(body.get("summary"));
+        String rawStatus = normalizeRecordStatus(str(firstNonNull(
+                body.get("completion_status"),
+                body.get("completionStatus")
+        )));
+        boolean markCompleted = Boolean.parseBoolean(String.valueOf(firstNonNull(
+                body.get("mark_completed"),
+                body.get("markCompleted")
+        )));
+        String completionStatus = markCompleted ? "completed" : (rawStatus.isBlank() ? "draft" : rawStatus);
+
+        List<Map<String, Object>> photoPayloads = parseObjectList(body.get("photos"));
+        List<ActivityRecordPhoto> photoEntities = buildRecordPhotos(photoPayloads);
+
+        if ("completed".equals(completionStatus)) {
+            if (actualParticipants <= 0) {
+                return V3Response.error("VALIDATION_ERROR", "completed record requires actual_participants > 0");
+            }
+            if (summary.isBlank()) {
+                return V3Response.error("VALIDATION_ERROR", "completed record requires summary");
+            }
+            if (photoEntities.isEmpty()) {
+                return V3Response.error("VALIDATION_ERROR", "completed record requires at least one photo");
+            }
+        }
+
+        ActivityRecord activityRecord = activityRecordService.getOne(
+                new QueryWrapper<ActivityRecord>().eq("activity_id", id),
+                false
+        );
+        Date now = new Date();
+        String fromStatus = activityRecord == null ? "not_started" : normalizeRecordStatus(activityRecord.getCompletionStatus());
+        if (activityRecord == null) {
+            activityRecord = new ActivityRecord();
+            activityRecord.setActivityId(id);
+            activityRecord.setCreatedAt(now);
+        }
+        activityRecord.setActualParticipants(actualParticipants);
+        activityRecord.setSummary(summary);
+        activityRecord.setCompletionStatus(completionStatus);
+        activityRecord.setRecordedBy(SecurityContextHolder.getCurrentUserId());
+        activityRecord.setUpdatedAt(now);
+        activityRecord.setCompletedAt("completed".equals(completionStatus) ? now : null);
+
+        if (activityRecord.getId() == null) {
+            activityRecordService.save(activityRecord);
+        } else {
+            activityRecordService.updateById(activityRecord);
+            activityRecordPhotoService.remove(new QueryWrapper<ActivityRecordPhoto>().eq("activity_record_id", activityRecord.getId()));
+        }
+
+        if (!photoEntities.isEmpty()) {
+            for (ActivityRecordPhoto photo : photoEntities) {
+                photo.setActivityRecordId(activityRecord.getId());
+                photo.setCreatedAt(now);
+            }
+            activityRecordPhotoService.saveBatch(photoEntities);
+        }
+
+        stateTransitionService.log(
+                "activity_record",
+                activityRecord.getId(),
+                fromStatus.isBlank() ? "draft" : fromStatus,
+                completionStatus,
+                "completed".equals(completionStatus) ? "complete" : "save_draft",
+                summary.isBlank() ? null : summary
+        );
+
+        return V3Response.success(toActivityRecordItem(
+                id,
+                activityRecord,
+                activityRecordPhotoService.list(
+                        new QueryWrapper<ActivityRecordPhoto>()
+                                .eq("activity_record_id", activityRecord.getId())
+                                .orderByAsc("sort_order")
+                                .orderByAsc("id")
+                )
         ));
     }
 
@@ -237,7 +404,7 @@ public class PartnerPublishesV3Controller {
         ensureActivityNo(activity);
         activityService.updateById(activity);
 
-        return V3Response.success(toPublishItem(activity, 0L));
+        return V3Response.success(toPublishItem(activity, 0L, null, Map.of()));
     }
 
     @Transactional
@@ -371,9 +538,15 @@ public class PartnerPublishesV3Controller {
                 activity.getChangeReason()
         );
 
+        ActivityRecord activityRecord = loadActivityRecords(List.of(activity.getId())).get(activity.getId());
+        Map<Long, Integer> recordPhotoCounts = loadRecordPhotoCounts(
+                activityRecord != null && activityRecord.getId() != null ? List.of(activityRecord.getId()) : List.of()
+        );
         return V3Response.success(toPublishItem(
                 activity,
-                loadSignupCounts(List.of(activity.getId())).getOrDefault(activity.getId(), 0L)
+                loadSignupCounts(List.of(activity.getId())).getOrDefault(activity.getId(), 0L),
+                activityRecord,
+                recordPhotoCounts
         ));
     }
 
@@ -574,7 +747,12 @@ public class PartnerPublishesV3Controller {
         activity.setCityName(cities.contains("全国") ? "全国" : cities.get(0));
     }
 
-    private Map<String, Object> toPublishItem(Activity activity, long signupCount) {
+    private Map<String, Object> toPublishItem(
+            Activity activity,
+            long signupCount,
+            ActivityRecord activityRecord,
+            Map<Long, Integer> recordPhotoCounts
+    ) {
         List<String> cities = parseCityList(activity.getCitiesJson());
         if (cities.isEmpty() && activity.getCityName() != null && !activity.getCityName().isBlank()) {
             cities = List.of(activity.getCityName());
@@ -647,7 +825,180 @@ public class PartnerPublishesV3Controller {
         item.put("changed_at", activity.getChangedAt());
         item.put("changedAt", activity.getChangedAt());
         item.put("display_applications", loadDisplayApplications(activity.getId()));
+        Map<String, Object> recordSummary = toActivityRecordSummary(
+                activity.getId(),
+                activityRecord,
+                activityRecord != null ? recordPhotoCounts.getOrDefault(activityRecord.getId(), 0) : 0
+        );
+        item.put("activity_record", recordSummary);
+        item.put("activityRecord", recordSummary);
+        item.put("activity_record_status", recordSummary.get("completion_status"));
+        item.put("activityRecordStatus", recordSummary.get("completionStatus"));
+        item.put("activity_record_status_label", recordSummary.get("completionStatusLabel"));
+        item.put("activityRecordStatusLabel", recordSummary.get("completionStatusLabel"));
+        item.put("activity_record_completed", recordSummary.get("completed"));
+        item.put("activityRecordCompleted", recordSummary.get("completed"));
+        item.put("activity_record_actual_participants", recordSummary.get("actualParticipants"));
+        item.put("activityRecordActualParticipants", recordSummary.get("actualParticipants"));
         return item;
+    }
+
+    private Map<Long, ActivityRecord> loadActivityRecords(List<Long> activityIds) {
+        Map<Long, ActivityRecord> records = new HashMap<>();
+        if (activityIds == null || activityIds.isEmpty()) {
+            return records;
+        }
+        for (ActivityRecord record : activityRecordService.list(
+                new QueryWrapper<ActivityRecord>()
+                        .in("activity_id", activityIds)
+                        .orderByDesc("updated_at")
+                        .orderByDesc("id")
+        )) {
+            if (record.getActivityId() != null && !records.containsKey(record.getActivityId())) {
+                records.put(record.getActivityId(), record);
+            }
+        }
+        return records;
+    }
+
+    private Map<Long, List<ActivityRecordPhoto>> loadRecordPhotos(List<Long> recordIds) {
+        Map<Long, List<ActivityRecordPhoto>> photos = new HashMap<>();
+        if (recordIds == null || recordIds.isEmpty()) {
+            return photos;
+        }
+        for (ActivityRecordPhoto photo : activityRecordPhotoService.list(
+                new QueryWrapper<ActivityRecordPhoto>()
+                        .in("activity_record_id", recordIds)
+                        .orderByAsc("sort_order")
+                        .orderByAsc("id")
+        )) {
+            if (photo.getActivityRecordId() == null) {
+                continue;
+            }
+            photos.computeIfAbsent(photo.getActivityRecordId(), key -> new ArrayList<>()).add(photo);
+        }
+        return photos;
+    }
+
+    private Map<Long, Integer> loadRecordPhotoCounts(List<Long> recordIds) {
+        Map<Long, Integer> counts = new HashMap<>();
+        if (recordIds == null || recordIds.isEmpty()) {
+            return counts;
+        }
+        for (ActivityRecordPhoto photo : activityRecordPhotoService.list(
+                new QueryWrapper<ActivityRecordPhoto>()
+                        .select("activity_record_id")
+                        .in("activity_record_id", recordIds)
+        )) {
+            if (photo.getActivityRecordId() == null) {
+                continue;
+            }
+            counts.merge(photo.getActivityRecordId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private Map<Long, Integer> loadRecordPhotoCounts(Map<Long, List<ActivityRecordPhoto>> photos) {
+        Map<Long, Integer> counts = new HashMap<>();
+        if (photos == null || photos.isEmpty()) {
+            return counts;
+        }
+        for (Map.Entry<Long, List<ActivityRecordPhoto>> entry : photos.entrySet()) {
+            counts.put(entry.getKey(), entry.getValue() == null ? 0 : entry.getValue().size());
+        }
+        return counts;
+    }
+
+    private Map<String, Object> toActivityRecordSummary(Long activityId, ActivityRecord activityRecord, int photoCount) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        String completionStatus = activityRecord == null
+                ? "not_started"
+                : normalizeRecordStatus(activityRecord.getCompletionStatus());
+        if (completionStatus.isBlank()) {
+            completionStatus = "draft";
+        }
+        item.put("id", activityRecord == null ? null : activityRecord.getId());
+        item.put("activity_id", activityId);
+        item.put("activityId", activityId);
+        item.put("actual_participants", activityRecord == null ? 0 : safeInt(activityRecord.getActualParticipants()));
+        item.put("actualParticipants", activityRecord == null ? 0 : safeInt(activityRecord.getActualParticipants()));
+        item.put("completion_status", completionStatus);
+        item.put("completionStatus", completionStatus);
+        item.put("completion_status_label", recordStatusLabel(completionStatus));
+        item.put("completionStatusLabel", recordStatusLabel(completionStatus));
+        item.put("completed", "completed".equals(completionStatus));
+        item.put("completed_at", activityRecord == null ? null : activityRecord.getCompletedAt());
+        item.put("completedAt", activityRecord == null ? null : activityRecord.getCompletedAt());
+        item.put("photo_count", photoCount);
+        item.put("photoCount", photoCount);
+        return item;
+    }
+
+    private Map<String, Object> toActivityRecordItem(
+            Long activityId,
+            ActivityRecord activityRecord,
+            List<ActivityRecordPhoto> photos
+    ) {
+        List<ActivityRecordPhoto> safePhotos = photos == null ? List.of() : photos;
+        Map<String, Object> item = toActivityRecordSummary(activityId, activityRecord, safePhotos.size());
+        item.put("summary", activityRecord == null ? "" : safe(activityRecord.getSummary()));
+        item.put("recorded_by", activityRecord == null ? null : activityRecord.getRecordedBy());
+        item.put("recordedBy", activityRecord == null ? null : activityRecord.getRecordedBy());
+        item.put("created_at", activityRecord == null ? null : activityRecord.getCreatedAt());
+        item.put("createdAt", activityRecord == null ? null : activityRecord.getCreatedAt());
+        item.put("updated_at", activityRecord == null ? null : activityRecord.getUpdatedAt());
+        item.put("updatedAt", activityRecord == null ? null : activityRecord.getUpdatedAt());
+        item.put("photos", safePhotos.stream().map(this::toActivityRecordPhotoItem).toList());
+        return item;
+    }
+
+    private Map<String, Object> toActivityRecordPhotoItem(ActivityRecordPhoto photo) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", photo.getId());
+        item.put("file_name", safe(photo.getFileName()));
+        item.put("fileName", safe(photo.getFileName()));
+        item.put("file_url", safe(photo.getFileUrl()));
+        item.put("fileUrl", safe(photo.getFileUrl()));
+        item.put("url", safe(photo.getFileUrl()));
+        item.put("stored_name", safe(photo.getStoredName()));
+        item.put("storedName", safe(photo.getStoredName()));
+        item.put("file_ext", safe(photo.getFileExt()));
+        item.put("fileExt", safe(photo.getFileExt()));
+        item.put("file_size", photo.getFileSize());
+        item.put("fileSize", photo.getFileSize());
+        item.put("content_type", safe(photo.getContentType()));
+        item.put("contentType", safe(photo.getContentType()));
+        item.put("sort_order", photo.getSortOrder() == null ? 0 : photo.getSortOrder());
+        item.put("sortOrder", photo.getSortOrder() == null ? 0 : photo.getSortOrder());
+        item.put("created_at", photo.getCreatedAt());
+        item.put("createdAt", photo.getCreatedAt());
+        return item;
+    }
+
+    private List<ActivityRecordPhoto> buildRecordPhotos(List<Map<String, Object>> photoPayloads) {
+        List<ActivityRecordPhoto> photos = new ArrayList<>();
+        if (photoPayloads == null || photoPayloads.isEmpty()) {
+            return photos;
+        }
+
+        int fallbackSortOrder = 0;
+        for (Map<String, Object> payload : photoPayloads) {
+            String fileUrl = str(firstNonNull(payload.get("file_url"), payload.get("fileUrl"), payload.get("url")));
+            if (fileUrl.isBlank()) {
+                continue;
+            }
+            ActivityRecordPhoto photo = new ActivityRecordPhoto();
+            photo.setFileUrl(fileUrl);
+            photo.setFileName(str(firstNonNull(payload.get("file_name"), payload.get("fileName"))));
+            photo.setStoredName(str(firstNonNull(payload.get("stored_name"), payload.get("storedName"))));
+            photo.setFileExt(str(firstNonNull(payload.get("file_ext"), payload.get("fileExt"))).toLowerCase());
+            photo.setFileSize(parseLong(firstNonNull(payload.get("file_size"), payload.get("fileSize")), null));
+            photo.setContentType(str(firstNonNull(payload.get("content_type"), payload.get("contentType"))));
+            photo.setSortOrder(parseInteger(firstNonNull(payload.get("sort_order"), payload.get("sortOrder")), fallbackSortOrder));
+            photos.add(photo);
+            fallbackSortOrder++;
+        }
+        return photos;
     }
 
     private List<Map<String, Object>> loadDisplayApplications(Long activityId) {
@@ -835,6 +1186,15 @@ public class PartnerPublishesV3Controller {
         };
     }
 
+    private String recordStatusLabel(String status) {
+        return switch (safeOr(status, "")) {
+            case "completed" -> "已完成";
+            case "draft" -> "草稿";
+            case "not_started" -> "未记录";
+            default -> safeOr(status, "-");
+        };
+    }
+
     private String normalizeActivityType(String raw) {
         return switch (safeOr(raw, "")) {
             case "overseas" -> "inspection";
@@ -850,6 +1210,14 @@ public class PartnerPublishesV3Controller {
         return switch (safeOr(raw, "")) {
             case "member-discount", "member-free" -> raw;
             default -> "paid";
+        };
+    }
+
+    private String normalizeRecordStatus(String raw) {
+        return switch (safeOr(raw, "")) {
+            case "completed" -> "completed";
+            case "draft" -> "draft";
+            default -> "";
         };
     }
 
@@ -890,6 +1258,17 @@ public class PartnerPublishesV3Controller {
                 return defaultValue;
             }
             return Integer.parseInt(String.valueOf(value).trim());
+        } catch (Exception ignored) {
+            return defaultValue;
+        }
+    }
+
+    private Long parseLong(Object value, Long defaultValue) {
+        try {
+            if (value == null || String.valueOf(value).isBlank()) {
+                return defaultValue;
+            }
+            return Long.parseLong(String.valueOf(value).trim());
         } catch (Exception ignored) {
             return defaultValue;
         }
@@ -953,6 +1332,39 @@ public class PartnerPublishesV3Controller {
                 .map(String::trim)
                 .filter(item -> !item.isBlank())
                 .toList());
+    }
+
+    private List<Map<String, Object>> parseObjectList(Object value) {
+        if (value == null) {
+            return new ArrayList<>();
+        }
+        if (value instanceof List<?> list) {
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> rawMap) {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                        map.put(String.valueOf(entry.getKey()), entry.getValue());
+                    }
+                    result.add(map);
+                }
+            }
+            return result;
+        }
+
+        String raw = str(value);
+        if (raw.isBlank() || !raw.startsWith("[")) {
+            return new ArrayList<>();
+        }
+        try {
+            List<LinkedHashMap<String, Object>> parsed = objectMapper.readValue(
+                    raw,
+                    new TypeReference<ArrayList<LinkedHashMap<String, Object>>>() {}
+            );
+            return new ArrayList<>(parsed);
+        } catch (Exception ignored) {
+            return new ArrayList<>();
+        }
     }
 
     private String writeJson(List<String> values) {

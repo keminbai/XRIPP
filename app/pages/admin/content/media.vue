@@ -3,9 +3,9 @@
   文件路径: D:\ipp-platform\app\pages\admin\content\media.vue
   版本: V1.1（2026-02-27 收敛版）
   说明:
-  1. 列表读取改为真实接口：GET /v3/admin/tenders
-  2. 审核/上下架改为真实状态流转：POST /v3/admin/tenders/{id}/transition
-  3. 发布/编辑正文接口尚未独立落地，当前为受控降级（不假成功）
+  1. 列表/详情/创建/编辑统一接入 GET|POST|PUT /v3/admin/contents
+  2. 审核/上下架改为真实状态流转：POST /v3/admin/contents/{id}/transition
+  3. 正文与扩展元数据分离：正文使用 body，分类/来源/作者使用 extra_json
   ========================================================================
 -->
 <template>
@@ -175,7 +175,14 @@
         </el-table>
 
         <div class="mt-4 flex justify-end">
-          <el-pagination background layout="total, prev, pager, next" :total="filteredNewsList.length" :page-size="10" />
+          <el-pagination
+            v-model:current-page="currentPage"
+            background
+            layout="total, prev, pager, next"
+            :total="totalItems"
+            :page-size="pageSize"
+            @current-change="loadNews"
+          />
         </div>
       </div>
     </div>
@@ -226,7 +233,6 @@
 
         <el-form-item label="正文内容" required>
           <el-input v-model="form.content" type="textarea" :rows="12" placeholder="请输入正文内容..." />
-          <div class="text-xs text-slate-400 mt-1">提示：当前页面写接口未接入，提交将进入受控降级提示。</div>
         </el-form-item>
 
         <el-form-item label="来源">
@@ -267,6 +273,10 @@ const apiLoading = ref(false)
 const currentUserRole = ref<'admin' | 'partner'>(getLoginUser()?.role === 'partner' ? 'partner' : 'admin')
 const formRef = ref<FormInstance>()
 const imageFileList = ref<UploadUserFile[]>([])
+const currentEditId = ref<number | null>(null)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalItems = ref(0)
 
 const filters = ref({ keyword: '', category: '', status: '' })
 
@@ -282,6 +292,16 @@ const form = ref({
 
 const allNewsList = ref<any[]>([])
 
+const parseExtraJson = (raw: any) => {
+  if (!raw || typeof raw !== 'string') return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
 const fmtDate = (v: any) => {
   if (!v) return '-'
   const d = new Date(v)
@@ -294,8 +314,8 @@ const fmtDate = (v: any) => {
 
 const mapCategory = (raw?: string): 'platform' | 'industry' | 'policy' => {
   const c = String(raw || '').toLowerCase()
-  if (c === 'it') return 'platform'
-  if (c === 'construction') return 'policy'
+  if (['platform', 'news', 'company'].includes(c)) return 'platform'
+  if (['policy', 'regulation'].includes(c)) return 'policy'
   return 'industry'
 }
 
@@ -309,21 +329,24 @@ const mapStatus = (raw?: string) => {
 
 const mapNewsRow = (item: any) => {
   const st = mapStatus(item?.status)
+  const extra = parseExtraJson(item?.extraJson ?? item?.extra_json)
+  const category = mapCategory(extra.category || item?.category)
   return {
     id: item?.id,
     newsNo: item?.contentNo || `N-${item?.id || ''}`,
     title: item?.title || '未命名内容',
-    summary: item?.description || '',
-    category: mapCategory(item?.category),
+    summary: item?.summary || item?.description || '',
+    category,
     coverImage: item?.coverImage || 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=200',
-    content: item?.description || '',
-    source: item?.organization || '-',
-    author: '-',
+    content: item?.body || extra.content || '',
+    source: extra.source || '-',
+    author: extra.author || '-',
     publisher: item?.publisher || '总部',
     publishDate: fmtDate(item?.publishDate || item?.createdAt || item?.updatedAt),
     status: st.key,
     statusLabel: st.label,
-    rejectReason: item?.rejectReason || '',
+    rejectReason: item?.changeReason || item?.rejectReason || '',
+    extraJson: item?.extraJson || item?.extra_json || '',
     viewCount: Number(item?.viewCount || 0)
   }
 }
@@ -331,11 +354,20 @@ const mapNewsRow = (item: any) => {
 const loadNews = async () => {
   apiLoading.value = true
   try {
-    const res: any = await apiRequest('/v3/admin/contents?content_type=media&page=1&page_size=200')
+    const query: Record<string, any> = {
+      content_type: 'media',
+      page: currentPage.value,
+      page_size: pageSize.value,
+    }
+    if (filters.value.keyword.trim()) query.keyword = filters.value.keyword.trim()
+    if (filters.value.status) query.publish_status = filters.value.status
+    const res: any = await apiRequest('/v3/admin/contents', { query })
     const items = Array.isArray(res?.data?.items) ? res.data.items : []
     allNewsList.value = items.map(mapNewsRow)
+    totalItems.value = Number(res?.data?.total ?? 0)
   } catch (e: any) {
     allNewsList.value = []
+    totalItems.value = 0
     ElMessage.error(e?.message || '读取媒体内容失败')
   } finally {
     apiLoading.value = false
@@ -359,22 +391,9 @@ const stats = computed(() => {
 
 const filteredNewsList = computed(() => {
   let list = allNewsList.value
-
-  if (filters.value.keyword) {
-    list = list.filter(item =>
-      String(item.title || '').includes(filters.value.keyword) ||
-      String(item.newsNo || '').includes(filters.value.keyword)
-    )
-  }
-
   if (filters.value.category) {
     list = list.filter(item => item.category === filters.value.category)
   }
-
-  if (filters.value.status) {
-    list = list.filter(item => item.status === filters.value.status)
-  }
-
   return list
 })
 
@@ -425,10 +444,14 @@ const handleImageSuccess: UploadProps['onSuccess'] = (response: any) => {
   }
 }
 
-const handleSearch = () => {}
+const handleSearch = () => {
+  currentPage.value = 1
+  loadNews()
+}
 
 const openPublishDialog = () => {
   isEdit.value = false
+  currentEditId.value = null
   form.value = {
     category: '',
     title: '',
@@ -442,54 +465,93 @@ const openPublishDialog = () => {
   publishDialogVisible.value = true
 }
 
-const handlePublish = async () => {
-  if (isEdit.value) {
-    ElMessage.warning('编辑接口未接入，当前为受控降级模式')
-    return
+const loadNewsDetail = async (id: number) => {
+  const res: any = await apiRequest(`/v3/admin/contents/${id}`)
+  const item = res?.data || {}
+  const extra = parseExtraJson(item?.extraJson ?? item?.extra_json)
+  return {
+    id: Number(item?.id || 0) || null,
+    category: mapCategory(extra.category),
+    title: item?.title || '',
+    summary: item?.summary || '',
+    coverImage: item?.coverImage || extra.coverImage || '',
+    content: item?.body || '',
+    source: extra.source || '',
+    author: extra.author || '',
   }
+}
 
+const handlePublish = async () => {
   if (!form.value.title?.trim()) {
     return ElMessage.warning('请填写新闻标题')
+  }
+  if (!form.value.category) {
+    return ElMessage.warning('请选择新闻分类')
+  }
+  if (!form.value.content?.trim()) {
+    return ElMessage.warning('请填写正文内容')
   }
 
   submitLoading.value = true
   try {
-    const extraBody = JSON.stringify({
+    const extraJson = JSON.stringify({
       category: form.value.category,
       coverImage: form.value.coverImage,
-      content: form.value.content,
       source: form.value.source,
       author: form.value.author
     })
 
-    await apiRequest('/v3/admin/contents', {
-      method: 'POST',
+    const method = isEdit.value && currentEditId.value ? 'PUT' : 'POST'
+    const url = isEdit.value && currentEditId.value
+      ? `/v3/admin/contents/${currentEditId.value}`
+      : '/v3/admin/contents'
+
+    await apiRequest(url, {
+      method,
       body: {
         title: form.value.title.trim(),
         content_type: 'media',
         summary: form.value.summary || '',
-        body: extraBody,
+        body: form.value.content || '',
+        extra_json: extraJson,
+        cover_image: form.value.coverImage || '',
         city_name: '',
         is_paid: false,
         fee: 0
       }
     })
 
-    ElMessage.success('新闻已创建（草稿），可在列表中发布')
+    ElMessage.success(isEdit.value ? '新闻修改已保存' : '新闻已创建（草稿），可在列表中发布')
     publishDialogVisible.value = false
     await loadNews()
   } catch (e: any) {
-    ElMessage.error(e?.message || '创建失败')
+    ElMessage.error(e?.message || '保存失败')
   } finally {
     submitLoading.value = false
   }
 }
 
-const handleEdit = (row: any) => {
-  isEdit.value = true
-  form.value = { ...row }
-  publishDialogVisible.value = true
-  ElMessage.warning('编辑接口未接入，当前仅支持查看与审核状态流转')
+const handleEdit = async (row: any) => {
+  try {
+    const detail = await loadNewsDetail(row.id)
+    isEdit.value = true
+    currentEditId.value = detail.id
+    form.value = {
+      category: detail.category,
+      title: detail.title,
+      summary: detail.summary,
+      coverImage: detail.coverImage,
+      content: detail.content,
+      source: detail.source,
+      author: detail.author
+    }
+    imageFileList.value = form.value.coverImage
+      ? [{ name: 'cover-image', url: form.value.coverImage } as UploadUserFile]
+      : []
+    publishDialogVisible.value = true
+  } catch (e: any) {
+    ElMessage.error(e?.message || '读取新闻详情失败')
+  }
 }
 
 const handleApprove = (row: any) => {
