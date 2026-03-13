@@ -56,12 +56,14 @@ sqlcmd -S localhost,1433 -U sa -P "<your-password>" -d XRIPP_CORE -i "D:\ipp-pla
 
 1. `docs/DDL_Phase17_ActivityRecords.sql`
 2. `docs/DDL_Phase18_Contents_ExtraJson.sql`
+3. `docs/DDL_Phase20_AdminConfigs.sql`（若当前要联调 `admin/finance/pricing.vue`）
 
 建议顺带复核并按需执行：
 
 1. `docs/DDL_Phase2_Migration.sql`
 2. `docs/DDL_Phase14_Activities_Closure.sql`
 3. `docs/DDL_Phase15_ActivityDisplayApplications.sql`
+4. `docs/DDL_Phase19_ProfitSharing.sql`（若当前要联调 `admin/finance/profit.vue`）
 
 如果使用 `sqlcmd`，可按单文件逐个执行，不要自行改写字段名来“临时绕过”。
 
@@ -145,3 +147,49 @@ GET http://localhost:8080/api/v3/runtime-info
 2. 实际执行了哪些 DDL
 3. `/api/v3/runtime-info` 返回值
 4. 7 个最小接口验证结果
+
+## 9. 利润分成模块补充验证
+
+若利润分成模块已执行 `docs/DDL_Phase19_ProfitSharing.sql` 并完成重启，还需要补齐以下 3 个接口的实测。
+
+### 9.1 补测目标
+
+此前已完成的仅是核心冒烟：
+- `GET /v3/admin/profit-sharing/configs`
+- `POST /v3/admin/profit-sharing/configs`
+- `GET /v3/admin/profit-sharing/stats`
+- `GET /v3/admin/profit-sharing/records`
+
+仍需补测：
+1. `PUT /v3/admin/profit-sharing/configs/{id}`
+2. `DELETE /v3/admin/profit-sharing/configs/{id}`
+3. `POST /v3/admin/profit-sharing/settlements`
+
+### 9.2 建议验证顺序
+
+1. 登录获取 admin token
+2. `GET /configs` 找到现有配置 id 和 partnerId
+3. 用该记录做一次 `PUT`，例如修改：
+   - `percentage`
+   - `business_lines`
+   - `enabled`
+4. 再次 `GET /configs`，确认修改结果已持久化
+5. 选择一条测试配置做 `DELETE`
+6. 再次 `GET /configs`，确认该记录已消失
+7. 选择一条仍然存在的配置，调用 `POST /settlements`
+8. 再次 `GET /stats`，确认该合伙人在对应月份出现已结算状态
+
+### 9.3 验收标准
+
+- `PUT` 返回 200，且修改值可重新查询到
+- `DELETE` 返回 200，且删除后不再出现在配置列表
+- `POST /settlements` 返回 200，且 `GET /stats` 中对应月份 `settled=true`
+- 全流程无 500
+
+### 9.4 回传要求
+
+请额外回传：
+- 参与测试的配置 id / partnerId
+- `PUT` 前后关键字段差异
+- `DELETE` 后的列表确认结果
+- `POST /settlements` 的返回体与对应 `GET /stats` 结果

@@ -11,13 +11,16 @@
 -->
 <template>
   <div class="space-y-6">
-    <el-alert type="info" :closable="true" show-icon>
+    <el-alert type="success" :closable="false" show-icon>
       <template #title>
-        定价配置暂未对接后端API，修改仅在当前会话有效，刷新后将重置。
+        定价配置已接入真实 API，保存后会持久化到后台配置中心。
       </template>
     </el-alert>
+    <div class="flex justify-end">
+      <el-button :loading="loading" @click="loadPricingData">刷新配置</el-button>
+    </div>
     <!-- Tab 切换 -->
-    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+    <div v-loading="loading" class="bg-white rounded-xl border border-slate-200 shadow-sm">
       <el-tabs v-model="activeTab" class="p-6">
         <!-- 1. 会员费定价 -->
         <el-tab-pane label="会员费定价" name="membership">
@@ -236,7 +239,7 @@
       </el-form>
       <template #footer>
         <el-button @click="membershipDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveMembership">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSaveMembership">保存</el-button>
       </template>
     </el-dialog>
 
@@ -258,7 +261,7 @@
       </el-form>
       <template #footer>
         <el-button @click="tenderDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveTender">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSaveTender">保存</el-button>
       </template>
     </el-dialog>
 
@@ -286,7 +289,7 @@
       </el-form>
       <template #footer>
         <el-button @click="trainingDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveTraining">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSaveTraining">保存</el-button>
       </template>
     </el-dialog>
 
@@ -311,7 +314,7 @@
       </el-form>
       <template #footer>
         <el-button @click="serviceDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSaveService">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSaveService">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -319,42 +322,97 @@
 
 <script setup lang="ts">
 import { Plus, Check } from '@element-plus/icons-vue'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { apiRequest } from '@/utils/request'
 
 definePageMeta({ layout: 'admin' })
 
 const activeTab = ref('membership')
+const loading = ref(false)
+const saving = ref(false)
 
-// 会员费
-const membershipTiers = ref([
+const PRICING_NAMESPACE = 'pricing'
+const CONFIG_META = {
+  membership_tiers: { name: '会员费定价', sortOrder: 10 },
+  tender_pricing: { name: '标书定价', sortOrder: 20 },
+  training_pricing: { name: '培训定价', sortOrder: 30 },
+  service_pricing: { name: '服务定价', sortOrder: 40 }
+} as const
+
+type MembershipTier = {
+  id: number
+  name: string
+  description: string
+  price: number
+  originalPrice: number
+  isPopular: boolean
+  features: string[]
+}
+
+type TenderPricingItem = {
+  id: number
+  category: string
+  memberPrice: number
+  normalPrice: number
+  description: string
+}
+
+type TrainingPricingItem = {
+  id: number
+  name: string
+  duration: string
+  price: number
+  memberDiscount: number
+  status: string
+}
+
+type ServicePricingItem = {
+  id: number
+  name: string
+  description: string
+  basePrice: number
+  unit: string
+  priceRange: string
+}
+
+const createDefaultMembershipTiers = (): MembershipTier[] => ([
   { id: 1, name: '普通会员', description: '基础服务权益', price: 2980, originalPrice: 3980, isPopular: false, features: ['标书免费下载 50次/年', '基础培训课程 3次', '标书销售8折优惠', '在线咨询服务'] },
   { id: 2, name: 'VIP会员', description: '高级服务权益', price: 9800, originalPrice: 12800, isPopular: true, features: ['标书免费下载 200次/年', '所有培训课程 不限次数', '标书销售免费', '1对1专属顾问', '优先参加活动', '商机优先推送'] },
   { id: 3, name: 'SVIP会员', description: '尊享服务权益', price: 29800, originalPrice: 39800, isPopular: false, features: ['标书无限下载', '所有培训课程 VIP席位', '标书撰写服务 5次/年', '专属客户经理', '定制化服务方案', '年度战略咨询'] }
 ])
 
-// 标书
-const tenderPricing = ref([
+const createDefaultTenderPricing = (): TenderPricingItem[] => ([
   { id: 1, category: '联合国标书', memberPrice: 0, normalPrice: 299, description: '会员免费，非会员299元/份' },
   { id: 2, category: '政府采购标书', memberPrice: 199, normalPrice: 399, description: '会员199元，非会员399元/份' },
   { id: 3, category: '企业采购标书', memberPrice: 99, normalPrice: 199, description: '会员99元，非会员199元/份' }
 ])
 
-// 培训
-const trainingPricing = ref([
+const createDefaultTrainingPricing = (): TrainingPricingItem[] => ([
   { id: 1, name: 'CIPS国际采购认证', duration: '3天', price: 3999, memberDiscount: 7, status: 'active' },
   { id: 2, name: '联合国采购实战课', duration: '2天', price: 2999, memberDiscount: 8, status: 'active' },
   { id: 3, name: '标书撰写技巧', duration: '1天', price: 1999, memberDiscount: 8, status: 'active' },
   { id: 4, name: '国际贸易实务', duration: '3天', price: 3499, memberDiscount: 7, status: 'inactive' }
 ])
 
-// 服务
-const servicePricing = ref([
+const createDefaultServicePricing = (): ServicePricingItem[] => ([
   { id: 1, name: '标书撰写服务', description: '专业团队撰写投标文件', basePrice: 5000, unit: '按项目复杂度收费', priceRange: '¥5,000 - ¥50,000' },
   { id: 2, name: '投标咨询服务', description: '投标策略规划与指导', basePrice: 3000, unit: '按咨询时长收费', priceRange: '¥3,000 - ¥20,000' },
   { id: 3, name: '海外认证服务', description: '协助企业获得国际认证', basePrice: 8000, unit: '按认证类型收费', priceRange: '¥8,000 - ¥80,000' },
   { id: 4, name: '展会对接服务', description: '国际展会参展协助', basePrice: 2000, unit: '按展会规模收费', priceRange: '¥2,000 - ¥30,000' }
 ])
+
+// 会员费
+const membershipTiers = ref<MembershipTier[]>(createDefaultMembershipTiers())
+
+// 标书
+const tenderPricing = ref<TenderPricingItem[]>(createDefaultTenderPricing())
+
+// 培训
+const trainingPricing = ref<TrainingPricingItem[]>(createDefaultTrainingPricing())
+
+// 服务
+const servicePricing = ref<ServicePricingItem[]>(createDefaultServicePricing())
 
 // 会员弹窗
 const membershipDialogVisible = ref(false)
@@ -386,13 +444,13 @@ const handleSaveMembership = () => {
     membershipTiers.value.push(payload)
   }
   membershipDialogVisible.value = false
-  ElMessage.success('保存成功')
+  void persistPricingSection('membership_tiers', membershipTiers.value, '会员费定价已保存')
 }
 
 const handleRemoveMembership = (tier: any) => {
   ElMessageBox.confirm(`确定删除 ${tier.name} 吗？`, '提示', { type: 'warning' }).then(() => {
     membershipTiers.value = membershipTiers.value.filter(x => x.id !== tier.id)
-    ElMessage.success('已删除')
+    void persistPricingSection('membership_tiers', membershipTiers.value, '会员费定价已更新')
   })
 }
 
@@ -416,13 +474,13 @@ const handleSaveTender = () => {
     tenderPricing.value.push(payload)
   }
   tenderDialogVisible.value = false
-  ElMessage.success('保存成功')
+  void persistPricingSection('tender_pricing', tenderPricing.value, '标书定价已保存')
 }
 
 const handleRemoveTender = (row: any) => {
   ElMessageBox.confirm(`确定删除 ${row.category} 吗？`, '提示', { type: 'warning' }).then(() => {
     tenderPricing.value = tenderPricing.value.filter(x => x.id !== row.id)
-    ElMessage.success('已删除')
+    void persistPricingSection('tender_pricing', tenderPricing.value, '标书定价已更新')
   })
 }
 
@@ -446,18 +504,18 @@ const handleSaveTraining = () => {
     trainingPricing.value.push(payload)
   }
   trainingDialogVisible.value = false
-  ElMessage.success('保存成功')
+  void persistPricingSection('training_pricing', trainingPricing.value, '培训定价已保存')
 }
 
 const handleToggleTrainingStatus = (row: any) => {
   row.status = row.status === 'active' ? 'inactive' : 'active'
-  ElMessage.success(row.status === 'active' ? '已启用' : '已停用')
+  void persistPricingSection('training_pricing', trainingPricing.value, row.status === 'active' ? '培训定价已启用' : '培训定价已停用')
 }
 
 const handleRemoveTraining = (row: any) => {
   ElMessageBox.confirm(`确定删除 ${row.name} 吗？`, '提示', { type: 'warning' }).then(() => {
     trainingPricing.value = trainingPricing.value.filter(x => x.id !== row.id)
-    ElMessage.success('已删除')
+    void persistPricingSection('training_pricing', trainingPricing.value, '培训定价已更新')
   })
 }
 
@@ -481,13 +539,122 @@ const handleSaveService = () => {
     servicePricing.value.push(payload)
   }
   serviceDialogVisible.value = false
-  ElMessage.success('保存成功')
+  void persistPricingSection('service_pricing', servicePricing.value, '服务定价已保存')
 }
 
 const handleRemoveService = (row: any) => {
   ElMessageBox.confirm(`确定删除 ${row.name} 吗？`, '提示', { type: 'warning' }).then(() => {
     servicePricing.value = servicePricing.value.filter(x => x.id !== row.id)
-    ElMessage.success('已删除')
+    void persistPricingSection('service_pricing', servicePricing.value, '服务定价已更新')
   })
 }
+
+const normalizeNumber = (value: unknown, fallback = 0) => {
+  const num = Number(value ?? fallback)
+  return Number.isFinite(num) ? num : fallback
+}
+
+const normalizeMembershipTiers = (value: unknown): MembershipTier[] => {
+  if (!Array.isArray(value)) return createDefaultMembershipTiers()
+  return value.map((item: any, index) => ({
+    id: normalizeNumber(item?.id, index + 1),
+    name: item?.name || '',
+    description: item?.description || '',
+    price: normalizeNumber(item?.price),
+    originalPrice: normalizeNumber(item?.originalPrice),
+    isPopular: Boolean(item?.isPopular),
+    features: Array.isArray(item?.features) ? item.features.map((x: any) => String(x || '').trim()).filter(Boolean) : []
+  }))
+}
+
+const normalizeTenderPricing = (value: unknown): TenderPricingItem[] => {
+  if (!Array.isArray(value)) return createDefaultTenderPricing()
+  return value.map((item: any, index) => ({
+    id: normalizeNumber(item?.id, index + 1),
+    category: item?.category || '',
+    memberPrice: normalizeNumber(item?.memberPrice),
+    normalPrice: normalizeNumber(item?.normalPrice),
+    description: item?.description || ''
+  }))
+}
+
+const normalizeTrainingPricing = (value: unknown): TrainingPricingItem[] => {
+  if (!Array.isArray(value)) return createDefaultTrainingPricing()
+  return value.map((item: any, index) => ({
+    id: normalizeNumber(item?.id, index + 1),
+    name: item?.name || '',
+    duration: item?.duration || '',
+    price: normalizeNumber(item?.price),
+    memberDiscount: normalizeNumber(item?.memberDiscount, 8),
+    status: item?.status === 'inactive' ? 'inactive' : 'active'
+  }))
+}
+
+const normalizeServicePricing = (value: unknown): ServicePricingItem[] => {
+  if (!Array.isArray(value)) return createDefaultServicePricing()
+  return value.map((item: any, index) => ({
+    id: normalizeNumber(item?.id, index + 1),
+    name: item?.name || '',
+    description: item?.description || '',
+    basePrice: normalizeNumber(item?.basePrice),
+    unit: item?.unit || '',
+    priceRange: item?.priceRange || ''
+  }))
+}
+
+const loadPricingData = async () => {
+  loading.value = true
+  try {
+    const res: any = await apiRequest(`/v3/admin/configs/${PRICING_NAMESPACE}`)
+    const items = Array.isArray(res?.data?.items) ? res.data.items : []
+    const itemMap = items.reduce((acc: Record<string, any>, item: any) => {
+      acc[item.key] = item.value
+      return acc
+    }, {})
+
+    membershipTiers.value = normalizeMembershipTiers(itemMap.membership_tiers)
+    tenderPricing.value = normalizeTenderPricing(itemMap.tender_pricing)
+    trainingPricing.value = normalizeTrainingPricing(itemMap.training_pricing)
+    servicePricing.value = normalizeServicePricing(itemMap.service_pricing)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '定价配置加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const persistPricingSection = async (
+  key: keyof typeof CONFIG_META,
+  value: unknown,
+  successMessage: string
+) => {
+  saving.value = true
+  try {
+    const meta = CONFIG_META[key]
+    await apiRequest(`/v3/admin/configs/${PRICING_NAMESPACE}/batch`, {
+      method: 'POST',
+      body: {
+        items: [
+          {
+            key,
+            name: meta.name,
+            sort_order: meta.sortOrder,
+            enabled: true,
+            value
+          }
+        ]
+      }
+    })
+    ElMessage.success(successMessage)
+    await loadPricingData()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '定价配置保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadPricingData()
+})
 </script>

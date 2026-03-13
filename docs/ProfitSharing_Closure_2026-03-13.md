@@ -83,15 +83,32 @@
 
 1. 执行 `docs/DDL_Phase19_ProfitSharing.sql`
 2. 重启后端，使 Phase 19 preflight 生效
-3. 验证以下接口：
+3. 先做核心冒烟验证：
    - `GET /v3/admin/profit-sharing/configs`
    - `POST /v3/admin/profit-sharing/configs`
    - `GET /v3/admin/profit-sharing/stats`
    - `GET /v3/admin/profit-sharing/records`
+4. 再补齐完整写接口验证：
+   - `PUT /v3/admin/profit-sharing/configs/{id}`
+   - `DELETE /v3/admin/profit-sharing/configs/{id}`
    - `POST /v3/admin/profit-sharing/settlements`
-4. 进入 `admin/finance/profit.vue` 进行页面联调
+5. 进入 `admin/finance/profit.vue` 进行页面联调
 
 ## 8. 结论
 
 `admin/finance/profit.vue` 已从“前端假配置 + 假结算”收敛为真实后端模块。
 后续若要继续扩展，可在此基础上追加撤销结算、重算、分账流水等能力。
+
+## 9. 当前验证口径说明
+
+截至本轮仓库留痕：
+- 代码静态检查通过
+- WSL 镜像目录下前端 build / 后端 compile 通过
+- Windows 侧已完成核心冒烟与持久化复查
+
+但如果按“完整写接口验收”标准，还应继续补测：
+- 配置编辑
+- 配置删除
+- 月度结算写库
+
+补测步骤已同步写入 `Claude_Windows_Execution_Runbook_2026-03-13.md`。
