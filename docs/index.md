@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第五十二轮：出海发布系统真实化）
+最后更新：2026-03-14（第五十三轮：深度回归验证 + audit_logs CHECK 修复）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -43,6 +43,7 @@
 | 22 | [DDL_Phase22_Notifications.sql](./DDL_Phase22_Notifications.sql) | 通知中心核心表：类型设置 / 模板 / 发送记录 |
 | 23 | [DDL_Phase23_SystemPermissions_RBAC.sql](./DDL_Phase23_SystemPermissions_RBAC.sql) | 系统权限中心最小 RBAC 底座：权限档案 / 模块授权 / 登录模式 / `sys_user.permission_profile_id` |
 | 24 | [DDL_Phase24_Overseas_Realization.sql](./DDL_Phase24_Overseas_Realization.sql) | 出海发布系统真实化：`overseas_services` / `overseas_service_files` / `overseas_reports` + `overseas_management` 权限扩展 |
+| 25 | [DDL_Phase25_AuditLogs_CheckFix.sql](./DDL_Phase25_AuditLogs_CheckFix.sql) | audit_logs CHECK 约束扩展：支持 published/created/draft/update/delete 等 action 值 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -75,6 +76,7 @@
 - [OverseasPublishing_Closure_2026-03-14.md](./OverseasPublishing_Closure_2026-03-14.md) — 出海发布系统真实化：services / reports / analysis 三页去 session-only
 - [OverseasPublishing_WindowsValidation_2026-03-14.md](./OverseasPublishing_WindowsValidation_2026-03-14.md) — Windows 环境验证记录：Phase 24 海外模块接口与口径修正通过
 - [AdminSmokeValidation_2026-03-14.md](./AdminSmokeValidation_2026-03-14.md) — Windows 环境全量 Admin 关键路径冒烟：40/40 PASS
+- [DeepRegression_2026-03-14.md](./DeepRegression_2026-03-14.md) — 深度回归验证：CRUD + 状态转换 + 多角色隔离 + audit_logs CHECK 修复
 - [Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md](./Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md) — Claude Windows 侧执行清单：Phase 24 DDL / API / 前端联调 / 权限验证
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
