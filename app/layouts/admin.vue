@@ -71,11 +71,11 @@
               <el-icon><User /></el-icon>
               <span>会员管理系统</span>
             </template>
-            <el-menu-item index="/admin/members/analysis" v-if="showAdminRoute('/admin/members/analysis') || currentRole === 'partner'">
+            <el-menu-item index="/admin/members/analysis" v-if="showRoute('/admin/members/analysis')">
               <el-icon><DataAnalysis /></el-icon>
               <span>会员统计分析</span>
             </el-menu-item>
-            <el-menu-item index="/admin/members/list" v-if="showAdminRoute('/admin/members/list') || currentRole === 'partner'">
+            <el-menu-item index="/admin/members/list" v-if="showRoute('/admin/members/list')">
               <el-icon><List /></el-icon>
               <span>会员管理列表</span>
             </el-menu-item>
@@ -124,11 +124,11 @@
               <el-icon><OfficeBuilding /></el-icon>
               <span>服务商系统</span>
             </template>
-            <el-menu-item index="/admin/suppliers/analysis" v-if="currentRole !== 'admin' || isSuperAdmin">
+            <el-menu-item index="/admin/suppliers/analysis" v-if="showRoute('/admin/suppliers/analysis')">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计分析</span>
             </el-menu-item>
-            <el-menu-item index="/admin/suppliers/list" v-if="currentRole !== 'admin' || isSuperAdmin">
+            <el-menu-item index="/admin/suppliers/list" v-if="showRoute('/admin/suppliers/list')">
               <el-icon><List /></el-icon>
               <span>服务商名录库</span>
             </el-menu-item>
@@ -207,12 +207,12 @@
               <span>合伙人管理</span>
             </el-menu-item>
             <!-- 合伙人可见：我的资源 -->
-            <el-menu-item index="/admin/partners/resources" v-if="currentRole !== 'admin' || isSuperAdmin">
+            <el-menu-item index="/admin/partners/resources" v-if="showRoute('/admin/partners/resources')">
               <el-icon><Box /></el-icon>
               <span>资源库</span>
             </el-menu-item>
             <!-- ✅ 新增：合伙人个人中心 -->
-            <el-menu-item index="/admin/partners/center" v-if="currentRole !== 'admin' || isSuperAdmin">
+            <el-menu-item index="/admin/partners/center" v-if="showRoute('/admin/partners/center')">
               <el-icon><UserFilled /></el-icon>
               <span>合伙人个人中心</span>
             </el-menu-item>
@@ -401,7 +401,7 @@ import {
   Mic, Select, Location, Service, Document, Box, DataBoard, Goods,
   UserFilled, Place, Operation, Key, TrendCharts, PriceTag, RefreshLeft,
   Coin, Tools, InfoFilled, Link,
-  View, SwitchButton, EditPen, FolderOpened, Headset, Medal, Lock
+  View, SwitchButton, FolderOpened, Headset, Medal, Lock
 } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -469,9 +469,11 @@ const homeLabel = computed(() => {
   return '工作台'
 })
 
+const showRoute = (path: string) => canAccessAdminRoute(path, permissionSnapshot.value)
+
 const showAdminRoute = (path: string) => {
   if (currentRole.value !== 'admin') return false
-  return canAccessAdminRoute(path, permissionSnapshot.value)
+  return showRoute(path)
 }
 
 const showAnyAdminRoute = (paths: string[]) => {
@@ -479,19 +481,18 @@ const showAnyAdminRoute = (paths: string[]) => {
   return paths.some((item) => showAdminRoute(item))
 }
 
+const showAnyRoute = (paths: string[]) => paths.some((item) => showRoute(item))
+
 const showMemberSystemMenu = computed(() => {
-  if (currentRole.value === 'partner') return true
-  return showAnyAdminRoute(['/admin/members/analysis', '/admin/members/list', '/admin/members/orders', '/admin/members/un-audit'])
+  return showAnyRoute(['/admin/members/analysis', '/admin/members/list', '/admin/members/orders', '/admin/members/un-audit'])
 })
 
 const showSupplierSystemMenu = computed(() => {
-  if (currentRole.value === 'partner') return true
-  return showAnyAdminRoute(['/admin/suppliers/analysis', '/admin/suppliers/list', '/admin/suppliers/audit'])
+  return showAnyRoute(['/admin/suppliers/analysis', '/admin/suppliers/list', '/admin/suppliers/audit'])
 })
 
 const showPartnerSystemMenu = computed(() => {
-  if (currentRole.value === 'partner') return true
-  return showAnyAdminRoute(['/admin/partners/analysis', '/admin/partners/list', '/admin/partners/resources', '/admin/partners/center'])
+  return showAnyRoute(['/admin/partners/analysis', '/admin/partners/list', '/admin/partners/resources', '/admin/partners/center'])
 })
 
 // 当前激活菜单

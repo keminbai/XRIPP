@@ -8,6 +8,8 @@
 - `admin/finance/profit.vue` 已完成真实配置/统计/明细/结算接入，不再属于 mock/hybrid 页面
 - `admin/business/packages.vue` / `promotions.vue` / `roles.vue` 已完成真实持久化接入，不再属于 session-only 页面
 - `admin/system/certificates.vue` 已完成真实持久化接入，不再属于 session-only 页面
+- partner 后台访问口径已收敛为显式 allowlist：`/admin/partner-publish`、`/admin/members/analysis`、`/admin/members/list`、`/admin/suppliers/analysis`、`/admin/suppliers/list`
+- `admin/partners/resources.vue`、`admin/partners/center.vue` 仍保留早期需求壳页代码，但当前未接入真实后端，也不再对 partner 暴露，不纳入本轮 UAT
 
 但上述页面的 Windows 浏览器联调留痕尚未补齐，因此在第一轮 Alpha UAT 中，仍可暂时不作为“必须通过项”，避免把“页面实测留痕未完成”误判成“功能尚未落地”。
 
@@ -140,6 +142,7 @@
 2. 公共页面 SSR 与客户端跳转一致性
 3. 合伙人角色的数据隔离细节
 4. 定时任务相关数据变化
+5. partner allowlist 内 5 个后台页面的数据隔离与口径一致性
 
 ## 5. 本轮排除范围
 
@@ -155,6 +158,8 @@
 7. `experts.vue`
 8. 正式商户微信支付
 9. 正式短信服务
+10. `admin/partners/resources.vue`
+11. `admin/partners/center.vue`
 
 这些页面/模块当前是明确降级、占位或部分实现，不应混入本轮缺陷统计。
 

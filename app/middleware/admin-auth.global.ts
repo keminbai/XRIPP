@@ -1,20 +1,6 @@
 import { getToken, getLoginUser } from '~/utils/request'
 import { useAdminPermissionSnapshot } from '@/composables/useAdminPermissionSnapshot'
 
-const ADMIN_ONLY_PREFIXES = [
-  '/admin/audit',
-  '/admin/content',
-  '/admin/tenders',
-  '/admin/overseas',
-  '/admin/dashboard',
-  '/admin/business',
-  '/admin/finance',
-  '/admin/system',
-  '/admin/members/un-audit',
-  '/admin/suppliers/audit',
-  '/admin/partners/list'
-]
-
 function readRoleFromToken(token: string): string {
   try {
     const parts = token.split('.')
@@ -59,8 +45,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (role === 'partner') {
     clearSnapshot()
-    const isAdminOnly = ADMIN_ONLY_PREFIXES.some((p) => to.path.startsWith(p))
-    if (isAdminOnly || to.path === '/admin') {
+    if (!canAccessAdminRoute(to.path)) {
       return navigateTo('/admin/partner-publish', { replace: true })
     }
     return

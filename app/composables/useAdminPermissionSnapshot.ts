@@ -38,6 +38,14 @@ type RoutePermissionRule = {
   moduleCode: string
 }
 
+const PARTNER_ALLOWED_PREFIXES = [
+  '/admin/partner-publish',
+  '/admin/members/analysis',
+  '/admin/members/list',
+  '/admin/suppliers/analysis',
+  '/admin/suppliers/list'
+]
+
 export const ADMIN_PERMISSION_MODULES: AdminPermissionModuleCatalogItem[] = [
   { code: 'audit_center', name: '业务审核中心', description: '查看审核待办并执行审核动作' },
   { code: 'content_management', name: '信息发布管理', description: '活动、培训、商机、媒体内容管理与审核前处理' },
@@ -113,6 +121,8 @@ const normalizeSnapshot = (raw: any): AdminPermissionSnapshot => ({
 
 const findRouteRule = (path: string) => ROUTE_PERMISSION_RULES.find((item) => path.startsWith(item.prefix)) || null
 
+const matchesRoutePrefix = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`)
+
 const hasGrantAnyCapability = (grant: AdminPermissionGrant | undefined) => {
   if (!grant) return false
   return [
@@ -180,20 +190,7 @@ export const useAdminPermissionSnapshot = () => {
     const role = String(user?.role || '').toLowerCase()
 
     if (role === 'partner') {
-      return !(
-        path === '/admin'
-        || path.startsWith('/admin/audit')
-        || path.startsWith('/admin/content')
-        || path.startsWith('/admin/tenders')
-        || path.startsWith('/admin/overseas')
-        || path.startsWith('/admin/dashboard')
-        || path.startsWith('/admin/business')
-        || path.startsWith('/admin/finance')
-        || path.startsWith('/admin/system')
-        || path.startsWith('/admin/members/un-audit')
-        || path.startsWith('/admin/suppliers/audit')
-        || path.startsWith('/admin/partners/list')
-      )
+      return PARTNER_ALLOWED_PREFIXES.some((prefix) => matchesRoutePrefix(path, prefix))
     }
 
     if (role !== 'admin') {

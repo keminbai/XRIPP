@@ -6,6 +6,8 @@
 - `admin/finance/profit.vue` 的配置/结算操作已真实化，当前仍暂列排除项，只是因为页面联调与补测留痕未补齐
 - `admin/business/packages.vue` / `promotions.vue` / `roles.vue` 已真实化，当前仍暂列排除项，只是因为页面联调留痕未补齐
 - `admin/system/certificates.vue` 已真实化，当前仍暂列排除项，只是因为页面联调留痕未补齐
+- partner 后台只测 5 个已开放页面：`partner-publish`、`members/analysis`、`members/list`、`suppliers/analysis`、`suppliers/list`
+- `admin/partners/resources.vue`、`admin/partners/center.vue` 当前不对 partner 暴露，也不纳入本轮结果统计
 
 ## 1. 测试前确认
 
@@ -77,6 +79,8 @@
 - `admin/finance/pricing.vue`（已真实化，待浏览器联调补留痕后纳入）
 - `admin/finance/profit.vue` 的配置/结算操作（已真实化，待浏览器联调与补测后纳入）
 - `admin/content/trainings.vue` 中并不存在的培训报名 / 独立显示申请能力
+- `admin/partners/resources.vue`
+- `admin/partners/center.vue`
 - `experts.vue`
 - 正式商户微信支付
 - 正式短信服务
