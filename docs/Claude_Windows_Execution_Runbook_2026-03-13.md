@@ -319,7 +319,7 @@ GET http://localhost:8080/api/v3/runtime-info
 
 注意：
 
-- `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
+- `permissions.vue` / `backup.vue` 仍不在本轮真实化范围
 
 建议验证顺序：
 
@@ -427,6 +427,36 @@ GET http://localhost:8080/api/v3/runtime-info
 - 模板 CRUD 是否通过
 - 发送记录是否真实落库
 - 是否存在“保存成功但刷新丢失”
+
+### 10.8 `admin/system/logs.vue`
+
+前置条件：
+
+- 后端已重启并通过当前 schema preflight
+- 运行库中已有 `audit_logs` 与 `state_transition_logs` 数据
+
+页面目标：
+
+- 日志页可真实读取聚合日志
+- 关键字 / 来源 / 日期范围筛选可用
+- 分页与当前页导出可用
+- 页面不再展示无真实来源的 IP 字段
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/admin/system/logs`
+2. 确认列表中出现真实日志记录
+3. 用关键字搜索一个已知动作或对象
+4. 用“日志来源”切换 `audit` / `transition`
+5. 设置日期范围后再次查询
+6. 点击导出，确认生成当前页 CSV
+
+回传要求：
+
+- 日志列表是否通过
+- 三类筛选是否通过
+- 当前页导出是否通过
+- 是否出现 500 或空数据与数据库不一致
 8. 刷新页面，确认已删除
 
 关键说明：

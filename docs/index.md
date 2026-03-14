@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第四十八轮：通知中心真实化）
+最后更新：2026-03-14（第四十九轮：操作日志真实化）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -67,6 +67,7 @@
 - [SystemCertificates_Closure_2026-03-14.md](./SystemCertificates_Closure_2026-03-14.md) — 证书模板管理真实化（上传走文件服务，元数据走配置底座）
 - [CustomerService_Closure_2026-03-14.md](./CustomerService_Closure_2026-03-14.md) — 客服系统真实化（留言/工单/附件/后台处理闭环）
 - [Notifications_Closure_2026-03-14.md](./Notifications_Closure_2026-03-14.md) — 通知中心真实化（通知类型/模板/发送记录闭环）
+- [Logs_Closure_2026-03-14.md](./Logs_Closure_2026-03-14.md) — 操作日志真实化（audit_logs + state_transition_logs 聚合查询）
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -619,6 +620,21 @@
 - ⚠️ 运行验证待补
   - 需 Claude 在 Windows 环境执行 Phase 22 DDL、重启后端并补页面操作序列验证
 
+### Phase AN — 操作日志真实化（2026-03-14 ✅）
+- ✅ 无新增 DDL
+  - 直接复用现有 `audit_logs` 与 `state_transition_logs`
+- ✅ 后端真实化
+  - 新增 `AdminLogsV3Controller`
+  - 提供统一聚合查询接口 `GET /v3/admin/logs`
+- ✅ 前端真实化
+  - `admin/system/logs.vue` 改为真实日志查询页
+  - 支持关键字 / 来源 / 日期范围筛选、分页、当前页 CSV 导出
+- ✅ 架构收益
+  - 避免重复创建第三套操作日志表
+  - 后台日志页建立在现有真实审计能力之上
+- ⚠️ 运行验证待补
+  - 需 Claude 在 Windows 环境补页面操作序列验证
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -648,7 +664,7 @@
 | `admin/system/notifications.vue` | ✅ 已接入 | 通知类型设置 / 模板管理 / 发送记录均已接入真实 API；发送动作当前为真实留痕而非第三方网关投递；依赖 Phase 22 DDL |
 | `admin/system/customer-service.vue` | ✅ 已接入 | 留言查询/处理 + 工单列表/详情/处理/删除 + 附件查看均已接入真实 API；依赖 Phase 21 DDL |
 | `admin/system/permissions.vue` | 降级标注 | 系统权限中心，暂未接入；需独立 RBAC 设计 |
-| `admin/system/logs.vue` | 降级标注 | 日志类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/logs.vue` | ✅ 已接入 | 统一聚合 audit_logs + state_transition_logs 形成真实日志查询页；支持筛选/分页/导出 |
 | `admin/system/backup.vue` | 说明页 | 运维/DBA 备份治理说明页，不承担真实备份/恢复入口 |
 | `admin/system/certificates.vue` | ✅ 已接入 | 模板上传走文件服务，模板元数据真实持久化；复用 Phase 20 配置底座 |
 | `admin/system/about.vue` | 纯信息 | 静态信息页，无需后端配置 |
@@ -695,6 +711,7 @@
 | 定价配置管理 | ✅ 通用配置 API + pricing 命名空间 | ✅ 已接入 | ✅ 可验收（需先执行 Phase 20 DDL） |
 | 客服系统 | ✅ 留言/工单/附件/后台处理 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 21 DDL） |
 | 通知中心 | ✅ 类型设置/模板/发送记录 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 22 DDL） |
+| 操作日志 | ✅ 聚合查询 audit_logs + state_transition_logs | ✅ 已接入 | ✅ 可验收（无需新增 DDL） |
 | 会员管理 | ✅ list/detail/create/update/delete/transition/set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
@@ -718,7 +735,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（34 个）
+## 8. 后端 Controller 清单（35 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -756,6 +773,7 @@
 | AdminConfigsV3Controller | /v3/admin/configs | 后台通用配置存储（首批承接 pricing） |
 | AdminCustomerServiceV3Controller | /v3/admin/customer-service | 客服统计/留言处理/工单处理 |
 | AdminNotificationsV3Controller | /v3/admin/notifications | 通知类型设置/模板/发送记录 |
+| AdminLogsV3Controller | /v3/admin/logs | 操作日志聚合查询 |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
 
