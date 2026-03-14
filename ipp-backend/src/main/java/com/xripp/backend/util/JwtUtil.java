@@ -28,11 +28,12 @@ import java.util.Map;
  * Token格式：
  * Header.Payload.Signature
  *
- * Payload包含：
- * - userId: 用户ID
- * - username: 用户名
- * - role: 角色（admin/partner/member）
- * - partnerId: 合伙人ID（如果是合伙人或会员）
+     * Payload包含：
+     * - userId: 用户ID
+     * - username: 用户名
+     * - role: 角色（admin/partner/member）
+     * - partnerId: 合伙人ID（如果是合伙人或会员）
+     * - permissionProfileId: 权限档案ID（可选）
  */
 @Slf4j
 @Component
@@ -69,7 +70,7 @@ public class JwtUtil {
      * @param partnerId 合伙人ID
      * @return JWT Token
      */
-    public String generateToken(Long userId, String username, String role, Long partnerId) {
+    public String generateToken(Long userId, String username, String role, Long partnerId, Long permissionProfileId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
@@ -80,14 +81,22 @@ public class JwtUtil {
             claims.put("partnerId", partnerId);
         }
 
+        if (permissionProfileId != null) {
+            claims.put("permissionProfileId", permissionProfileId);
+        }
+
         return createToken(claims);
+    }
+
+    public String generateToken(Long userId, String username, String role, Long partnerId) {
+        return generateToken(userId, username, role, partnerId, null);
     }
 
     /**
      * 生成Token（简化版：无partnerId）
      */
     public String generateToken(Long userId, String username, String role) {
-        return generateToken(userId, username, role, null);
+        return generateToken(userId, username, role, null, null);
     }
 
     /**
@@ -185,6 +194,22 @@ public class JwtUtil {
         return claims.get("partnerId", Long.class);
     }
 
+    public Long getPermissionProfileIdFromToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        if (claims == null) {
+            return null;
+        }
+
+        Object value = claims.get("permissionProfileId");
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Integer) {
+            return ((Integer) value).longValue();
+        }
+        return claims.get("permissionProfileId", Long.class);
+    }
+
     // ========================================================================
     // 验证Token
     // ========================================================================
@@ -252,7 +277,8 @@ public class JwtUtil {
         String username = claims.get("username", String.class);
         String role = claims.get("role", String.class);
         Long partnerId = claims.get("partnerId", Long.class);
+        Long permissionProfileId = getPermissionProfileIdFromToken(oldToken);
 
-        return generateToken(userId, username, role, partnerId);
+        return generateToken(userId, username, role, partnerId, permissionProfileId);
     }
 }

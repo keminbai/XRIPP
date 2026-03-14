@@ -12,6 +12,7 @@ export type LoginUser = {
   username: string
   role: 'admin' | 'partner' | 'member' | string
   partner_id?: number | null
+  permission_profile_id?: number | null
   member_level?: 'NORMAL' | 'VIP' | 'SVIP'
   status?: number
 }

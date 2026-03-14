@@ -45,6 +45,9 @@ public class SysUser implements Serializable {
     @TableField("partner_id")
     private Long partnerId;
 
+    @TableField("permission_profile_id")
+    private Long permissionProfileId;
+
     @TableField("status")
     private Byte status;
 

@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第四十九轮：操作日志真实化）
+最后更新：2026-03-14（第五十轮：系统权限中心 Phase 1 底座）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -41,6 +41,7 @@
 | 20 | [DDL_Phase20_AdminConfigs.sql](./DDL_Phase20_AdminConfigs.sql) | 后台通用配置表，首批承接定价配置 |
 | 21 | [DDL_Phase21_CustomerService.sql](./DDL_Phase21_CustomerService.sql) | 客服系统核心表：留言 / 工单 / 工单附件 |
 | 22 | [DDL_Phase22_Notifications.sql](./DDL_Phase22_Notifications.sql) | 通知中心核心表：类型设置 / 模板 / 发送记录 |
+| 23 | [DDL_Phase23_SystemPermissions_RBAC.sql](./DDL_Phase23_SystemPermissions_RBAC.sql) | 系统权限中心最小 RBAC 底座：权限档案 / 模块授权 / 登录模式 / `sys_user.permission_profile_id` |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -68,6 +69,7 @@
 - [CustomerService_Closure_2026-03-14.md](./CustomerService_Closure_2026-03-14.md) — 客服系统真实化（留言/工单/附件/后台处理闭环）
 - [Notifications_Closure_2026-03-14.md](./Notifications_Closure_2026-03-14.md) — 通知中心真实化（通知类型/模板/发送记录闭环）
 - [Logs_Closure_2026-03-14.md](./Logs_Closure_2026-03-14.md) — 操作日志真实化（audit_logs + state_transition_logs 聚合查询）
+- [SystemPermissions_Phase1_Closure_2026-03-14.md](./SystemPermissions_Phase1_Closure_2026-03-14.md) — 系统权限中心 Phase 1：最小 RBAC 数据底座 + 接口 + 请求链路骨架
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -663,7 +665,7 @@
 | `admin/system/login-config.vue` | ✅ 已接入 | 登录基础配置 / 安全策略 / OAuth 配置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/notifications.vue` | ✅ 已接入 | 通知类型设置 / 模板管理 / 发送记录均已接入真实 API；发送动作当前为真实留痕而非第三方网关投递；依赖 Phase 22 DDL |
 | `admin/system/customer-service.vue` | ✅ 已接入 | 留言查询/处理 + 工单列表/详情/处理/删除 + 附件查看均已接入真实 API；依赖 Phase 21 DDL |
-| `admin/system/permissions.vue` | 降级标注 | 系统权限中心，暂未接入；需独立 RBAC 设计 |
+| `admin/system/permissions.vue` | 降级标注 | 旧前端页仍未接入；但 Phase 23 最小 RBAC 底座、权限接口与请求链路骨架已落地，下一阶段改前端与菜单联动 |
 | `admin/system/logs.vue` | ✅ 已接入 | 统一聚合 audit_logs + state_transition_logs 形成真实日志查询页；支持筛选/分页/导出 |
 | `admin/system/backup.vue` | 说明页 | 运维/DBA 备份治理说明页，不承担真实备份/恢复入口 |
 | `admin/system/certificates.vue` | ✅ 已接入 | 模板上传走文件服务，模板元数据真实持久化；复用 Phase 20 配置底座 |

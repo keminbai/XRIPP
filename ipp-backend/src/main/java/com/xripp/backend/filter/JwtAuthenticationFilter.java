@@ -58,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtUtil.getUsernameFromToken(token);
                 String role = jwtUtil.getRoleFromToken(token);
                 Long partnerId = jwtUtil.getPartnerIdFromToken(token);
+                Long permissionProfileId = jwtUtil.getPermissionProfileIdFromToken(token);
 
                 if (role == null || role.isBlank()) {
                     role = "member";
@@ -73,7 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 com.xripp.backend.security.SecurityContextHolder.setContext(
                         new com.xripp.backend.security.SecurityContextHolder.UserContext(
-                                userId, username, role.toLowerCase(), partnerId
+                                userId, username, role.toLowerCase(), partnerId, permissionProfileId
                         )
                 );
             }

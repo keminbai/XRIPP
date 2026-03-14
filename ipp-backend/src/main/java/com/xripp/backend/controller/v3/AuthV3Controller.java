@@ -65,13 +65,20 @@ public class AuthV3Controller {
                 ? "member"
                 : user.getRole().trim().toLowerCase();
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), role, user.getPartnerId());
+        String token = jwtUtil.generateToken(
+                user.getId(),
+                user.getUsername(),
+                role,
+                user.getPartnerId(),
+                user.getPermissionProfileId()
+        );
 
         Map<String, Object> userData = new HashMap<>();
         userData.put("id", user.getId());
         userData.put("username", user.getUsername());
         userData.put("role", role);
         userData.put("partner_id", user.getPartnerId());
+        userData.put("permission_profile_id", user.getPermissionProfileId());
         userData.put("status", user.getStatus());
         userData.put("member_level", resolveMemberLevel(user.getId(), role));
 
@@ -172,6 +179,7 @@ public class AuthV3Controller {
         userData.put("username", user.getUsername());
         userData.put("role", "member");
         userData.put("partner_id", partnerId);
+        userData.put("permission_profile_id", null);
         userData.put("status", 1);
         userData.put("member_level", "NORMAL");
 

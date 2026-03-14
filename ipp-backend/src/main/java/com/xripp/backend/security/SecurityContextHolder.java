@@ -85,6 +85,14 @@ public class SecurityContextHolder {
     }
 
     /**
+     * 获取当前用户的权限档案ID
+     */
+    public static Long getCurrentPermissionProfileId() {
+        UserContext context = getContext();
+        return context != null ? context.getPermissionProfileId() : null;
+    }
+
+    /**
      * 判断当前用户是否为管理员
      */
     public static boolean isAdmin() {
@@ -142,13 +150,21 @@ public class SecurityContextHolder {
         private Long partnerId;
 
         /**
+         * 权限档案ID
+         * - admin: 可选，未绑定时保持 null，按历史全量 admin 兼容
+         * - partner/member: 当前阶段一般为 null
+         */
+        private Long permissionProfileId;
+
+        /**
          * 构造方法
          */
-        public UserContext(Long userId, String username, String role, Long partnerId) {
+        public UserContext(Long userId, String username, String role, Long partnerId, Long permissionProfileId) {
             this.userId = userId;
             this.username = username;
             this.role = role;
             this.partnerId = partnerId;
+            this.permissionProfileId = permissionProfileId;
         }
 
         /**

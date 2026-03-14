@@ -75,6 +75,16 @@ public class DatabaseSchemaPreflightRunner implements ApplicationRunner {
         checkTable(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs");
         checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs", "notification_title");
         checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs", "send_status");
+        checkTable(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_profiles");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_profiles", "code");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_profiles", "base_role");
+        checkTable(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_grants");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_grants", "profile_id");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_permission_grants", "module_code");
+        checkTable(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_login_modes");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_login_modes", "mode_code");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_login_modes", "default_profile_id");
+        checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_user", "permission_profile_id");
 
         if (missingByScript.isEmpty()) {
             log.info("[SchemaPreflight] passed");
