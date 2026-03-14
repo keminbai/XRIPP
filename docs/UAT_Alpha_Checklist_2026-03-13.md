@@ -1,5 +1,11 @@
 # UAT Alpha Checklist（2026-03-13）
 
+## 2026-03-14 口径补充
+
+- `admin/finance/pricing.vue` 已真实化，当前仍暂列排除项，只是因为页面联调留痕未补齐
+- `admin/finance/profit.vue` 的配置/结算操作已真实化，当前仍暂列排除项，只是因为页面联调与补测留痕未补齐
+- `admin/business/packages.vue` / `promotions.vue` / `roles.vue` 已真实化，当前仍暂列排除项，只是因为页面联调留痕未补齐
+
 ## 1. 测试前确认
 
 - 测试库已执行 Phase 6 ~ Phase 16 DDL
@@ -65,9 +71,9 @@
 
 - `admin/overseas/*`
 - `admin/system/*`
-- `admin/business/*`
-- `admin/finance/pricing.vue`
-- `admin/finance/profit.vue` 的配置/结算操作
+- `admin/business/*`（已真实化，当前不作为 Alpha 必测项）
+- `admin/finance/pricing.vue`（已真实化，待浏览器联调补留痕后纳入）
+- `admin/finance/profit.vue` 的配置/结算操作（已真实化，待浏览器联调与补测后纳入）
 - `admin/content/trainings.vue` 中并不存在的培训报名 / 独立显示申请能力
 - `experts.vue`
 - 正式商户微信支付

@@ -81,7 +81,7 @@ sqlcmd -S localhost,1433 -U sa -P "<your-password>" -d XRIPP_CORE -i "D:\ipp-pla
 
 当前仓库约定运行版本号：
 
-- `2026-03-13-phase-ae`
+- `2026-03-14-phase-ah`
 
 如果 Windows 侧使用 Maven Wrapper，可在后端目录执行类似：
 
@@ -104,12 +104,12 @@ GET http://localhost:8080/api/v3/runtime-info
 
 必须确认：
 
-- `runtimeVersion = 2026-03-13-phase-ae`
+- `runtimeVersion = 2026-03-14-phase-ah`
 - `schemaPreflightEnabled = true`
 
 同时在任意接口响应头里确认：
 
-- `X-XRIPP-Runtime-Version: 2026-03-13-phase-ae`
+- `X-XRIPP-Runtime-Version: 2026-03-14-phase-ah`
 - `X-XRIPP-Schema-Preflight: true`
 
 ### 6.2 再做最小接口验证
@@ -193,3 +193,149 @@ GET http://localhost:8080/api/v3/runtime-info
 - `PUT` 前后关键字段差异
 - `DELETE` 后的列表确认结果
 - `POST /settlements` 的返回体与对应 `GET /stats` 结果
+
+## 10. 定价与利润分成页面联调补充
+
+本节是 2026-03-14 新增要求。目的不是重复做 API 冒烟，而是补齐浏览器页面级闭环留痕。
+
+### 10.1 `admin/finance/pricing.vue`
+
+页面目标：
+
+- 确认四类配置均能真实加载
+- 页面保存后刷新不丢失
+- 删除后刷新仍保持删除结果
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/admin/finance/pricing`
+2. 会员费定价：
+   - 新增一个测试档位
+   - 刷新页面，确认仍存在
+3. 标书定价：
+   - 编辑一条现有记录价格
+   - 刷新页面，确认价格已持久化
+4. 培训定价：
+   - 切换一条记录状态
+   - 刷新页面，确认状态保持
+5. 服务定价：
+   - 新增一条测试记录后删除
+   - 刷新页面，确认已删除
+6. 如条件允许，再用接口复核：
+   - `GET /api/v3/admin/configs/pricing`
+
+验收标准：
+
+- 页面无 500 / 无保存假成功
+- 每次保存后刷新仍能读回
+- 删除后不会“刷新复活”
+
+### 10.2 `admin/finance/profit.vue`
+
+页面目标：
+
+- 分成配置 CRUD 可在页面完整走通
+- 统计与明细可正常加载
+- 结算动作行为符合业务预期
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/admin/finance/profit`
+2. 分成配置 Tab：
+   - 新增一条测试配置
+   - 编辑该配置的比例或业务线
+   - 刷新页面，确认修改保留
+   - 删除测试配置
+3. 分成统计 Tab：
+   - 点击刷新，确认列表正常加载
+   - 如存在可结算记录，执行一次结算
+4. 分成明细 Tab：
+   - 选择城市或月份查询
+   - 确认明细列表正常返回
+
+关键说明：
+
+- 若 `POST /settlements` 因当月无可结算记录返回 `VALIDATION_ERROR` / “no profit records found for settlement month”，这属于正确的业务拒绝，不应算页面缺陷
+- 真正的缺陷是：
+  - 页面 500
+  - 配置保存后刷新丢失
+  - 删除后仍残留
+  - 有记录却无法结算
+
+回传要求：
+
+1. `pricing.vue` 四类操作分别是否通过
+2. `profit.vue` 配置新增 / 编辑 / 删除是否通过
+3. 统计页是否正常加载
+4. 结算动作结果：
+   - 成功结算，或
+   - 正确业务拒绝（无记录）
+5. 页面级截图或关键现象摘要
+
+### 10.3 `admin/business/*`
+
+当前应验证 3 页：
+
+- `admin/business/packages.vue`
+- `admin/business/promotions.vue`
+- `admin/business/roles.vue`
+
+验证目标：
+
+- 页面保存后刷新不丢失
+- 不再出现“当前会话有效，刷新重置”的旧行为
+
+建议验证顺序：
+
+1. `packages.vue`
+   - 调整一个套餐权益值并保存
+   - 刷新页面，确认值仍在
+   - 切换启停状态并刷新确认
+2. `promotions.vue`
+   - 新增一条规则
+   - 编辑该规则
+   - 复制该规则
+   - 删除测试规则
+   - 每一步至少刷新一次确认
+3. `roles.vue`
+   - 修改一个角色的数据范围或权限项
+   - 点击单条保存
+   - 刷新页面确认保留
+   - 再执行一次“批量保存所有配置”
+   - 刷新页面确认变更记录表也有留痕
+
+回传要求：
+
+- 3 页分别是否通过
+- 是否存在“保存成功但刷新丢失”
+- `roles.vue` 变更记录是否同步持久化
+
+### 10.4 `admin/system/settings.vue` / `login-config.vue`
+
+当前只验证本轮已真实化的两页：
+
+- `admin/system/settings.vue`
+- `admin/system/login-config.vue`
+
+注意：
+
+- `notifications.vue` / `customer-service.vue` / `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
+
+建议验证顺序：
+
+1. `settings.vue`
+   - 修改基础设置并保存
+   - 修改邮件配置并保存
+   - 修改安全设置并保存
+   - 刷新页面，确认三类配置都能回读
+2. `login-config.vue`
+   - 修改基础配置并保存
+   - 修改安全策略并保存
+   - 修改一个第三方登录 provider 开关或 AppId 并保存
+   - 刷新页面，确认三类配置都能回读
+
+回传要求：
+
+- 两页分别是否通过
+- 是否存在某个 Tab 能保存、另一个 Tab 刷新丢失
+- 页面是否出现 500 或保存假成功

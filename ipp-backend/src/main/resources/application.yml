@@ -129,7 +129,7 @@ springdoc:
 # 应用自定义配置
 xripp:
   runtime:
-    version: 2026-03-13-phase-ae
+    version: 2026-03-14-phase-ah
   schema-preflight:
     enabled: true
   data-scope:

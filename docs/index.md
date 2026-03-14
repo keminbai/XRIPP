@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-13（第四十二轮：后台配置底座 + 定价真实化）
+最后更新：2026-03-14（第四十五轮：system 配置页第一阶段真实化）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -60,6 +60,8 @@
 - [TenderPublishDate_Closure_2026-03-13.md](./TenderPublishDate_Closure_2026-03-13.md) — 标书发布时间口径/DDL 留痕修复记录
 - [ProfitSharing_Closure_2026-03-13.md](./ProfitSharing_Closure_2026-03-13.md) — 合伙人利润分成配置/统计/结算真实闭环
 - [PricingConfig_Closure_2026-03-13.md](./PricingConfig_Closure_2026-03-13.md) — 后台通用配置底座 + 定价配置真实闭环
+- [BusinessConfig_Closure_2026-03-14.md](./BusinessConfig_Closure_2026-03-14.md) — 业务配置三页复用通用配置底座完成真实化
+- [SystemConfig_Stage1_Closure_2026-03-14.md](./SystemConfig_Stage1_Closure_2026-03-14.md) — system 配置型页面第一阶段真实化（settings/login-config）
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -541,6 +543,32 @@
 - ✅ 启动护栏
   - `DatabaseSchemaPreflightRunner` 新增 Phase 20 表检查
 
+### Phase AI — Business 配置页真实化（2026-03-14 ✅）
+- ✅ 复用 Phase 20 通用配置底座
+  - 新增 `app/composables/useAdminConfigNamespace.ts`
+- ✅ `admin/business/packages.vue`
+  - 套餐权益真实加载/保存/启停
+- ✅ `admin/business/promotions.vue`
+  - 规则新增/编辑/复制/删除/启停真实持久化
+- ✅ `admin/business/roles.vue`
+  - 角色权限配置 + 变更记录真实持久化
+- ✅ 无新增 DDL
+  - 直接复用 `admin_config_entries`
+- ⚠️ 页面级浏览器验收待补
+  - 需 Claude 在 Windows 环境补最终联调留痕
+
+### Phase AJ — System 配置页第一阶段真实化（2026-03-14 ✅）
+- ✅ `admin/system/settings.vue`
+  - 基础设置 / 邮件配置 / 安全设置真实持久化
+- ✅ `admin/system/login-config.vue`
+  - 基础配置 / 安全策略 / 第三方登录真实持久化
+- ✅ 架构边界明确
+  - `notifications` / `customer-service` / `permissions` / `logs` / `backup` 不强行塞进配置表
+- ✅ 无新增 DDL
+  - 继续复用 `admin_config_entries`
+- ⚠️ 页面级浏览器验收待补
+  - 需 Claude 在 Windows 环境补最终联调留痕
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -565,11 +593,21 @@
 | `admin/content/media.vue` | ✅ 已接入 | 列表/详情/新建/编辑/状态流转真实 |
 | `admin/content/display.vue` | ✅ 已接入 | 轮播/广告真实内容管理 + 活动显示申请真实审核 |
 | `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
-| `admin/system/*.vue` | 降级标注 | 系统管理模块，已添加"暂未对接后端"横幅 |
-| `admin/business/*.vue` | 降级标注 | 业务配置模块，已添加"暂未对接后端"横幅 |
-| `admin/finance/pricing.vue` | ✅ 已接入 | 四类定价真实加载/保存；依赖 Phase 20 DDL |
-| `admin/finance/profit.vue` | ✅ 已接入 | 分成配置/统计/明细/结算均已接入真实 API；依赖 Phase 19 DDL |
-| `admin/index.vue` | 未实现 | 仪表盘统计为静态数据（低优先级） |
+| `admin/system/settings.vue` | ✅ 已接入 | 基础设置 / 邮件配置 / 安全设置真实加载与保存；复用 Phase 20 配置底座 |
+| `admin/system/login-config.vue` | ✅ 已接入 | 登录基础配置 / 安全策略 / OAuth 配置真实加载与保存；复用 Phase 20 配置底座 |
+| `admin/system/notifications.vue` | 降级标注 | 通知中心类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/customer-service.vue` | 降级标注 | 工单/留言类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/permissions.vue` | 降级标注 | 系统权限中心，暂未接入；需独立 RBAC 设计 |
+| `admin/system/logs.vue` | 降级标注 | 日志类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/backup.vue` | 降级标注 | 备份任务类页面，暂未接入；需独立任务模型 |
+| `admin/system/certificates.vue` | 降级标注 | 部分配置可接入，模板管理/文件能力仍待拆分设计 |
+| `admin/system/about.vue` | 纯信息 | 静态信息页，无需后端配置 |
+| `admin/business/packages.vue` | ✅ 已接入 | 会员套餐权益真实加载/保存/启停；复用 Phase 20 配置底座 |
+| `admin/business/promotions.vue` | ✅ 已接入 | 促销规则新增/编辑/复制/删除/启停真实持久化；复用 Phase 20 配置底座 |
+| `admin/business/roles.vue` | ✅ 已接入 | 业务角色权限配置 + 变更记录真实持久化；复用 Phase 20 配置底座 |
+| `admin/finance/pricing.vue` | ✅ 已接入 | 四类定价真实加载/保存；依赖 Phase 20 DDL；浏览器联调待补最终留痕 |
+| `admin/finance/profit.vue` | ✅ 已接入 | 分成配置/统计/明细/结算均已接入真实 API；依赖 Phase 19 DDL；浏览器联调待补最终留痕 |
+| `admin/index.vue` | ✅ 已接入 | 仪表盘统计卡片、最近会员、最近内容均已接真实 API |
 
 ### 系统级待办
 
