@@ -2,7 +2,7 @@
 
 ## 2026-03-14 勘误 / 增补
 
-本文档主体记录的是 2026-03-13 当晚的验证结果，保留历史原貌；但截至 2026-03-14，当前仓库与后续执行记录已有六点需要修正：
+本文档主体记录的是 2026-03-13 当晚的验证结果，保留历史原貌；但截至 2026-03-14，当前仓库与后续执行记录已有七点需要修正：
 
 - 运行基线版本已应更新为 `2026-03-14-phase-ah`，不再以 `2026-03-13-phase-ae` 作为当前阶段标识。
 - `admin/finance/pricing.vue` 与 `admin/finance/profit.vue` 已在后续阶段完成真实化，不应再纳入“当前降级页面清单”。
@@ -10,13 +10,14 @@
 - `admin/system/settings.vue` 与 `admin/system/login-config.vue` 已在后续阶段完成真实化，不应再纳入“当前降级页面清单”。
 - `admin/system/certificates.vue` 已在后续阶段完成真实化，不应再纳入“当前降级页面清单”。
 - `admin/system/customer-service.vue` 已在后续阶段完成真实化，不应再纳入“当前降级页面清单”。
+- `admin/system/notifications.vue` 已在后续阶段完成真实化，不应再纳入“当前降级页面清单”。
 
 按 2026-03-14 当前口径重算：
 
-- 当前降级页面总数应为 **8 页**
-- 其中 session-only 为 **7 页**
-- 纯信息展示为 **1 页**
-- `pricing.vue` / `profit.vue` / `business/*` / `system/settings|login-config|certificates|customer-service` 当前状态应改为“真实后端已接入，待浏览器联调补留痕”
+- 当前降级页面总数应为 **7 页**
+- 其中 session-only 为 **5 页**
+- 纯信息 / 说明页为 **2 页**
+- `pricing.vue` / `profit.vue` / `business/*` / `system/settings|login-config|certificates|customer-service|notifications` 当前状态应改为“真实后端已接入，待浏览器联调补留痕”
 
 ## 背景
 

@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第四十七轮：客服系统真实化）
+最后更新：2026-03-14（第四十八轮：通知中心真实化）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -40,6 +40,7 @@
 | 19 | [DDL_Phase19_ProfitSharing.sql](./DDL_Phase19_ProfitSharing.sql) | 合伙人利润分成配置 + 月度结算表 |
 | 20 | [DDL_Phase20_AdminConfigs.sql](./DDL_Phase20_AdminConfigs.sql) | 后台通用配置表，首批承接定价配置 |
 | 21 | [DDL_Phase21_CustomerService.sql](./DDL_Phase21_CustomerService.sql) | 客服系统核心表：留言 / 工单 / 工单附件 |
+| 22 | [DDL_Phase22_Notifications.sql](./DDL_Phase22_Notifications.sql) | 通知中心核心表：类型设置 / 模板 / 发送记录 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -65,6 +66,7 @@
 - [SystemConfig_Stage1_Closure_2026-03-14.md](./SystemConfig_Stage1_Closure_2026-03-14.md) — system 配置型页面第一阶段真实化（settings/login-config）
 - [SystemCertificates_Closure_2026-03-14.md](./SystemCertificates_Closure_2026-03-14.md) — 证书模板管理真实化（上传走文件服务，元数据走配置底座）
 - [CustomerService_Closure_2026-03-14.md](./CustomerService_Closure_2026-03-14.md) — 客服系统真实化（留言/工单/附件/后台处理闭环）
+- [Notifications_Closure_2026-03-14.md](./Notifications_Closure_2026-03-14.md) — 通知中心真实化（通知类型/模板/发送记录闭环）
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -601,6 +603,22 @@
 - ⚠️ 运行验证待补
   - 需 Claude 在 Windows 环境执行 Phase 21 DDL、重启后端并按 runbook 补页面操作序列验证
 
+### Phase AM — 通知中心真实化（2026-03-14 ✅）
+- ✅ DDL Phase 22
+  - 新增 `notification_type_settings`
+  - 新增 `notification_templates`
+  - 新增 `notification_send_logs`
+- ✅ 后端真实化
+  - 新增 `AdminNotificationsV3Controller`
+  - 支持通知类型设置、模板 CRUD、发送记录查询、发送请求留痕
+- ✅ 前端真实化
+  - `admin/system/notifications.vue` 改为真实通知中心
+- ✅ 页面口径修正
+  - `admin/system/about.vue` 去除错误的“未接后端”提示
+  - `admin/system/backup.vue` 改为运维备份治理说明页，不再伪造备份/恢复能力
+- ⚠️ 运行验证待补
+  - 需 Claude 在 Windows 环境执行 Phase 22 DDL、重启后端并补页面操作序列验证
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -627,11 +645,11 @@
 | `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
 | `admin/system/settings.vue` | ✅ 已接入 | 基础设置 / 邮件配置 / 安全设置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/login-config.vue` | ✅ 已接入 | 登录基础配置 / 安全策略 / OAuth 配置真实加载与保存；复用 Phase 20 配置底座 |
-| `admin/system/notifications.vue` | 降级标注 | 通知中心类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/notifications.vue` | ✅ 已接入 | 通知类型设置 / 模板管理 / 发送记录均已接入真实 API；发送动作当前为真实留痕而非第三方网关投递；依赖 Phase 22 DDL |
 | `admin/system/customer-service.vue` | ✅ 已接入 | 留言查询/处理 + 工单列表/详情/处理/删除 + 附件查看均已接入真实 API；依赖 Phase 21 DDL |
 | `admin/system/permissions.vue` | 降级标注 | 系统权限中心，暂未接入；需独立 RBAC 设计 |
 | `admin/system/logs.vue` | 降级标注 | 日志类页面，暂未接入；不适合简单配置表替代 |
-| `admin/system/backup.vue` | 降级标注 | 备份任务类页面，暂未接入；需独立任务模型 |
+| `admin/system/backup.vue` | 说明页 | 运维/DBA 备份治理说明页，不承担真实备份/恢复入口 |
 | `admin/system/certificates.vue` | ✅ 已接入 | 模板上传走文件服务，模板元数据真实持久化；复用 Phase 20 配置底座 |
 | `admin/system/about.vue` | 纯信息 | 静态信息页，无需后端配置 |
 | `admin/business/packages.vue` | ✅ 已接入 | 会员套餐权益真实加载/保存/启停；复用 Phase 20 配置底座 |
@@ -676,6 +694,7 @@
 | 利润分成管理 | ✅ 配置/统计/明细/结算 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 19 DDL） |
 | 定价配置管理 | ✅ 通用配置 API + pricing 命名空间 | ✅ 已接入 | ✅ 可验收（需先执行 Phase 20 DDL） |
 | 客服系统 | ✅ 留言/工单/附件/后台处理 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 21 DDL） |
+| 通知中心 | ✅ 类型设置/模板/发送记录 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 22 DDL） |
 | 会员管理 | ✅ list/detail/create/update/delete/transition/set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
@@ -699,7 +718,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（33 个）
+## 8. 后端 Controller 清单（34 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -736,6 +755,7 @@
 | AdminProfitSharingV3Controller | /v3/admin/profit-sharing | 合伙人利润分成配置/统计/明细/结算 |
 | AdminConfigsV3Controller | /v3/admin/configs | 后台通用配置存储（首批承接 pricing） |
 | AdminCustomerServiceV3Controller | /v3/admin/customer-service | 客服统计/留言处理/工单处理 |
+| AdminNotificationsV3Controller | /v3/admin/notifications | 通知类型设置/模板/发送记录 |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
 

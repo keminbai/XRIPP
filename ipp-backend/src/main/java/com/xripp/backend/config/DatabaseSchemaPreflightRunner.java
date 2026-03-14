@@ -66,6 +66,15 @@ public class DatabaseSchemaPreflightRunner implements ApplicationRunner {
         checkTable(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files");
         checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files", "ticket_id");
         checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files", "file_url");
+        checkTable(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_type_settings");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_type_settings", "notification_type");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_type_settings", "sms_enabled");
+        checkTable(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_templates");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_templates", "template_name");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_templates", "notification_type");
+        checkTable(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs", "notification_title");
+        checkColumn(missingByScript, "docs/DDL_Phase22_Notifications.sql", "notification_send_logs", "send_status");
 
         if (missingByScript.isEmpty()) {
             log.info("[SchemaPreflight] passed");

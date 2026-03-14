@@ -319,7 +319,7 @@ GET http://localhost:8080/api/v3/runtime-info
 
 注意：
 
-- `notifications.vue` / `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
+- `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
 
 建议验证顺序：
 
@@ -393,6 +393,40 @@ GET http://localhost:8080/api/v3/runtime-info
 - 是否存在“提交成功但刷新丢失”
 - 附件是否能正常预览/下载
 - 后台处理结果是否能回写到会员侧
+
+### 10.7 `admin/system/notifications.vue`
+
+前置条件：
+
+- 已执行 `docs/DDL_Phase22_Notifications.sql`
+- 后端已重启并通过 schema preflight
+
+页面目标：
+
+- 通知类型设置保存后可刷新回读
+- 模板新增/编辑/删除后可刷新回读
+- 批量发送动作可真实写入发送记录
+- 页面明确提示“当前为发送记录留痕，非第三方短信/邮件网关”
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/admin/system/notifications`
+2. 修改任一通知类型开关并保存
+3. 刷新页面，确认设置不丢失
+4. 新增一个模板并保存
+5. 刷新页面，确认模板仍存在
+6. 编辑模板内容并保存
+7. 删除测试模板，刷新确认不复活
+8. 填写一条批量通知并点击“记录发送”
+9. 确认发送记录表新增一条记录
+10. 刷新页面，确认发送记录仍存在
+
+回传要求：
+
+- 类型设置是否通过
+- 模板 CRUD 是否通过
+- 发送记录是否真实落库
+- 是否存在“保存成功但刷新丢失”
 8. 刷新页面，确认已删除
 
 关键说明：
