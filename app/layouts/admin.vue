@@ -54,14 +54,6 @@
             <span>{{ homeLabel }}</span>
           </el-menu-item>
 
-          <!-- ==================== 角色专属：合伙人 ==================== -->
-          
-          <!-- [新增] 合伙人专属发布入口 -->
-          <el-menu-item index="/admin/partner-publish" v-if="currentRole === 'partner'">
-            <el-icon><EditPen /></el-icon>
-            <span>我的发布</span>
-          </el-menu-item>
-
           <!-- ==================== 角色专属：总部管理员 ==================== -->
 
           <!-- 2. 业务审核中心 (总部独有) -->
@@ -205,7 +197,7 @@
               <el-icon><Connection /></el-icon>
               <span>合伙人系统</span>
             </template>
-            <el-menu-item index="/admin/partners/analysis" v-if="currentRole !== 'admin' || isSuperAdmin">
+            <el-menu-item index="/admin/partners/analysis" v-if="showAdminRoute('/admin/partners/analysis') || isSuperAdmin">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计分析</span>
             </el-menu-item>
