@@ -1,4 +1,5 @@
 import { getToken, getLoginUser } from '~/utils/request'
+import { useAdminPermissionSnapshot } from '@/composables/useAdminPermissionSnapshot'
 
 const ADMIN_ONLY_PREFIXES = [
   '/admin/audit',
@@ -36,8 +37,10 @@ function readRoleFromToken(token: string): string {
 export default defineNuxtRouteMiddleware((to) => {
   if (!to.path.startsWith('/admin')) return
 
+  const { refreshSnapshot, canAccessAdminRoute, resolveAdminFallbackRoute, clearSnapshot } = useAdminPermissionSnapshot()
   const token = getToken()
   if (!token) {
+    clearSnapshot()
     return navigateTo(`/login?redirect=${encodeURIComponent(to.fullPath)}`, { replace: true })
   }
 
@@ -45,19 +48,37 @@ export default defineNuxtRouteMiddleware((to) => {
   const role = String(user?.role || '').toLowerCase() || readRoleFromToken(token)
 
   if (!role) {
+    clearSnapshot()
     return navigateTo(`/login?redirect=${encodeURIComponent(to.fullPath)}`, { replace: true })
   }
 
   if (role === 'member') {
+    clearSnapshot()
     return navigateTo('/member', { replace: true })
   }
 
   if (role === 'partner') {
+    clearSnapshot()
     const isAdminOnly = ADMIN_ONLY_PREFIXES.some((p) => to.path.startsWith(p))
     if (isAdminOnly || to.path === '/admin') {
       return navigateTo('/admin/partner-publish', { replace: true })
     }
+    return
   }
 
-  // role === 'admin' -> pass
+  if (role === 'admin') {
+    return refreshSnapshot()
+      .then((snapshot) => {
+        if (canAccessAdminRoute(to.path, snapshot)) {
+          return
+        }
+        return navigateTo(resolveAdminFallbackRoute(snapshot), { replace: true })
+      })
+      .catch(() => {
+        if (to.path === '/admin') {
+          return
+        }
+        return navigateTo('/login', { replace: true })
+      })
+  }
 })

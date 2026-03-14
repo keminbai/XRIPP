@@ -51,6 +51,9 @@ public class AdminPermissionGuard {
         if ("DELETE".equals(method)) {
             return "delete";
         }
+        if (requestPath.endsWith("/download") || requestPath.endsWith("/export")) {
+            return "export";
+        }
         if (requestPath.endsWith("/transition")
                 || requestPath.endsWith("/review")
                 || requestPath.endsWith("/submit")
@@ -78,6 +81,8 @@ public class AdminPermissionGuard {
         items.add(rule("/api/v3/admin/supplier-onboarding", "supplier_onboarding_review"));
         items.add(rule("/api/v3/admin/members", "member_management"));
         items.add(rule("/api/v3/admin/orders", "member_orders"));
+        items.add(rule("/api/v3/admin/overseas", "overseas_management"));
+        items.add(rule("/api/v3/admin/overseas-points", "overseas_management"));
         return items;
     }
 

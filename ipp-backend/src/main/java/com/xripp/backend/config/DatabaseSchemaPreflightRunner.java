@@ -85,6 +85,17 @@ public class DatabaseSchemaPreflightRunner implements ApplicationRunner {
         checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_login_modes", "mode_code");
         checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_login_modes", "default_profile_id");
         checkColumn(missingByScript, "docs/DDL_Phase23_SystemPermissions_RBAC.sql", "sys_user", "permission_profile_id");
+        checkTable(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_services");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_services", "service_type");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_services", "project_code");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_services", "countries_json");
+        checkTable(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_service_files");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_service_files", "service_id");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_service_files", "file_category");
+        checkTable(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_reports");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_reports", "industry_code");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_reports", "report_file_url");
+        checkColumn(missingByScript, "docs/DDL_Phase24_Overseas_Realization.sql", "overseas_reports", "keywords_json");
 
         if (missingByScript.isEmpty()) {
             log.info("[SchemaPreflight] passed");

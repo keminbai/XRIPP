@@ -1,141 +1,82 @@
-﻿<!-- 
-  ========================================================================
-  文件路径: D:\ipp-platform\app\pages\admin\overseas\services.vue
-  版本: V1.0 (2026-01-29)
-  
-  ✅ 核心功能:
-  1. [信息发布] 发布出海服务信息
-  2. [服务管理] 管理各类出海服务内容
-  3. [信息审核] 合伙人发布需审核
-  4. [信息上架] 控制服务信息的展示状态
-  ========================================================================
--->
 <template>
   <div class="space-y-6">
-    <el-alert type="warning" :closable="false" show-icon>
-      <template #title>
-        <span class="font-bold">功能开发中</span> — 海外服务模块暂无后端API，当前数据仅为界面演示，不会持久化保存。
-      </template>
-    </el-alert>
-
-    <!-- 信息发布表单 -->
     <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-      <div class="flex items-start justify-between mb-6">
+      <div class="flex items-start justify-between gap-4 mb-6">
         <div>
           <h3 class="text-lg font-bold text-slate-800">
-            {{ isEdit ? `编辑服务信息：${serviceForm.title || '未命名服务'}` : '发布出海服务信息' }}
+            {{ isEdit ? `编辑服务：${serviceForm.title || '未命名服务'}` : '发布出海服务信息' }}
           </h3>
-          <p v-if="isEdit" class="text-xs text-amber-600 mt-1">
-            正在编辑中，保存后将覆盖原记录
-          </p>
+          <p class="text-xs text-slate-500 mt-1">数据已接入 `/v3/admin/overseas/services`，保存后可持久化</p>
         </div>
-        <el-button v-if="isEdit" type="warning" plain @click="handleCancelEdit">
-          取消编辑
-        </el-button>
+        <el-button v-if="isEdit" type="warning" plain @click="resetForm">取消编辑</el-button>
       </div>
-      
-      <el-form :model="serviceForm" label-width="120px" class="max-w-3xl">
+
+      <el-form label-width="120px" class="max-w-4xl">
         <el-form-item label="服务类型" required>
-          <el-select v-model="serviceForm.type" placeholder="请选择服务类型" class="w-full">
-            <el-option label="外贸服务" value="trade" />
-            <el-option label="知识产权" value="ip" />
-            <el-option label="跨境企服" value="cross" />
-            <el-option label="出海投资" value="invest" />
-            <el-option label="其他服务" value="other" />
+          <el-select v-model="serviceForm.type" class="w-full" placeholder="请选择服务类型">
+            <el-option v-for="item in OVERSEAS_SERVICE_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="服务项目" required>
-          <el-select v-model="serviceForm.project" placeholder="请选择服务项目" class="w-full">
-            <el-option
-              v-for="item in projectOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
+          <el-select v-model="serviceForm.project" class="w-full" placeholder="请选择服务项目">
+            <el-option v-for="item in projectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="主题描述" required>
-          <el-input 
-            v-model="serviceForm.title" 
-            placeholder="请输入主题描述（限15字）"
-            maxlength="15"
-            show-word-limit
-          />
+          <el-input v-model="serviceForm.title" maxlength="15" show-word-limit placeholder="请输入主题描述（限15字）" />
         </el-form-item>
 
         <el-form-item label="目标国家/地区" required>
-          <el-select 
-            v-model="serviceForm.countries" 
-            multiple 
+          <el-select
+            v-model="serviceForm.countries"
+            multiple
             filterable
             allow-create
-            placeholder="请选择或输入国家"
+            default-first-option
             class="w-full"
+            placeholder="请选择或输入国家/地区"
           >
-            <el-option label="美国" value="美国" />
-            <el-option label="英国" value="英国" />
-            <el-option label="德国" value="德国" />
-            <el-option label="法国" value="法国" />
-            <el-option label="日本" value="日本" />
-            <el-option label="韩国" value="韩国" />
-            <el-option label="新加坡" value="新加坡" />
-            <el-option label="阿联酋" value="阿联酋" />
-            <el-option label="澳大利亚" value="澳大利亚" />
-            <el-option label="加拿大" value="加拿大" />
+            <el-option v-for="item in OVERSEAS_COUNTRY_OPTIONS" :key="item" :label="item" :value="item" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="服务简介" required>
-          <el-input 
-            v-model="serviceForm.summary" 
-            type="textarea" 
-            :rows="2"
-            placeholder="内容摘要（100字以内）"
-            maxlength="100"
-            show-word-limit
-          />
+          <el-input v-model="serviceForm.summary" type="textarea" :rows="3" maxlength="100" show-word-limit placeholder="内容摘要（100字以内）" />
         </el-form-item>
 
         <el-form-item label="服务详情" required>
-          <el-input 
-            v-model="serviceForm.content" 
-            type="textarea" 
-            :rows="8"
-            placeholder="详细介绍服务内容、流程、优势等..."
-            maxlength="2000"
-            show-word-limit
-          />
-          <div class="text-xs text-slate-400 mt-1">
-            💡 提示：未来可接入富文本编辑器
-          </div>
+          <el-input v-model="serviceForm.content" type="textarea" :rows="8" maxlength="2000" show-word-limit placeholder="详细介绍服务内容、流程、优势等" />
         </el-form-item>
 
         <el-form-item label="宣传图上传" required>
           <el-upload
-            action="/api/common/upload"
+            v-model:file-list="promoFileList"
             list-type="picture-card"
             :limit="1"
-            :file-list="serviceForm.promoImage"
+            :http-request="uploadPromoImage"
+            :before-upload="beforePromoUpload"
+            :on-remove="handlePromoRemove"
           >
             <el-icon><Plus /></el-icon>
           </el-upload>
-          <div class="text-xs text-slate-400 mt-1">上传一张480x480宣传图</div>
+          <div class="text-xs text-slate-400 mt-1">建议上传 1 张 480x480 宣传图</div>
         </el-form-item>
 
         <el-form-item label="服务介绍上传">
           <el-upload
-            action="/api/common/upload"
+            v-model:file-list="introFileList"
             :limit="3"
-            :file-list="serviceForm.introFiles"
+            :http-request="uploadIntroFile"
+            :before-upload="beforeIntroUpload"
+            :on-remove="handleIntroRemove"
             accept=".pdf,.jpg,.jpeg"
           >
             <el-button type="primary" plain>
-              <el-icon class="mr-2"><Plus /></el-icon> 上传PDF/JPEG
+              <el-icon class="mr-2"><Plus /></el-icon>上传 PDF/JPEG
             </el-button>
           </el-upload>
-          <div class="text-xs text-slate-400 mt-1">支持PDF、JPEG格式，可上传业务方案/服务介绍</div>
         </el-form-item>
 
         <el-form-item label="服务价格">
@@ -144,13 +85,7 @@
             <el-radio label="fixed">固定价格</el-radio>
             <el-radio label="negotiable">价格面议</el-radio>
           </el-radio-group>
-          <el-input-number 
-            v-if="serviceForm.priceType === 'fixed'"
-            v-model="serviceForm.price" 
-            :min="0" 
-            :step="100"
-            class="ml-4"
-          />
+          <el-input-number v-if="serviceForm.priceType === 'fixed'" v-model="serviceForm.price" :min="0" :step="100" class="ml-4" />
           <span v-if="serviceForm.priceType === 'fixed'" class="ml-2 text-sm text-slate-500">元</span>
         </el-form-item>
 
@@ -159,37 +94,30 @@
         </el-form-item>
 
         <el-form-item label="联系方式">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             <el-input v-model="serviceForm.contactPerson" placeholder="联系人" />
             <el-input v-model="serviceForm.contactPhone" placeholder="联系电话" />
+            <el-input v-model="serviceForm.contactEmail" placeholder="联系邮箱" class="md:col-span-2" />
           </div>
-          <el-input v-model="serviceForm.contactEmail" placeholder="联系邮箱" class="mt-2" />
         </el-form-item>
 
         <el-form-item label="服务图片">
           <el-upload
-            action="/api/common/upload"
+            v-model:file-list="galleryFileList"
             list-type="picture-card"
             :limit="5"
-            :file-list="serviceForm.images"
+            :http-request="uploadGalleryImage"
+            :before-upload="beforeGalleryUpload"
+            :on-remove="handleGalleryRemove"
           >
             <el-icon><Plus /></el-icon>
           </el-upload>
-          <div class="text-xs text-slate-400 mt-1">最多上传5张，建议尺寸800x600px</div>
+          <div class="text-xs text-slate-400 mt-1">最多 5 张，用于详情展示</div>
         </el-form-item>
 
         <el-form-item label="标签">
-          <el-select 
-            v-model="serviceForm.tags" 
-            multiple 
-            placeholder="选择服务标签"
-            class="w-full"
-          >
-            <el-option label="专业认证" value="certified" />
-            <el-option label="快速响应" value="fast" />
-            <el-option label="一站式" value="onestop" />
-            <el-option label="性价比高" value="affordable" />
-            <el-option label="经验丰富" value="experienced" />
+          <el-select v-model="serviceForm.tags" multiple allow-create filterable class="w-full" placeholder="输入或选择标签">
+            <el-option v-for="item in OVERSEAS_SERVICE_TAG_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
@@ -201,313 +129,330 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button type="primary" @click="handlePublish" :loading="submitLoading">
-            <el-icon class="mr-2"><Check /></el-icon>
-            {{ isEdit ? '保存修改' : (serviceForm.status === 'draft' ? '保存草稿' : '发布服务') }}
+          <el-button type="primary" :loading="submitLoading" @click="submitForm">
+            <el-icon class="mr-2"><Check /></el-icon>{{ isEdit ? '保存修改' : serviceForm.status === 'draft' ? '保存草稿' : '发布服务' }}
           </el-button>
-          <el-button @click="handleReset">
-            <el-icon class="mr-2"><RefreshLeft /></el-icon> {{ isEdit ? '重置编辑' : '重置' }}
+          <el-button @click="resetForm">
+            <el-icon class="mr-2"><RefreshLeft /></el-icon>重置
           </el-button>
         </el-form-item>
       </el-form>
     </div>
 
-    <!-- 服务信息列表 -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div class="p-6 border-b border-slate-100">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 class="text-lg font-bold text-slate-800">出海服务列表</h3>
-            <p class="text-xs text-slate-500 mt-1">管理已发布的出海服务信息</p>
+            <p class="text-xs text-slate-500 mt-1">支持真实查询、编辑、下架、删除</p>
           </div>
+          <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+            <el-tab-pane label="已发布" name="published" />
+            <el-tab-pane label="草稿箱" name="draft" />
+            <el-tab-pane label="已下架" name="offline" />
+          </el-tabs>
         </div>
 
-        <!-- Tab切换 -->
-        <el-tabs v-model="activeTab" class="mb-4">
-          <el-tab-pane name="published">
-            <template #label>
-              <span class="flex items-center gap-2">
-                已发布 <el-tag size="small" type="success" effect="plain">{{ publishedList.length }}</el-tag>
-              </span>
-            </template>
-          </el-tab-pane>
-          <el-tab-pane name="draft">
-            <template #label>
-              <span class="flex items-center gap-2">
-                草稿箱 <el-tag size="small" type="info" effect="plain">{{ draftList.length }}</el-tag>
-              </span>
-            </template>
-          </el-tab-pane>
-          <el-tab-pane name="offline">
-            <template #label>
-              <span class="flex items-center gap-2">
-                已下架 <el-tag size="small" type="warning" effect="plain">{{ offlineList.length }}</el-tag>
-              </span>
-            </template>
-          </el-tab-pane>
-        </el-tabs>
-
-        <!-- 筛选条件 -->
-        <div class="flex gap-3 flex-wrap">
-          <el-input 
-            v-model="filters.keyword" 
-            placeholder="搜索服务标题..." 
-            prefix-icon="Search" 
-            class="w-64" 
-            clearable 
-          />
-          <el-select v-model="filters.country" placeholder="服务国家" class="w-32" clearable filterable>
-            <el-option label="美国" value="美国" />
-            <el-option label="英国" value="英国" />
-            <el-option label="德国" value="德国" />
-            <el-option label="日本" value="日本" />
-            <el-option label="新加坡" value="新加坡" />
+        <div class="flex gap-3 flex-wrap mt-4">
+          <el-input v-model="filters.keyword" class="w-64" clearable placeholder="搜索服务标题/摘要" :prefix-icon="Search" />
+          <el-select v-model="filters.country" class="w-36" clearable filterable placeholder="服务国家">
+            <el-option v-for="item in OVERSEAS_COUNTRY_OPTIONS" :key="item" :label="item" :value="item" />
           </el-select>
-          <el-select v-model="filters.type" placeholder="服务类型" class="w-32" clearable>
-            <el-option label="外贸服务" value="trade" />
-            <el-option label="知识产权" value="ip" />
-            <el-option label="跨境企服" value="cross" />
-            <el-option label="出海投资" value="invest" />
-            <el-option label="其他服务" value="other" />
+          <el-select v-model="filters.type" class="w-36" clearable placeholder="服务类型">
+            <el-option v-for="item in OVERSEAS_SERVICE_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-          <el-select v-model="filters.project" placeholder="服务项目" class="w-40" clearable>
-            <el-option
-              v-for="item in filterProjectOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
+          <el-select v-model="filters.project" class="w-44" clearable placeholder="服务项目">
+            <el-option v-for="item in filterProjectOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
           <el-button type="primary" plain @click="handleSearch">查询</el-button>
+          <el-button @click="resetFilters">重置</el-button>
         </div>
       </div>
 
       <div class="p-6">
-        <el-table :data="filteredServiceList" stripe :header-cell-style="{background:'#f8fafc', color:'#64748b'}">
-          <el-table-column label="服务信息" min-width="350">
-            <template #default="scope">
-              <div class="py-2">
-                <div class="font-bold text-slate-800 mb-1">{{ scope.row.title }}</div>
-                <div class="text-xs text-slate-500 line-clamp-2">{{ scope.row.summary }}</div>
-                <div class="flex gap-2 mt-2 flex-wrap">
-                  <el-tag :type="getTypeTag(scope.row.type)" size="small">
-                    {{ getTypeLabel(scope.row.type) }}
-                  </el-tag>
-                  <el-tag size="small" type="warning">
-                    {{ getProjectLabel(scope.row.project) }}
-                  </el-tag>
-                  <el-tag 
-                    v-for="country in scope.row.countries.slice(0, 2)" 
-                    :key="country" 
-                    size="small" 
-                    type="info"
-                  >
-                    {{ country }}
-                  </el-tag>
-                  <el-tag v-if="scope.row.countries.length > 2" size="small" type="info">
-                    +{{ scope.row.countries.length - 2 }}
-                  </el-tag>
+        <el-table v-loading="tableLoading" :data="serviceList" stripe :header-cell-style="{ background: '#f8fafc', color: '#64748b' }">
+          <el-table-column label="服务信息" min-width="360">
+            <template #default="{ row }">
+              <div class="flex gap-3 py-2">
+                <el-image
+                  v-if="row.promoImageUrl"
+                  :src="row.promoImageUrl"
+                  fit="cover"
+                  class="w-20 h-20 rounded-lg border border-slate-200 flex-shrink-0"
+                  :preview-src-list="[row.promoImageUrl]"
+                />
+                <div v-else class="w-20 h-20 rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-400 flex-shrink-0">
+                  无图
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-slate-800">{{ row.title }}</div>
+                  <div class="text-xs text-slate-500 mt-1 line-clamp-2">{{ row.summary || '-' }}</div>
+                  <div class="flex gap-2 flex-wrap mt-2">
+                    <el-tag size="small" :type="OVERSEAS_SERVICE_TYPE_TAG_MAP[row.type] || 'info'">
+                      {{ OVERSEAS_SERVICE_TYPE_LABEL_MAP[row.type] || row.type }}
+                    </el-tag>
+                    <el-tag size="small" type="warning" effect="plain">
+                      {{ OVERSEAS_PROJECT_MAP[row.project]?.label || row.project }}
+                    </el-tag>
+                    <el-tag v-for="country in row.countries.slice(0, 2)" :key="country" size="small" type="info" effect="plain">
+                      {{ country }}
+                    </el-tag>
+                    <el-tag v-if="row.countries.length > 2" size="small" type="info" effect="plain">
+                      +{{ row.countries.length - 2 }}
+                    </el-tag>
+                  </div>
                 </div>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column label="服务类型" width="120">
-            <template #default="scope">
-              <el-tag :type="getTypeTag(scope.row.type)" size="small">
-                {{ getTypeLabel(scope.row.type) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-
-          <el-table-column label="服务项目" width="140">
-            <template #default="scope">
-              <span class="text-slate-700">{{ getProjectLabel(scope.row.project) }}</span>
-            </template>
-          </el-table-column>
-
           <el-table-column label="价格" width="120">
-            <template #default="scope">
-              <span v-if="scope.row.priceType === 'free'" class="text-green-600 font-bold">免费</span>
-              <span v-else-if="scope.row.priceType === 'fixed'" class="text-blue-600 font-bold">
-                ¥{{ scope.row.price }}
-              </span>
+            <template #default="{ row }">
+              <span v-if="row.priceType === 'free'" class="text-green-600 font-bold">免费</span>
+              <span v-else-if="row.priceType === 'fixed'" class="text-blue-600 font-bold">¥{{ row.price || 0 }}</span>
               <span v-else class="text-orange-600 font-medium">面议</span>
             </template>
           </el-table-column>
 
-          <el-table-column label="浏览量" width="100" align="center">
-            <template #default="scope">
-              <span class="text-blue-600 font-bold">{{ scope.row.views }}</span>
+          <el-table-column label="状态" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
             </template>
           </el-table-column>
 
-          <el-table-column label="咨询数" width="100" align="center">
-            <template #default="scope">
-              <span class="text-green-600 font-bold">{{ scope.row.inquiries }}</span>
-            </template>
+          <el-table-column label="浏览量" width="90" align="center">
+            <template #default="{ row }">{{ row.views }}</template>
+          </el-table-column>
+
+          <el-table-column label="咨询数" width="90" align="center">
+            <template #default="{ row }">{{ row.inquiries }}</template>
           </el-table-column>
 
           <el-table-column prop="publishDate" label="发布时间" width="120" />
 
-          <el-table-column label="操作" width="280" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" size="small" @click="handleView(scope.row)">
-                查看
-              </el-button>
-              <el-button link type="warning" size="small" @click="handleEdit(scope.row)">
-                编辑
-              </el-button>
-              <el-button link type="danger" size="small" @click="handleOffline(scope.row)">
+          <el-table-column label="操作" width="260" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" size="small" @click="openDetail(row.id)">查看</el-button>
+              <el-button link type="warning" size="small" @click="startEdit(row.id)">编辑</el-button>
+              <el-button
+                v-if="row.status !== 'offline'"
+                link
+                type="info"
+                size="small"
+                @click="changeStatus(row.id, 'offline', '确认下架该服务吗？')"
+              >
                 下架
               </el-button>
-              <el-button link type="danger" size="small" @click="handleDelete(scope.row)">
-                删除
+              <el-button
+                v-else
+                link
+                type="success"
+                size="small"
+                @click="changeStatus(row.id, 'published', '确认重新发布该服务吗？')"
+              >
+                发布
               </el-button>
+              <el-button link type="danger" size="small" @click="removeItem(row.id, row.title)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
 
         <div class="mt-4 flex justify-end">
-          <el-pagination 
-            background 
-            layout="total, prev, pager, next" 
-            :total="filteredServiceList.length"
-            :page-size="10"
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            background
+            layout="total, prev, pager, next"
+            :total="total"
+            @current-change="loadList"
           />
         </div>
       </div>
     </div>
 
-    <!-- 服务详情弹窗 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="服务详情"
-      width="760px"
-      :close-on-click-modal="false"
-    >
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-          <div class="detail-item">
-            <div class="detail-label">服务类型</div>
-            <div class="detail-value">{{ getTypeLabel(detailRow.type) }}</div>
+    <el-dialog v-model="detailVisible" title="服务详情" width="780px" :close-on-click-modal="false">
+      <div v-loading="detailLoading" class="space-y-4">
+        <template v-if="detailItem">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="detail-item">
+              <div class="detail-label">服务类型</div>
+              <div class="detail-value">{{ OVERSEAS_SERVICE_TYPE_LABEL_MAP[detailItem.type] || detailItem.type }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">服务项目</div>
+              <div class="detail-value">{{ OVERSEAS_PROJECT_MAP[detailItem.project]?.label || detailItem.project }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">主题描述</div>
+              <div class="detail-value">{{ detailItem.title || '-' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">目标国家/地区</div>
+              <div class="detail-value">{{ detailItem.countries.join(' / ') || '-' }}</div>
+            </div>
           </div>
-          <div class="detail-item">
-            <div class="detail-label">服务项目</div>
-            <div class="detail-value">{{ getProjectLabel(detailRow.project) }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">主题描述</div>
-            <div class="detail-value">{{ detailRow.title || '-' }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">服务国家</div>
-            <div class="detail-value">{{ (detailRow.countries || []).join(' / ') || '-' }}</div>
-          </div>
-        </div>
 
-        <div class="detail-item">
-          <div class="detail-label">内容摘要</div>
-          <div class="detail-value">{{ detailRow.summary || '-' }}</div>
-        </div>
-
-        <div class="detail-item">
-          <div class="detail-label">服务详情</div>
-          <div class="detail-value whitespace-pre-wrap">{{ detailRow.content || '-' }}</div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
           <div class="detail-item">
-            <div class="detail-label">价格类型</div>
+            <div class="detail-label">服务简介</div>
+            <div class="detail-value">{{ detailItem.summary || '-' }}</div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">服务详情</div>
+            <div class="detail-value whitespace-pre-wrap">{{ detailItem.content || '-' }}</div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="detail-item">
+              <div class="detail-label">价格</div>
+              <div class="detail-value">
+                <template v-if="detailItem.priceType === 'free'">免费</template>
+                <template v-else-if="detailItem.priceType === 'fixed'">固定价格 ¥{{ detailItem.price || 0 }}</template>
+                <template v-else>价格面议</template>
+              </div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">服务周期</div>
+              <div class="detail-value">{{ detailItem.duration || '-' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">联系人</div>
+              <div class="detail-value">{{ detailItem.contactPerson || '-' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">联系电话</div>
+              <div class="detail-value">{{ detailItem.contactPhone || '-' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">联系邮箱</div>
+              <div class="detail-value">{{ detailItem.contactEmail || '-' }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">状态</div>
+              <div class="detail-value">{{ statusLabel(detailItem.status) }}</div>
+            </div>
+          </div>
+
+          <div class="detail-item">
+            <div class="detail-label">宣传图</div>
             <div class="detail-value">
-              <span v-if="detailRow.priceType === 'free'">免费</span>
-              <span v-else-if="detailRow.priceType === 'fixed'">固定价格 ¥{{ detailRow.price }}</span>
-              <span v-else>价格面议</span>
+              <div v-if="detailItem.promoImage.length" class="flex flex-wrap gap-2">
+                <el-image
+                  v-for="item in detailItem.promoImage"
+                  :key="item.fileUrl"
+                  :src="item.fileUrl"
+                  fit="cover"
+                  class="detail-image"
+                  :preview-src-list="detailItem.promoImage.map(file => file.fileUrl)"
+                />
+              </div>
+              <span v-else>-</span>
             </div>
           </div>
-          <div class="detail-item">
-            <div class="detail-label">服务周期</div>
-            <div class="detail-value">{{ detailRow.duration || '-' }}</div>
-          </div>
-        </div>
 
-        <div class="grid grid-cols-2 gap-4">
           <div class="detail-item">
-            <div class="detail-label">联系人</div>
-            <div class="detail-value">{{ detailRow.contactPerson || '-' }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">联系电话</div>
-            <div class="detail-value">{{ detailRow.contactPhone || '-' }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">联系邮箱</div>
-            <div class="detail-value">{{ detailRow.contactEmail || '-' }}</div>
-          </div>
-          <div class="detail-item">
-            <div class="detail-label">发布状态</div>
-            <div class="detail-value">{{ detailRow.status === 'draft' ? '草稿' : detailRow.status === 'offline' ? '已下架' : '已发布' }}</div>
-          </div>
-        </div>
-
-        <div class="detail-item">
-          <div class="detail-label">宣传图</div>
-          <div class="detail-value">
-            <div v-if="detailRow.promoImage && detailRow.promoImage.length" class="flex flex-wrap gap-2">
-              <el-image
-                v-for="(img, idx) in detailRow.promoImage"
-                :key="idx"
-                :src="img.url || img"
-                :preview-src-list="detailRow.promoImage.map(i => i.url || i)"
-                fit="cover"
-                class="detail-image"
-              />
+            <div class="detail-label">服务图片</div>
+            <div class="detail-value">
+              <div v-if="detailItem.images.length" class="flex flex-wrap gap-2">
+                <el-image
+                  v-for="item in detailItem.images"
+                  :key="item.fileUrl"
+                  :src="item.fileUrl"
+                  fit="cover"
+                  class="detail-image"
+                  :preview-src-list="detailItem.images.map(file => file.fileUrl)"
+                />
+              </div>
+              <span v-else>-</span>
             </div>
-            <span v-else>-</span>
           </div>
-        </div>
 
-        <div class="detail-item">
-          <div class="detail-label">服务图片</div>
-          <div class="detail-value">
-            <div v-if="detailRow.images && detailRow.images.length" class="flex flex-wrap gap-2">
-              <el-image
-                v-for="(img, idx) in detailRow.images"
-                :key="idx"
-                :src="img.url || img"
-                :preview-src-list="detailRow.images.map(i => i.url || i)"
-                fit="cover"
-                class="detail-image"
-              />
+          <div class="detail-item">
+            <div class="detail-label">介绍文件</div>
+            <div class="detail-value">
+              <div v-if="detailItem.introFiles.length" class="space-y-2">
+                <div v-for="item in detailItem.introFiles" :key="item.fileUrl" class="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+                  <div>
+                    <div class="font-medium text-slate-700">{{ item.fileName }}</div>
+                    <div class="text-xs text-slate-400">{{ formatFileSize(item.fileSize) }}</div>
+                  </div>
+                  <el-button type="primary" link @click="openFile(item.fileUrl)">下载</el-button>
+                </div>
+              </div>
+              <span v-else>-</span>
             </div>
-            <span v-else>-</span>
           </div>
-        </div>
+        </template>
       </div>
 
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
-
   </div>
 </template>
 
 <script setup lang="ts">
 import { Plus, Check, RefreshLeft, Search } from '@element-plus/icons-vue'
-import { ref, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type UploadRequestOptions, type UploadUserFile } from 'element-plus'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { apiFetchRaw, apiRequest } from '@/utils/request'
+import {
+  OVERSEAS_COUNTRY_OPTIONS,
+  OVERSEAS_PROJECT_MAP,
+  OVERSEAS_SERVICE_TAG_OPTIONS,
+  OVERSEAS_SERVICE_TYPE_LABEL_MAP,
+  OVERSEAS_SERVICE_TYPE_OPTIONS,
+  OVERSEAS_SERVICE_TYPE_TAG_MAP
+} from '@/composables/useOverseasAdminCatalog'
 
 definePageMeta({ layout: 'admin' })
 
-const submitLoading = ref(false)
-const activeTab = ref('published')
-const isEdit = ref(false)
-const editId = ref<number | null>(null)
-const detailVisible = ref(false)
-const detailRow = ref<any>({})
+type UploadMeta = {
+  fileName: string
+  fileUrl: string
+  fileExt: string
+  fileSize: number
+}
 
-const serviceForm = ref({
+type ServiceItem = {
+  id: number
+  type: string
+  project: string
+  title: string
+  countries: string[]
+  summary: string
+  content: string
+  priceType: string
+  price: number
+  duration: string
+  contactPerson: string
+  contactPhone: string
+  contactEmail: string
+  tags: string[]
+  status: string
+  views: number
+  inquiries: number
+  publishDate: string
+  promoImageUrl: string
+  promoImage: UploadMeta[]
+  images: UploadMeta[]
+  introFiles: UploadMeta[]
+}
+
+type UploadApiResponse = {
+  code: number
+  message: string
+  data?: {
+    url: string
+    fileName?: string
+    storedName?: string
+    fileExt?: string
+    fileSize?: number
+  }
+}
+
+const createDefaultForm = () => ({
   type: '',
   project: '',
   title: '',
@@ -520,324 +465,437 @@ const serviceForm = ref({
   contactPerson: '',
   contactPhone: '',
   contactEmail: '',
-  images: [] as any[],
-  promoImage: [] as any[],
-  introFiles: [] as any[],
   tags: [] as string[],
   status: 'published'
 })
 
-const filters = ref({
+const serviceForm = reactive(createDefaultForm())
+const submitLoading = ref(false)
+const tableLoading = ref(false)
+const detailLoading = ref(false)
+const detailVisible = ref(false)
+const detailItem = ref<ServiceItem | null>(null)
+const serviceList = ref<ServiceItem[]>([])
+const editId = ref<number | null>(null)
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const activeTab = ref('published')
+
+const filters = reactive({
   keyword: '',
   country: '',
   type: '',
   project: ''
 })
 
-const allServiceList = ref([
-  {
-    id: 1,
-    type: 'trade',
-    project: 'customs',
-    title: '美国清关与报关服务',
-    countries: ['美国'],
-    summary: '提供美国清关、报关与文件处理服务，确保货物合规快速通关',
-    content: '详细服务内容...',
-    priceType: 'fixed',
-    price: 15000,
-    duration: '15-20个工作日',
-    contactPerson: 'John Smith',
-    contactPhone: '+1-212-736-3100',
-    contactEmail: 'market@xripp.com',
-    promoImage: [],
-    introFiles: [],
-    views: 256,
-    inquiries: 32,
-    status: 'published',
-    publishDate: '2026-01-20'
-  },
-  {
-    id: 2,
-    type: 'ip',
-    project: 'legal_service',
-    title: '欧盟法律合规咨询',
-    countries: ['德国', '法国', '英国'],
-    summary: '提供欧盟法律法规咨询，协助企业合规经营',
-    content: '详细服务内容...',
-    priceType: 'negotiable',
-    price: 0,
-    duration: '按项目确定',
-    contactPerson: 'David Brown',
-    contactPhone: '+44-20-7234-5678',
-    contactEmail: 'legal@xripp.com',
-    promoImage: [],
-    introFiles: [],
-    views: 189,
-    inquiries: 28,
-    status: 'published',
-    publishDate: '2026-01-18'
-  }
-])
+const promoMeta = ref<UploadMeta[]>([])
+const galleryMeta = ref<UploadMeta[]>([])
+const introMeta = ref<UploadMeta[]>([])
+const promoFileList = ref<UploadUserFile[]>([])
+const galleryFileList = ref<UploadUserFile[]>([])
+const introFileList = ref<UploadUserFile[]>([])
 
-const publishedList = computed(() => allServiceList.value.filter(item => item.status === 'published'))
-const draftList = computed(() => allServiceList.value.filter(item => item.status === 'draft'))
-const offlineList = computed(() => allServiceList.value.filter(item => item.status === 'offline'))
-
-const currentTabList = computed(() => {
-  if (activeTab.value === 'draft') return draftList.value
-  if (activeTab.value === 'offline') return offlineList.value
-  return publishedList.value
-})
-
-const filteredServiceList = computed(() => {
-  let list = currentTabList.value
-  
-  if (filters.value.keyword) {
-    list = list.filter(item => 
-      item.title.includes(filters.value.keyword) ||
-      item.summary.includes(filters.value.keyword)
-    )
-  }
-  
-  if (filters.value.country) {
-    list = list.filter(item => item.countries.includes(filters.value.country))
-  }
-
-  if (filters.value.type) {
-    list = list.filter(item => item.type === filters.value.type)
-  }
-
-  if (filters.value.project) {
-    list = list.filter(item => item.project === filters.value.project)
-  }
-  
-  return list
-})
-
-const getTypeTag = (type: string) => {
-  const map: Record<string, string> = {
-    'trade': 'primary',
-    'ip': 'success',
-    'cross': 'warning',
-    'invest': 'danger',
-    'other': 'info'
-  }
-  return map[type] || 'info'
-}
-
-const getTypeLabel = (type: string) => {
-  const map: Record<string, string> = {
-    'trade': '外贸服务',
-    'ip': '知识产权',
-    'cross': '跨境企服',
-    'invest': '出海投资',
-    'other': '其他服务'
-  }
-  return map[type] || type
-}
-
-const projectMap: Record<string, { label: string; type: string }> = {
-  // 外贸服务
-  'customs': { label: '报关清关', type: 'trade' },
-  'shipping': { label: '物流海运', type: 'trade' },
-  'overseas_warehouse': { label: '海外仓', type: 'trade' },
-  'cargo_insurance': { label: '货运保险', type: 'trade' },
-  'cross_border_payment': { label: '跨境支付与结算', type: 'trade' },
-  // 知识产权
-  'legal_service': { label: '法律服务', type: 'ip' },
-  'trademark': { label: '商标注册', type: 'ip' },
-  'certification': { label: '认证', type: 'ip' },
-  'audit': { label: '财务审计', type: 'ip' },
-  'tax_accounting': { label: '记账报税', type: 'ip' },
-  'due_diligence': { label: '尽职调查', type: 'ip' },
-  'tax_service': { label: '税务服务', type: 'ip' },
-  'compliance': { label: '跨境合规', type: 'ip' },
-  // 跨境企服
-  'company_setup': { label: '公司设立', type: 'cross' },
-  'company_dissolution': { label: '公司注销', type: 'cross' },
-  'visa': { label: '签证', type: 'cross' },
-  // 出海投资
-  'project_research': { label: '项目调研', type: 'invest' },
-  'industry_report': { label: '行业分析报告', type: 'invest' },
-  'factory_build': { label: '投资建厂', type: 'invest' },
-  'landing_consulting': { label: '落地咨询', type: 'invest' },
-  // 其他服务
-  'other_service': { label: '其他服务', type: 'other' }
-}
-
+const isEdit = computed(() => editId.value !== null)
 const projectOptions = computed(() => {
-  if (!serviceForm.value.type) {
-    return Object.entries(projectMap).map(([value, item]) => ({ value, label: item.label }))
-  }
-  return Object.entries(projectMap)
-    .filter(([, item]) => item.type === serviceForm.value.type)
+  const entries = Object.entries(OVERSEAS_PROJECT_MAP)
+  return entries
+    .filter(([, item]) => !serviceForm.type || item.type === serviceForm.type)
     .map(([value, item]) => ({ value, label: item.label }))
 })
 
 const filterProjectOptions = computed(() => {
-  if (!filters.value.type) {
-    return Object.entries(projectMap).map(([value, item]) => ({ value, label: item.label }))
-  }
-  return Object.entries(projectMap)
-    .filter(([, item]) => item.type === filters.value.type)
+  const entries = Object.entries(OVERSEAS_PROJECT_MAP)
+  return entries
+    .filter(([, item]) => !filters.type || item.type === filters.type)
     .map(([value, item]) => ({ value, label: item.label }))
 })
 
-const getProjectLabel = (project: string) => {
-  return projectMap[project]?.label || project || '未选择'
+const normalizeUploadMeta = (raw: any, fallbackName = ''): UploadMeta => ({
+  fileName: String(raw?.fileName || raw?.name || fallbackName || '未命名文件'),
+  fileUrl: String(raw?.fileUrl || raw?.url || ''),
+  fileExt: String(raw?.fileExt || '').toLowerCase(),
+  fileSize: Number(raw?.fileSize || 0)
+})
+
+const toUploadUserFile = (file: UploadMeta): UploadUserFile => ({
+  name: file.fileName,
+  url: file.fileUrl,
+  status: 'success'
+})
+
+const validateUpload = (rawFile: File, allowedExts: string[], maxMb: number, label: string) => {
+  const ext = rawFile.name.split('.').pop()?.toLowerCase() || ''
+  if (!allowedExts.includes(ext)) {
+    ElMessage.warning(`${label}仅支持 ${allowedExts.join('/').toUpperCase()} 格式`)
+    return false
+  }
+  if (rawFile.size > maxMb * 1024 * 1024) {
+    ElMessage.warning(`${label}大小不能超过 ${maxMb}MB`)
+    return false
+  }
+  return true
 }
 
-const handlePublish = () => {
-  if (
-    !serviceForm.value.type ||
-    !serviceForm.value.project ||
-    !serviceForm.value.title ||
-    !serviceForm.value.countries.length
-  ) {
-    return ElMessage.warning('请填写必填项')
-  }
+const beforePromoUpload = (rawFile: File) => validateUpload(rawFile, ['jpg', 'jpeg', 'png', 'webp'], 5, '宣传图')
+const beforeGalleryUpload = (rawFile: File) => validateUpload(rawFile, ['jpg', 'jpeg', 'png', 'webp'], 5, '服务图片')
+const beforeIntroUpload = (rawFile: File) => validateUpload(rawFile, ['pdf', 'jpg', 'jpeg'], 10, '服务介绍')
 
-  if (!serviceForm.value.promoImage || !serviceForm.value.promoImage.length) {
-    return ElMessage.warning('请上传宣传图')
+const uploadCommonFile = async (options: UploadRequestOptions, label: string) => {
+  const formData = new FormData()
+  formData.append('file', options.file)
+  const response = await apiFetchRaw<UploadApiResponse>('/common/upload', {
+    method: 'POST',
+    body: formData
+  })
+  if (Number(response?.code) !== 200 || !response?.data?.url) {
+    throw new Error(response?.message || `${label}上传失败`)
   }
+  return normalizeUploadMeta(response.data, options.file.name)
+}
 
-  if (serviceForm.value.priceType === 'fixed' && (!serviceForm.value.price || serviceForm.value.price <= 0)) {
-    return ElMessage.warning('固定价格需填写有效金额')
+const uploadPromoImage = async (options: UploadRequestOptions) => {
+  try {
+    const uploaded = await uploadCommonFile(options, '宣传图')
+    promoMeta.value = [uploaded]
+    promoFileList.value = [toUploadUserFile(uploaded)]
+    options.onSuccess?.(uploaded as any)
+    ElMessage.success('宣传图上传成功')
+  } catch (error: any) {
+    options.onError?.(error)
+    ElMessage.error(error?.message || '宣传图上传失败')
   }
+}
 
-  if (serviceForm.value.introFiles && serviceForm.value.introFiles.length) {
-    const allowed = ['.pdf', '.jpg', '.jpeg']
-    const invalid = serviceForm.value.introFiles.find((file: any) => {
-      const name = (file?.name || file?.url || '').toLowerCase()
-      return name && !allowed.some(ext => name.endsWith(ext))
-    })
-    if (invalid) {
-      return ElMessage.warning('服务介绍仅支持PDF/JPEG格式')
+const uploadGalleryImage = async (options: UploadRequestOptions) => {
+  try {
+    const uploaded = await uploadCommonFile(options, '服务图片')
+    galleryMeta.value = [...galleryMeta.value, uploaded]
+    galleryFileList.value = galleryMeta.value.map(toUploadUserFile)
+    options.onSuccess?.(uploaded as any)
+    ElMessage.success('服务图片上传成功')
+  } catch (error: any) {
+    options.onError?.(error)
+    ElMessage.error(error?.message || '服务图片上传失败')
+  }
+}
+
+const uploadIntroFile = async (options: UploadRequestOptions) => {
+  try {
+    const uploaded = await uploadCommonFile(options, '服务介绍')
+    introMeta.value = [...introMeta.value, uploaded]
+    introFileList.value = introMeta.value.map(toUploadUserFile)
+    options.onSuccess?.(uploaded as any)
+    ElMessage.success('服务介绍上传成功')
+  } catch (error: any) {
+    options.onError?.(error)
+    ElMessage.error(error?.message || '服务介绍上传失败')
+  }
+}
+
+const syncUploadState = (promo: UploadMeta[] = [], gallery: UploadMeta[] = [], intro: UploadMeta[] = []) => {
+  promoMeta.value = [...promo]
+  galleryMeta.value = [...gallery]
+  introMeta.value = [...intro]
+  promoFileList.value = promo.map(toUploadUserFile)
+  galleryFileList.value = gallery.map(toUploadUserFile)
+  introFileList.value = intro.map(toUploadUserFile)
+}
+
+const handlePromoRemove = () => {
+  promoMeta.value = []
+  promoFileList.value = []
+}
+
+const handleGalleryRemove = (file: UploadUserFile) => {
+  galleryMeta.value = galleryMeta.value.filter(item => item.fileUrl !== file.url && item.fileName !== file.name)
+  galleryFileList.value = galleryMeta.value.map(toUploadUserFile)
+}
+
+const handleIntroRemove = (file: UploadUserFile) => {
+  introMeta.value = introMeta.value.filter(item => item.fileUrl !== file.url && item.fileName !== file.name)
+  introFileList.value = introMeta.value.map(toUploadUserFile)
+}
+
+const statusLabel = (status: string) => ({
+  published: '已发布',
+  draft: '草稿',
+  offline: '已下架'
+} as Record<string, string>)[status] || status
+
+const statusTagType = (status: string) => ({
+  published: 'success',
+  draft: 'info',
+  offline: 'warning'
+} as Record<string, string>)[status] || 'info'
+
+const formatFileSize = (size = 0) => {
+  if (!size) return '-'
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`
+  if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${size} B`
+}
+
+const openFile = (url: string) => {
+  if (!url || !import.meta.client) return
+  window.open(url, '_blank')
+}
+
+const mapServiceItem = (raw: any): ServiceItem => ({
+  id: Number(raw?.id || 0),
+  type: String(raw?.type || raw?.serviceType || ''),
+  project: String(raw?.project || raw?.projectCode || ''),
+  title: String(raw?.title || ''),
+  countries: Array.isArray(raw?.countries) ? raw.countries.map((item: any) => String(item)) : [],
+  summary: String(raw?.summary || ''),
+  content: String(raw?.content || ''),
+  priceType: String(raw?.priceType || 'negotiable'),
+  price: Number(raw?.price || 0),
+  duration: String(raw?.duration || ''),
+  contactPerson: String(raw?.contactPerson || ''),
+  contactPhone: String(raw?.contactPhone || ''),
+  contactEmail: String(raw?.contactEmail || ''),
+  tags: Array.isArray(raw?.tags) ? raw.tags.map((item: any) => String(item)) : [],
+  status: String(raw?.status || 'draft'),
+  views: Number(raw?.views || 0),
+  inquiries: Number(raw?.inquiries || 0),
+  publishDate: String(raw?.publishDate || ''),
+  promoImageUrl: String(raw?.promoImageUrl || raw?.promoImage?.[0]?.fileUrl || ''),
+  promoImage: Array.isArray(raw?.promoImage) ? raw.promoImage.map((item: any) => normalizeUploadMeta(item)) : [],
+  images: Array.isArray(raw?.images) ? raw.images.map((item: any) => normalizeUploadMeta(item)) : [],
+  introFiles: Array.isArray(raw?.introFiles) ? raw.introFiles.map((item: any) => normalizeUploadMeta(item)) : []
+})
+
+const loadList = async () => {
+  tableLoading.value = true
+  try {
+    const query: Record<string, any> = {
+      page: page.value,
+      page_size: pageSize.value,
+      status: activeTab.value
     }
+    if (filters.keyword) query.keyword = filters.keyword
+    if (filters.country) query.country = filters.country
+    if (filters.type) query.service_type = filters.type
+    if (filters.project) query.project = filters.project
+
+    const res = await apiRequest<any>('/v3/admin/overseas/services', { query })
+    serviceList.value = Array.isArray(res.data?.items) ? res.data.items.map(mapServiceItem) : []
+    total.value = Number(res.data?.total || 0)
+  } catch (error: any) {
+    ElMessage.error(error?.message || '服务列表加载失败')
+  } finally {
+    tableLoading.value = false
   }
-  
-  submitLoading.value = true
-  setTimeout(() => {
-    const payload = {
-      ...serviceForm.value,
-      promoImage: serviceForm.value.promoImage || [],
-      introFiles: serviceForm.value.introFiles || []
-    }
-
-    if (isEdit.value && editId.value !== null) {
-      const index = allServiceList.value.findIndex(item => item.id === editId.value)
-      if (index !== -1) {
-        allServiceList.value[index] = {
-          ...allServiceList.value[index],
-          ...payload
-        }
-      }
-    } else {
-      allServiceList.value.unshift({
-        id: Date.now(),
-        ...payload,
-        views: 0,
-        inquiries: 0,
-        publishDate: new Date().toISOString().split('T')[0]
-      })
-    }
-    submitLoading.value = false
-    ElMessage.success(isEdit.value ? '保存修改成功' : (serviceForm.value.status === 'draft' ? '保存成功' : '发布成功'))
-    handleReset()
-  }, 1000)
 }
 
-const handleReset = () => {
-  serviceForm.value = {
-    type: '',
-    project: '',
-    title: '',
-    countries: [],
-    summary: '',
-    content: '',
-    priceType: 'negotiable',
-    price: 0,
-    duration: '',
-    contactPerson: '',
-    contactPhone: '',
-    contactEmail: '',
-    images: [],
-    promoImage: [],
-    introFiles: [],
-    tags: [],
-    status: 'published'
-  }
-  isEdit.value = false
-  editId.value = null
+const loadDetail = async (id: number) => {
+  const res = await apiRequest<any>(`/v3/admin/overseas/services/${id}`)
+  return mapServiceItem(res.data)
 }
 
-const handleCancelEdit = () => {
-  handleReset()
-}
-
-const handleSearch = () => {
-  ElMessage.success('查询完成')
-}
-
-const handleView = (row: any) => {
-  detailRow.value = { ...row }
+const openDetail = async (id: number) => {
   detailVisible.value = true
-}
-
-const handleEdit = (row: any) => {
-  isEdit.value = true
-  editId.value = row.id
-  serviceForm.value = {
-    type: row.type || '',
-    project: row.project || '',
-    title: row.title || '',
-    countries: row.countries ? [...row.countries] : [],
-    summary: row.summary || '',
-    content: row.content || '',
-    priceType: row.priceType || 'negotiable',
-    price: row.price || 0,
-    duration: row.duration || '',
-    contactPerson: row.contactPerson || '',
-    contactPhone: row.contactPhone || '',
-    contactEmail: row.contactEmail || '',
-    images: row.images ? [...row.images] : [],
-    promoImage: row.promoImage ? [...row.promoImage] : [],
-    introFiles: row.introFiles ? [...row.introFiles] : [],
-    tags: row.tags ? [...row.tags] : [],
-    status: row.status || 'published'
+  detailLoading.value = true
+  detailItem.value = null
+  try {
+    detailItem.value = await loadDetail(id)
+  } catch (error: any) {
+    detailVisible.value = false
+    ElMessage.error(error?.message || '服务详情加载失败')
+  } finally {
+    detailLoading.value = false
   }
-  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-const handleOffline = (row: any) => {
-  ElMessageBox.confirm(`确定下架服务 "${row.title}" 吗？`, '提示', {
-    type: 'warning'
-  }).then(() => {
-    const index = allServiceList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      allServiceList.value[index] = {
-        ...allServiceList.value[index],
-        status: 'offline'
-      }
-    }
-    ElMessage.success('已下架')
-  })
+const startEdit = async (id: number) => {
+  detailLoading.value = true
+  try {
+    const detail = await loadDetail(id)
+    editId.value = detail.id
+    Object.assign(serviceForm, {
+      type: detail.type,
+      project: detail.project,
+      title: detail.title,
+      countries: [...detail.countries],
+      summary: detail.summary,
+      content: detail.content,
+      priceType: detail.priceType,
+      price: detail.price || 0,
+      duration: detail.duration,
+      contactPerson: detail.contactPerson,
+      contactPhone: detail.contactPhone,
+      contactEmail: detail.contactEmail,
+      tags: [...detail.tags],
+      status: detail.status
+    })
+    syncUploadState(detail.promoImage, detail.images, detail.introFiles)
+    if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+  } catch (error: any) {
+    ElMessage.error(error?.message || '服务详情加载失败')
+  } finally {
+    detailLoading.value = false
+  }
 }
 
-const handleDelete = (row: any) => {
-  ElMessageBox.confirm(`确定删除服务 "${row.title}" 吗？`, '提示', {
-    type: 'warning'
-  }).then(() => {
-    const index = allServiceList.value.findIndex(item => item.id === row.id)
-    if (index !== -1) {
-      allServiceList.value.splice(index, 1)
-    }
-    ElMessage.success('删除成功')
-  })
+const buildPayload = () => ({
+  type: serviceForm.type,
+  project: serviceForm.project,
+  title: serviceForm.title.trim(),
+  countries: serviceForm.countries.filter(Boolean),
+  summary: serviceForm.summary.trim(),
+  content: serviceForm.content.trim(),
+  priceType: serviceForm.priceType,
+  price: serviceForm.priceType === 'fixed' ? Number(serviceForm.price || 0) : 0,
+  duration: serviceForm.duration.trim(),
+  contactPerson: serviceForm.contactPerson.trim(),
+  contactPhone: serviceForm.contactPhone.trim(),
+  contactEmail: serviceForm.contactEmail.trim(),
+  tags: serviceForm.tags.filter(Boolean),
+  status: serviceForm.status,
+  promoImage: promoMeta.value,
+  images: galleryMeta.value,
+  introFiles: introMeta.value
+})
+
+const validateForm = () => {
+  if (!serviceForm.type || !serviceForm.project || !serviceForm.title.trim()) {
+    return '请填写服务类型、服务项目、主题描述'
+  }
+  if (!serviceForm.countries.length || !serviceForm.summary.trim() || !serviceForm.content.trim()) {
+    return '请填写目标国家、服务简介和服务详情'
+  }
+  if (!promoMeta.value.length) {
+    return '请上传宣传图'
+  }
+  if (serviceForm.priceType === 'fixed' && Number(serviceForm.price || 0) <= 0) {
+    return '固定价格需填写有效金额'
+  }
+  return ''
 }
+
+const submitForm = async () => {
+  const message = validateForm()
+  if (message) {
+    ElMessage.warning(message)
+    return
+  }
+
+  submitLoading.value = true
+  try {
+    const payload = buildPayload()
+    if (editId.value) {
+      await apiRequest(`/v3/admin/overseas/services/${editId.value}`, {
+        method: 'PUT',
+        body: payload
+      })
+      ElMessage.success('服务修改成功')
+    } else {
+      await apiRequest('/v3/admin/overseas/services', {
+        method: 'POST',
+        body: payload
+      })
+      ElMessage.success(serviceForm.status === 'draft' ? '草稿保存成功' : '服务发布成功')
+    }
+    activeTab.value = serviceForm.status
+    page.value = 1
+    resetForm()
+    await loadList()
+  } catch (error: any) {
+    ElMessage.error(error?.message || '服务保存失败')
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const resetForm = () => {
+  Object.assign(serviceForm, createDefaultForm())
+  editId.value = null
+  syncUploadState()
+}
+
+const handleSearch = async () => {
+  page.value = 1
+  await loadList()
+}
+
+const resetFilters = async () => {
+  Object.assign(filters, { keyword: '', country: '', type: '', project: '' })
+  page.value = 1
+  await loadList()
+}
+
+const handleTabChange = async () => {
+  page.value = 1
+  await loadList()
+}
+
+const changeStatus = async (id: number, status: 'published' | 'offline', title: string) => {
+  try {
+    await ElMessageBox.confirm(title, '状态确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await apiRequest(`/v3/admin/overseas/services/${id}`, {
+      method: 'PUT',
+      body: { status }
+    })
+    ElMessage.success(status === 'offline' ? '服务已下架' : '服务已发布')
+    await loadList()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '状态更新失败')
+    }
+  }
+}
+
+const removeItem = async (id: number, title: string) => {
+  try {
+    await ElMessageBox.confirm(`确定删除服务“${title}”吗？删除后不可恢复。`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await apiRequest(`/v3/admin/overseas/services/${id}`, { method: 'DELETE' })
+    ElMessage.success('服务已删除')
+    await loadList()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error?.message || '服务删除失败')
+    }
+  }
+}
+
+onMounted(loadList)
 </script>
 
 <style scoped>
+.detail-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.detail-value {
+  color: #1e293b;
+  line-height: 1.7;
+}
+
+.detail-image {
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

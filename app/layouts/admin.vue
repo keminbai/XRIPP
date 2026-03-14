@@ -20,7 +20,7 @@
     <!-- 1. 左侧侧边栏 -->
     <aside class="w-64 bg-slate-900 text-white flex flex-col fixed h-full z-20 shadow-2xl transition-all duration-300">
       <!-- Logo -->
-      <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-800 bg-slate-900 cursor-pointer" @click="navigateTo('/admin')">
+      <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-800 bg-slate-900 cursor-pointer" @click="navigateTo(homeRoute)">
         <div class="w-8 h-8 bg-brand-600 rounded flex items-center justify-center font-bold text-white">X</div>
         <span class="font-bold text-lg tracking-wide">XRIPP 管理后台</span>
       </div>
@@ -30,7 +30,7 @@
         <div class="flex items-center justify-between">
           <span class="text-xs text-slate-400">当前视角</span>
           <el-tag size="small" :type="currentRole === 'admin' ? 'danger' : 'success'" effect="dark">
-            {{ currentRole === 'admin' ? '总部管理员' : '城市合伙人' }}
+            {{ currentRoleLabel }}
           </el-tag>
         </div>
       </div>
@@ -49,9 +49,9 @@
           <!-- ==================== 一级菜单 (公共) ==================== -->
           
           <!-- 1. 数据驾驶舱 -->
-          <el-menu-item index="/admin">
+          <el-menu-item :index="homeRoute">
             <el-icon><Monitor /></el-icon>
-            <span>数据驾驶舱</span>
+            <span>{{ homeLabel }}</span>
           </el-menu-item>
 
           <!-- ==================== 角色专属：合伙人 ==================== -->
@@ -65,7 +65,7 @@
           <!-- ==================== 角色专属：总部管理员 ==================== -->
 
           <!-- 2. 业务审核中心 (总部独有) -->
-          <el-menu-item index="/admin/audit" v-if="currentRole === 'admin'">
+          <el-menu-item index="/admin/audit" v-if="showAdminRoute('/admin/audit')">
             <el-icon><Stamp /></el-icon>
             <span>业务审核中心</span>
             <el-badge :value="pendingAuditCount" type="danger" class="ml-auto" v-if="pendingAuditCount > 0" />
@@ -74,261 +74,261 @@
           <!-- ==================== 二级折叠菜单 ==================== -->
 
           <!-- 3. 会员管理系统 (公共) -->
-          <el-sub-menu index="member-system">
+          <el-sub-menu index="member-system" v-if="showMemberSystemMenu">
             <template #title>
               <el-icon><User /></el-icon>
               <span>会员管理系统</span>
             </template>
-            <el-menu-item index="/admin/members/analysis">
+            <el-menu-item index="/admin/members/analysis" v-if="showAdminRoute('/admin/members/analysis') || currentRole === 'partner'">
               <el-icon><DataAnalysis /></el-icon>
               <span>会员统计分析</span>
             </el-menu-item>
-            <el-menu-item index="/admin/members/list">
+            <el-menu-item index="/admin/members/list" v-if="showAdminRoute('/admin/members/list') || currentRole === 'partner'">
               <el-icon><List /></el-icon>
               <span>会员管理列表</span>
             </el-menu-item>
-            <el-menu-item index="/admin/members/orders">
+            <el-menu-item index="/admin/members/orders" v-if="showAdminRoute('/admin/members/orders')">
               <el-icon><ShoppingCart /></el-icon>
               <span>会员订单管理</span>
             </el-menu-item>
             <!-- 仅总部可见：联合国入库审核 -->
-            <el-menu-item index="/admin/members/un-audit" v-if="currentRole === 'admin'">
+            <el-menu-item index="/admin/members/un-audit" v-if="showAdminRoute('/admin/members/un-audit')">
               <el-icon><DocumentChecked /></el-icon>
               <span>联合国入库审核</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 4. 信息发布系统 (✅ 修复：仅总部可见，合伙人走"我的发布") -->
-          <el-sub-menu index="content-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="content-system" v-if="showAnyAdminRoute(contentRoutes)">
             <template #title>
               <el-icon><Reading /></el-icon>
               <span>信息发布系统</span>
             </template>
-            <el-menu-item index="/admin/content/activities">
+            <el-menu-item index="/admin/content/activities" v-if="showAdminRoute('/admin/content/activities')">
               <el-icon><Calendar /></el-icon>
               <span>活动管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/content/trainings">
+            <el-menu-item index="/admin/content/trainings" v-if="showAdminRoute('/admin/content/trainings')">
               <el-icon><Reading /></el-icon>
               <span>培训管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/content/business">
+            <el-menu-item index="/admin/content/business" v-if="showAdminRoute('/admin/content/business')">
               <el-icon><Connection /></el-icon>
               <span>商机对接</span>
             </el-menu-item>
-            <el-menu-item index="/admin/content/media">
+            <el-menu-item index="/admin/content/media" v-if="showAdminRoute('/admin/content/media')">
               <el-icon><Mic /></el-icon>
               <span>媒体发布</span>
             </el-menu-item>
-            <el-menu-item index="/admin/content/display">
+            <el-menu-item index="/admin/content/display" v-if="showAdminRoute('/admin/content/display')">
               <el-icon><Monitor /></el-icon>
               <span>广告与显示</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 5. 服务商系统 (公共) -->
-          <el-sub-menu index="supplier-system">
+          <el-sub-menu index="supplier-system" v-if="showSupplierSystemMenu">
             <template #title>
               <el-icon><OfficeBuilding /></el-icon>
               <span>服务商系统</span>
             </template>
-            <el-menu-item index="/admin/suppliers/analysis">
+            <el-menu-item index="/admin/suppliers/analysis" v-if="currentRole !== 'admin' || isSuperAdmin">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计分析</span>
             </el-menu-item>
-            <el-menu-item index="/admin/suppliers/list">
+            <el-menu-item index="/admin/suppliers/list" v-if="currentRole !== 'admin' || isSuperAdmin">
               <el-icon><List /></el-icon>
               <span>服务商名录库</span>
             </el-menu-item>
             <!-- 仅总部可见：入驻审核 -->
-            <el-menu-item index="/admin/suppliers/audit" v-if="currentRole === 'admin'">
+            <el-menu-item index="/admin/suppliers/audit" v-if="showAdminRoute('/admin/suppliers/audit')">
               <el-icon><Select /></el-icon>
               <span>入驻审核</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 6. 标书发布系统 (总部独有) -->
-          <el-sub-menu index="tender-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="tender-system" v-if="showAnyAdminRoute(tenderRoutes)">
             <template #title>
               <el-icon><Files /></el-icon>
               <span>标书发布系统</span>
             </template>
-            <el-menu-item index="/admin/tenders/analysis">
+            <el-menu-item index="/admin/tenders/analysis" v-if="showAdminRoute('/admin/tenders/analysis')">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计</span>
             </el-menu-item>
-            <el-menu-item index="/admin/tenders/publish">
+            <el-menu-item index="/admin/tenders/publish" v-if="showAdminRoute('/admin/tenders/publish')">
               <el-icon><Plus /></el-icon>
               <span>发布新标书</span>
             </el-menu-item>
-            <el-menu-item index="/admin/tenders/manage">
+            <el-menu-item index="/admin/tenders/manage" v-if="showAdminRoute('/admin/tenders/manage')">
               <el-icon><List /></el-icon>
               <span>标书管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/tenders/orders">
+            <el-menu-item index="/admin/tenders/orders" v-if="showAdminRoute('/admin/tenders/orders')">
               <el-icon><ShoppingCart /></el-icon>
               <span>销售订单</span>
             </el-menu-item>
-            <el-menu-item index="/admin/tenders/reference">
+            <el-menu-item index="/admin/tenders/reference" v-if="showAdminRoute('/admin/tenders/reference')">
               <el-icon><Link /></el-icon>
               <span>引用标讯</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 7. 出海发布系统 (总部独有) -->
-          <el-sub-menu index="overseas-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="overseas-system" v-if="showAnyAdminRoute(overseasRoutes)">
             <template #title>
               <el-icon><Promotion /></el-icon>
               <span>出海发布系统</span>
             </template>
-            <el-menu-item index="/admin/overseas/analysis">
+            <el-menu-item index="/admin/overseas/analysis" v-if="showAdminRoute('/admin/overseas/analysis')">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计</span>
             </el-menu-item>
-            <el-menu-item index="/admin/overseas/points">
+            <el-menu-item index="/admin/overseas/points" v-if="showAdminRoute('/admin/overseas/points')">
               <el-icon><Location /></el-icon>
               <span>服务网点设置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/overseas/services">
+            <el-menu-item index="/admin/overseas/services" v-if="showAdminRoute('/admin/overseas/services')">
               <el-icon><Service /></el-icon>
               <span>出海信息发布</span>
             </el-menu-item>
-            <el-menu-item index="/admin/overseas/reports">
+            <el-menu-item index="/admin/overseas/reports" v-if="showAdminRoute('/admin/overseas/reports')">
               <el-icon><Document /></el-icon>
               <span>行业报告上传</span>
             </el-menu-item>
           </el-sub-menu>
           
           <!-- 8. 合伙人系统 (公共) --> 
-          <el-sub-menu index="partner-system">
+          <el-sub-menu index="partner-system" v-if="showPartnerSystemMenu">
             <template #title>
               <el-icon><Connection /></el-icon>
               <span>合伙人系统</span>
             </template>
-            <el-menu-item index="/admin/partners/analysis">
+            <el-menu-item index="/admin/partners/analysis" v-if="currentRole !== 'admin' || isSuperAdmin">
               <el-icon><DataAnalysis /></el-icon>
               <span>数据统计分析</span>
             </el-menu-item>
             <!-- 仅总部可见：合伙人列表管理 -->
-            <el-menu-item index="/admin/partners/list" v-if="currentRole === 'admin'">
+            <el-menu-item index="/admin/partners/list" v-if="showAdminRoute('/admin/partners/list')">
               <el-icon><List /></el-icon>
               <span>合伙人管理</span>
             </el-menu-item>
             <!-- 合伙人可见：我的资源 -->
-            <el-menu-item index="/admin/partners/resources">
+            <el-menu-item index="/admin/partners/resources" v-if="currentRole !== 'admin' || isSuperAdmin">
               <el-icon><Box /></el-icon>
               <span>资源库</span>
             </el-menu-item>
             <!-- ✅ 新增：合伙人个人中心 -->
-            <el-menu-item index="/admin/partners/center">
+            <el-menu-item index="/admin/partners/center" v-if="currentRole !== 'admin' || isSuperAdmin">
               <el-icon><UserFilled /></el-icon>
               <span>合伙人个人中心</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 9. 数据看板配置 (总部独有) -->
-          <el-sub-menu index="dashboard-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="dashboard-system" v-if="showAnyAdminRoute(dashboardRoutes)">
             <template #title>
               <el-icon><DataBoard /></el-icon>
               <span>数据看板配置</span>
             </template>
-            <el-menu-item index="/admin/dashboard/procurement">
+            <el-menu-item index="/admin/dashboard/procurement" v-if="showAdminRoute('/admin/dashboard/procurement')">
               <el-icon><Goods /></el-icon>
               <span>采购数据配置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/dashboard/member">
+            <el-menu-item index="/admin/dashboard/member" v-if="showAdminRoute('/admin/dashboard/member')">
               <el-icon><UserFilled /></el-icon>
               <span>会员数据配置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/dashboard/network">
+            <el-menu-item index="/admin/dashboard/network" v-if="showAdminRoute('/admin/dashboard/network')">
               <el-icon><Place /></el-icon>
               <span>服务网络配置</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 10. 业务管理系统 (总部独有) -->
-          <el-sub-menu index="business-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="business-system" v-if="showAnyAdminRoute(businessRoutes)">
             <template #title>
               <el-icon><Operation /></el-icon>
               <span>业务管理系统</span>
             </template>
-            <el-menu-item index="/admin/business/roles">
+            <el-menu-item index="/admin/business/roles" v-if="showAdminRoute('/admin/business/roles')">
               <el-icon><UserFilled /></el-icon>
               <span>业务角色配置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/business/packages">
+            <el-menu-item index="/admin/business/packages" v-if="showAdminRoute('/admin/business/packages')">
               <el-icon><Box /></el-icon>
               <span>服务包策略</span>
             </el-menu-item>
-            <el-menu-item index="/admin/business/promotions">
+            <el-menu-item index="/admin/business/promotions" v-if="showAdminRoute('/admin/business/promotions')">
               <el-icon><Medal /></el-icon>
               <span>营销促销</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 11. 财务配置 (总部独有) -->
-          <el-sub-menu index="finance-system" v-if="currentRole === 'admin'">
+          <el-sub-menu index="finance-system" v-if="showAnyAdminRoute(financeRoutes)">
             <template #title>
               <el-icon><Money /></el-icon>
               <span>财务配置</span>
             </template>
-            <el-menu-item index="/admin/finance/revenue">
+            <el-menu-item index="/admin/finance/revenue" v-if="showAdminRoute('/admin/finance/revenue')">
               <el-icon><TrendCharts /></el-icon>
               <span>收入概览</span>
             </el-menu-item>
-            <el-menu-item index="/admin/finance/pricing">
+            <el-menu-item index="/admin/finance/pricing" v-if="showAdminRoute('/admin/finance/pricing')">
               <el-icon><PriceTag /></el-icon>
               <span>定价策略</span>
             </el-menu-item>
-            <el-menu-item index="/admin/finance/refund">
+            <el-menu-item index="/admin/finance/refund" v-if="showAdminRoute('/admin/finance/refund')">
               <el-icon><RefreshLeft /></el-icon>
               <span>退款管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/finance/profit">
+            <el-menu-item index="/admin/finance/profit" v-if="showAdminRoute('/admin/finance/profit')">
               <el-icon><Coin /></el-icon>
               <span>利润分成</span>
             </el-menu-item>
           </el-sub-menu>
 
           <!-- 12. 系统综管 (总部独有) -->
-          <el-sub-menu index="system-config" v-if="currentRole === 'admin'">
+          <el-sub-menu index="system-config" v-if="showAnyAdminRoute(systemRoutes)">
             <template #title>
               <el-icon><Setting /></el-icon>
               <span>系统综管</span>
             </template>
-            <el-menu-item index="/admin/system/permissions">
+            <el-menu-item index="/admin/system/permissions" v-if="showAdminRoute('/admin/system/permissions')">
               <el-icon><Key /></el-icon>
               <span>系统权限管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/notifications">
+            <el-menu-item index="/admin/system/notifications" v-if="showAdminRoute('/admin/system/notifications')">
               <el-icon><Bell /></el-icon>
               <span>通知管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/customer-service">
+            <el-menu-item index="/admin/system/customer-service" v-if="showAdminRoute('/admin/system/customer-service')">
               <el-icon><Headset /></el-icon>
               <span>客服系统</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/certificates">
+            <el-menu-item index="/admin/system/certificates" v-if="showAdminRoute('/admin/system/certificates')">
               <el-icon><Medal /></el-icon>
               <span>证书管理</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/logs">
+            <el-menu-item index="/admin/system/logs" v-if="showAdminRoute('/admin/system/logs')">
               <el-icon><Document /></el-icon>
               <span>操作日志</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/settings">
+            <el-menu-item index="/admin/system/settings" v-if="showAdminRoute('/admin/system/settings')">
               <el-icon><Tools /></el-icon>
               <span>系统设置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/login-config">
+            <el-menu-item index="/admin/system/login-config" v-if="showAdminRoute('/admin/system/login-config')">
               <el-icon><Lock /></el-icon>
               <span>登录配置</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/backup">
+            <el-menu-item index="/admin/system/backup" v-if="showAdminRoute('/admin/system/backup')">
               <el-icon><FolderOpened /></el-icon>
               <span>数据备份</span>
             </el-menu-item>
-            <el-menu-item index="/admin/system/about">
+            <el-menu-item index="/admin/system/about" v-if="showAdminRoute('/admin/system/about')">
               <el-icon><InfoFilled /></el-icon>
               <span>关于系统</span>
             </el-menu-item>
@@ -349,7 +349,7 @@
               {{ currentUser?.username || (currentRole === 'admin' ? 'System Admin' : '上海李经理') }}
             </span>
             <span class="text-[10px] text-slate-500 truncate">
-              {{ currentRole === 'admin' ? '最高权限' : 'SH001合伙人' }}
+              {{ currentRole === 'admin' ? adminProfileLabel : 'SH001合伙人' }}
             </span>
           </div>
           <el-dropdown trigger="click" @command="handleCommand">
@@ -374,14 +374,14 @@
           <h2 class="text-lg font-bold text-slate-800">{{ pageTitle }}</h2>
           <!-- 面包屑导航 -->
           <el-breadcrumb separator="/" class="text-sm">
-            <el-breadcrumb-item :to="{ path: '/admin' }">首页</el-breadcrumb-item>
+          <el-breadcrumb-item :to="{ path: homeRoute }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="breadcrumbs.length > 0">{{ breadcrumbs[0] }}</el-breadcrumb-item>
             <el-breadcrumb-item v-if="breadcrumbs.length > 1">{{ breadcrumbs[1] }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         <div class="flex items-center gap-4">
           <!-- 待审核提醒 -->
-          <el-badge :value="pendingAuditCount" class="cursor-pointer" @click="navigateTo('/admin/audit')" v-if="currentRole === 'admin' && pendingAuditCount > 0">
+          <el-badge :value="pendingAuditCount" class="cursor-pointer" @click="navigateTo('/admin/audit')" v-if="showAdminRoute('/admin/audit') && pendingAuditCount > 0">
             <el-button circle>
               <el-icon class="text-xl"><Bell /></el-icon>
             </el-button>
@@ -415,16 +415,92 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { clearAuth, getLoginUser } from '~/utils/request'
+import { useAdminPermissionSnapshot } from '@/composables/useAdminPermissionSnapshot'
 
 const route = useRoute()
 const currentUser = computed(() => getLoginUser())
+const {
+  snapshot: permissionSnapshot,
+  refreshSnapshot,
+  canAccessAdminRoute,
+  resolveAdminFallbackRoute
+} = useAdminPermissionSnapshot()
+await refreshSnapshot().catch(() => null)
 const currentRole = computed(() => {
   const r = currentUser.value?.role
   if (r === 'partner') return 'partner'
   if (r === 'admin') return 'admin'
-  return 'partner' // 或者按你希望的默认值
+  return 'partner'
 })
 const pendingAuditCount = ref(12) // 待审核数量
+
+const contentRoutes = ['/admin/content/activities', '/admin/content/trainings', '/admin/content/business', '/admin/content/media', '/admin/content/display']
+const tenderRoutes = ['/admin/tenders/analysis', '/admin/tenders/publish', '/admin/tenders/manage', '/admin/tenders/orders', '/admin/tenders/reference']
+const overseasRoutes = ['/admin/overseas/analysis', '/admin/overseas/points', '/admin/overseas/services', '/admin/overseas/reports']
+const dashboardRoutes = ['/admin/dashboard/procurement', '/admin/dashboard/member', '/admin/dashboard/network']
+const businessRoutes = ['/admin/business/roles', '/admin/business/packages', '/admin/business/promotions']
+const financeRoutes = ['/admin/finance/revenue', '/admin/finance/pricing', '/admin/finance/refund', '/admin/finance/profit']
+const systemRoutes = [
+  '/admin/system/permissions',
+  '/admin/system/notifications',
+  '/admin/system/customer-service',
+  '/admin/system/certificates',
+  '/admin/system/logs',
+  '/admin/system/settings',
+  '/admin/system/login-config',
+  '/admin/system/backup',
+  '/admin/system/about'
+]
+
+const isSuperAdmin = computed(() => Boolean(permissionSnapshot.value?.isSuperAdmin))
+const currentRoleLabel = computed(() => {
+  if (currentRole.value === 'partner') return '城市合伙人'
+  if (isSuperAdmin.value) return '总部超级管理员'
+  return permissionSnapshot.value?.profileName || '后台受限管理员'
+})
+
+const adminProfileLabel = computed(() => {
+  if (isSuperAdmin.value) return '最高权限'
+  return permissionSnapshot.value?.profileName || '已受限档案'
+})
+
+const homeRoute = computed(() => {
+  if (currentRole.value === 'partner') {
+    return '/admin/partner-publish'
+  }
+  return resolveAdminFallbackRoute(permissionSnapshot.value)
+})
+
+const homeLabel = computed(() => {
+  if (currentRole.value === 'partner') return '我的发布'
+  if (isSuperAdmin.value) return '数据驾驶舱'
+  return '工作台'
+})
+
+const showAdminRoute = (path: string) => {
+  if (currentRole.value !== 'admin') return false
+  return canAccessAdminRoute(path, permissionSnapshot.value)
+}
+
+const showAnyAdminRoute = (paths: string[]) => {
+  if (currentRole.value !== 'admin') return false
+  return paths.some((item) => showAdminRoute(item))
+}
+
+const showMemberSystemMenu = computed(() => {
+  if (currentRole.value === 'partner') return true
+  return showAnyAdminRoute(['/admin/members/analysis', '/admin/members/list', '/admin/members/orders', '/admin/members/un-audit'])
+})
+
+const showSupplierSystemMenu = computed(() => {
+  if (currentRole.value === 'partner') return true
+  return showAnyAdminRoute(['/admin/suppliers/analysis', '/admin/suppliers/list', '/admin/suppliers/audit'])
+})
+
+const showPartnerSystemMenu = computed(() => {
+  if (currentRole.value === 'partner') return true
+  return showAnyAdminRoute(['/admin/partners/analysis', '/admin/partners/list', '/admin/partners/resources', '/admin/partners/center'])
+})
 
 // 当前激活菜单
 const activeMenu = computed(() => route.path)
