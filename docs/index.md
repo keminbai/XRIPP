@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第四十五轮：system 配置页第一阶段真实化）
+最后更新：2026-03-14（第四十七轮：客服系统真实化）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -39,6 +39,7 @@
 | 18 | [DDL_Phase18_Contents_ExtraJson.sql](./DDL_Phase18_Contents_ExtraJson.sql) | contents `extra_json` 扩展字段，正文/元数据分离 |
 | 19 | [DDL_Phase19_ProfitSharing.sql](./DDL_Phase19_ProfitSharing.sql) | 合伙人利润分成配置 + 月度结算表 |
 | 20 | [DDL_Phase20_AdminConfigs.sql](./DDL_Phase20_AdminConfigs.sql) | 后台通用配置表，首批承接定价配置 |
+| 21 | [DDL_Phase21_CustomerService.sql](./DDL_Phase21_CustomerService.sql) | 客服系统核心表：留言 / 工单 / 工单附件 |
 
 ### 执行计划
 - [Execution_Week1_Plan.md](./Execution_Week1_Plan.md)
@@ -62,6 +63,8 @@
 - [PricingConfig_Closure_2026-03-13.md](./PricingConfig_Closure_2026-03-13.md) — 后台通用配置底座 + 定价配置真实闭环
 - [BusinessConfig_Closure_2026-03-14.md](./BusinessConfig_Closure_2026-03-14.md) — 业务配置三页复用通用配置底座完成真实化
 - [SystemConfig_Stage1_Closure_2026-03-14.md](./SystemConfig_Stage1_Closure_2026-03-14.md) — system 配置型页面第一阶段真实化（settings/login-config）
+- [SystemCertificates_Closure_2026-03-14.md](./SystemCertificates_Closure_2026-03-14.md) — 证书模板管理真实化（上传走文件服务，元数据走配置底座）
+- [CustomerService_Closure_2026-03-14.md](./CustomerService_Closure_2026-03-14.md) — 客服系统真实化（留言/工单/附件/后台处理闭环）
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
 - [TestEnv_Preflight_2026-03-13.md](./TestEnv_Preflight_2026-03-13.md) — 测试环境快速检查表
@@ -569,6 +572,35 @@
 - ⚠️ 页面级浏览器验收待补
   - 需 Claude 在 Windows 环境补最终联调留痕
 
+### Phase AK — 证书模板管理真实化（2026-03-14 ✅）
+- ✅ `admin/system/certificates.vue`
+  - 模板列表真实加载 / 保存 / 删除 / 刷新回读
+- ✅ 文件与元数据分层
+  - 文件本体继续走 `/api/common/upload`
+  - 模板元数据复用 `admin_config_entries`
+- ✅ 无新增 DDL
+  - namespace: `system_certificates`
+- ⚠️ 页面级浏览器验收待补
+  - 需 Claude 在 Windows 环境补最终联调留痕
+
+### Phase AL — 客服系统真实化（2026-03-14 ✅）
+- ✅ DDL Phase 21
+  - 新增 `customer_service_messages`
+  - 新增 `customer_service_tickets`
+  - 新增 `customer_service_ticket_files`
+- ✅ 后端真实化
+  - 新增 `MemberCustomerServiceV3Controller`
+  - 新增 `AdminCustomerServiceV3Controller`
+  - 会员端支持工单列表 / 详情 / 创建、快速留言
+  - 后台支持统计卡 / 留言处理 / 工单查询 / 工单详情 / 工单处理 / 删除
+- ✅ 前端真实化
+  - `member/feedback.vue` 改为真实工单与留言入口
+  - `admin/system/customer-service.vue` 改为真实客服处理台
+- ✅ 启动护栏
+  - `DatabaseSchemaPreflightRunner` 新增 Phase 21 表/列检查
+- ⚠️ 运行验证待补
+  - 需 Claude 在 Windows 环境执行 Phase 21 DDL、重启后端并按 runbook 补页面操作序列验证
+
 ## 5. 当前已知漂移（待收敛）
 
 ### 前端页面接入状态
@@ -596,11 +628,11 @@
 | `admin/system/settings.vue` | ✅ 已接入 | 基础设置 / 邮件配置 / 安全设置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/login-config.vue` | ✅ 已接入 | 登录基础配置 / 安全策略 / OAuth 配置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/notifications.vue` | 降级标注 | 通知中心类页面，暂未接入；不适合简单配置表替代 |
-| `admin/system/customer-service.vue` | 降级标注 | 工单/留言类页面，暂未接入；不适合简单配置表替代 |
+| `admin/system/customer-service.vue` | ✅ 已接入 | 留言查询/处理 + 工单列表/详情/处理/删除 + 附件查看均已接入真实 API；依赖 Phase 21 DDL |
 | `admin/system/permissions.vue` | 降级标注 | 系统权限中心，暂未接入；需独立 RBAC 设计 |
 | `admin/system/logs.vue` | 降级标注 | 日志类页面，暂未接入；不适合简单配置表替代 |
 | `admin/system/backup.vue` | 降级标注 | 备份任务类页面，暂未接入；需独立任务模型 |
-| `admin/system/certificates.vue` | 降级标注 | 部分配置可接入，模板管理/文件能力仍待拆分设计 |
+| `admin/system/certificates.vue` | ✅ 已接入 | 模板上传走文件服务，模板元数据真实持久化；复用 Phase 20 配置底座 |
 | `admin/system/about.vue` | 纯信息 | 静态信息页，无需后端配置 |
 | `admin/business/packages.vue` | ✅ 已接入 | 会员套餐权益真实加载/保存/启停；复用 Phase 20 配置底座 |
 | `admin/business/promotions.vue` | ✅ 已接入 | 促销规则新增/编辑/复制/删除/启停真实持久化；复用 Phase 20 配置底座 |
@@ -643,6 +675,7 @@
 | 订单管理 | ✅ CRUD + 状态流转 | ✅ 已接入 | ✅ 可验收 |
 | 利润分成管理 | ✅ 配置/统计/明细/结算 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 19 DDL） |
 | 定价配置管理 | ✅ 通用配置 API + pricing 命名空间 | ✅ 已接入 | ✅ 可验收（需先执行 Phase 20 DDL） |
+| 客服系统 | ✅ 留言/工单/附件/后台处理 API | ✅ 已接入 | ✅ 可验收（需先执行 Phase 21 DDL） |
 | 会员管理 | ✅ list/detail/create/update/delete/transition/set-level | ✅ 已接入 | ✅ 可验收 |
 | 会员认证审核 | ✅ review 流程 | ✅ 主流程真实 | ✅ 可验收主流程 |
 | 会员中心/画像 | ✅ profile + benefits | ✅ 已接入 | ✅ 可验收 |
@@ -666,7 +699,7 @@
 | 生产密钥未替换 | 🟡 上线前 | JWT secret 和 DB password 使用默认值，生产环境必须通过环境变量覆盖 |
 | API_Contract_v3.0.md 漂移 | 🟡 文档 | 3 个模块端点已从 /review+/publish+/close 演进为统一 /transition，文档未同步 |
 
-## 8. 后端 Controller 清单（31 个）
+## 8. 后端 Controller 清单（33 个）
 
 | Controller | 路径前缀 | 说明 |
 |---|---|---|
@@ -697,10 +730,12 @@
 | OverseasPointsV3Controller | /v3/overseas-points | 海外网点公共查询（公共，无需认证） |
 | AdminOverseasPointsV3Controller | /v3/admin/overseas-points | 海外网点管理（CRUD + stats） |
 | MemberSupplierApplyV3Controller | /v3/member/supplier-apply | 会员自助服务商入驻申请 |
+| MemberCustomerServiceV3Controller | /v3/member/customer-service | 会员客服工单/留言 |
 | InternalPaymentsV3Controller | /v3/internal/payments | 支付回调（预留） |
 | AdminActivityDisplayApplicationsV3Controller | /v3/admin/activity-display-applications | 活动显示申请审核/上下线 |
 | AdminProfitSharingV3Controller | /v3/admin/profit-sharing | 合伙人利润分成配置/统计/明细/结算 |
 | AdminConfigsV3Controller | /v3/admin/configs | 后台通用配置存储（首批承接 pricing） |
+| AdminCustomerServiceV3Controller | /v3/admin/customer-service | 客服统计/留言处理/工单处理 |
 
 ## 9. AI 工具使用提示（Cursor / Claude Code）
 

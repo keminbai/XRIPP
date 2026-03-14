@@ -56,6 +56,16 @@ public class DatabaseSchemaPreflightRunner implements ApplicationRunner {
         checkTable(missingByScript, "docs/DDL_Phase19_ProfitSharing.sql", "partner_profit_configs");
         checkTable(missingByScript, "docs/DDL_Phase19_ProfitSharing.sql", "partner_profit_settlements");
         checkTable(missingByScript, "docs/DDL_Phase20_AdminConfigs.sql", "admin_config_entries");
+        checkTable(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_messages");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_messages", "status");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_messages", "content");
+        checkTable(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_tickets");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_tickets", "ticket_no");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_tickets", "status");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_tickets", "user_id");
+        checkTable(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files", "ticket_id");
+        checkColumn(missingByScript, "docs/DDL_Phase21_CustomerService.sql", "customer_service_ticket_files", "file_url");
 
         if (missingByScript.isEmpty()) {
             log.info("[SchemaPreflight] passed");

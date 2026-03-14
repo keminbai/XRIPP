@@ -7,6 +7,7 @@
 - `admin/finance/pricing.vue` 已完成真实后端接入，不再属于 session-only 页面
 - `admin/finance/profit.vue` 已完成真实配置/统计/明细/结算接入，不再属于 mock/hybrid 页面
 - `admin/business/packages.vue` / `promotions.vue` / `roles.vue` 已完成真实持久化接入，不再属于 session-only 页面
+- `admin/system/certificates.vue` 已完成真实持久化接入，不再属于 session-only 页面
 
 但上述页面的 Windows 浏览器联调留痕尚未补齐，因此在第一轮 Alpha UAT 中，仍可暂时不作为“必须通过项”，避免把“页面实测留痕未完成”误判成“功能尚未落地”。
 
@@ -147,8 +148,9 @@
 1. `admin/overseas/*`
 2. `admin/system/*`
 3. `admin/business/*`（已真实化，当前不作为 Alpha 必测项）
-4. `admin/finance/pricing.vue`（已真实化，待浏览器联调补留痕后纳入）
-5. `admin/finance/profit.vue` 的配置/结算操作（已真实化，待浏览器联调与补测后纳入）
+4. `admin/system/certificates.vue`（已真实化，当前不作为 Alpha 必测项）
+5. `admin/finance/pricing.vue`（已真实化，待浏览器联调补留痕后纳入）
+6. `admin/finance/profit.vue` 的配置/结算操作（已真实化，待浏览器联调与补测后纳入）
 6. `admin/content/trainings.vue` 中并不存在的培训报名/独立显示申请能力
 7. `experts.vue`
 8. 正式商户微信支付

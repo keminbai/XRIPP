@@ -16,7 +16,7 @@
 - `permissions.vue`
 - `logs.vue`
 - `backup.vue`
-- `certificates.vue`（仅部分能力适合配置化）
+- `certificates.vue`（已在后续阶段单独收敛，不在本文件覆盖范围）
 
 ## 2. 设计判断
 
@@ -94,4 +94,4 @@ keys：
 1. 可以走配置底座的页面
 2. 不能投机塞进配置表的页面
 
-本轮先拿下第 1 类中的两页，为后续 `certificates.vue` 的部分配置化提供参照。
+本轮先拿下第 1 类中的两页；`certificates.vue` 已在后续阶段单独收敛。

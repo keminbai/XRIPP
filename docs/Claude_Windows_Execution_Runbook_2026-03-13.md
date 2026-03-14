@@ -319,7 +319,7 @@ GET http://localhost:8080/api/v3/runtime-info
 
 注意：
 
-- `notifications.vue` / `customer-service.vue` / `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
+- `notifications.vue` / `permissions.vue` / `logs.vue` / `backup.vue` 仍不在本轮真实化范围
 
 建议验证顺序：
 
@@ -339,3 +339,69 @@ GET http://localhost:8080/api/v3/runtime-info
 - 两页分别是否通过
 - 是否存在某个 Tab 能保存、另一个 Tab 刷新丢失
 - 页面是否出现 500 或保存假成功
+
+### 10.5 `admin/system/certificates.vue`
+
+页面目标：
+
+- 模板上传后元数据可持久化
+- 刷新页面后模板不丢失
+- 删除后刷新不复活
+- 预览 / 下载入口可正常使用
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/admin/system/certificates`
+2. 上传一个测试模板文件
+3. 填写名称 / 类别 / 来源模块并保存
+4. 刷新页面，确认模板仍存在
+5. 点击预览，确认可打开
+6. 点击下载，确认链接可用
+7. 删除测试模板
+
+### 10.6 `admin/system/customer-service.vue` / `member/feedback.vue`
+
+前置条件：
+
+- 已执行 `docs/DDL_Phase21_CustomerService.sql`
+- 后端已重启并通过 schema preflight
+
+页面目标：
+
+- 会员端工单与留言均真实写库
+- 后台统计、留言处理、工单处理均真实回读
+- 附件可真实预览/下载
+
+建议验证顺序：
+
+1. 打开 `http://localhost:3000/member/feedback`
+2. 提交一条“快速留言”
+3. 提交一条新工单，上传 1 张测试图片
+4. 刷新会员页，确认工单仍存在
+5. 打开工单详情，确认附件可预览或下载
+6. 打开 `http://localhost:3000/admin/system/customer-service`
+7. 确认顶部统计卡、留言记录、工单列表均出现新数据
+8. 处理刚才的留言，填写处理备注并保存
+9. 打开刚才的工单，填写处理备注并改状态为 `processing` 或 `closed`
+10. 刷新后台页面，确认留言状态、工单状态、处理备注均能回读
+11. 再回到会员页刷新，确认工单状态与回复同步可见
+
+回传要求：
+
+- `member/feedback.vue` 是否通过
+- `admin/system/customer-service.vue` 是否通过
+- 是否存在“提交成功但刷新丢失”
+- 附件是否能正常预览/下载
+- 后台处理结果是否能回写到会员侧
+8. 刷新页面，确认已删除
+
+关键说明：
+
+- 文件本体继续走 `/api/common/upload`
+- 持久化验证重点是模板元数据是否通过 `system_certificates` namespace 正确保存
+
+回传要求：
+
+- 上传 / 保存 / 刷新回读 / 预览 / 下载 / 删除 各步骤是否通过
+- 是否存在“文件已上传但模板元数据刷新丢失”
+- 如失败，说明是上传链路问题还是配置持久化问题
