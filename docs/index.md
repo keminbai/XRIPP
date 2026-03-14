@@ -74,6 +74,7 @@
 - [SystemPermissions_Phase2_Closure_2026-03-14.md](./SystemPermissions_Phase2_Closure_2026-03-14.md) — 系统权限中心 Phase 2：前端权限页接入 + 菜单/路由联动
 - [OverseasPublishing_Closure_2026-03-14.md](./OverseasPublishing_Closure_2026-03-14.md) — 出海发布系统真实化：services / reports / analysis 三页去 session-only
 - [OverseasPublishing_WindowsValidation_2026-03-14.md](./OverseasPublishing_WindowsValidation_2026-03-14.md) — Windows 环境验证记录：Phase 24 海外模块接口与口径修正通过
+- [AdminSmokeValidation_2026-03-14.md](./AdminSmokeValidation_2026-03-14.md) — Windows 环境全量 Admin 关键路径冒烟：40/40 PASS
 - [Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md](./Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md) — Claude Windows 侧执行清单：Phase 24 DDL / API / 前端联调 / 权限验证
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
