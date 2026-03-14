@@ -131,11 +131,11 @@ Phase 24 同时补入 `overseas_management` 权限模块：
 截至本阶段：
 
 - `overseas/*` 3 个 session-only 页面已全部清零
-- 当前剩余降级页应仅剩 2 页：
+- 当前剩余“未接业务后端”的页面应仅剩 2 页：
   - `admin/system/backup.vue`
   - `admin/system/about.vue`
 
 其中：
 
-- `backup.vue` 仍属非核心辅助页
-- `about.vue` 为说明页，不需要业务后端
+- 这 2 页都属于说明页，不应再统计为 session-only 业务页
+- 当前业务型 session-only 页面数应为 0

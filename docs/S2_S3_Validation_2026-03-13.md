@@ -17,10 +17,11 @@
 按 2026-03-14 当前口径重算：
 
 - 当前降级页面总数应为 **2 页**
-- 其中 session-only 为 **1 页**
-- 纯信息 / 说明页为 **1 页**
+- 其中 session-only 为 **0 页**
+- 纯信息 / 说明页为 **2 页**
 - `pricing.vue` / `profit.vue` / `business/*` / `system/settings|login-config|certificates|customer-service|notifications|logs` 当前状态应改为“真实后端已接入，待浏览器联调补留痕”
 - `overseas/*` 当前状态应改为“真实后端已接入，待 Windows 环境执行 DDL + 浏览器联调验证”
+- `system/backup.vue` 与 `system/about.vue` 当前应视为说明页，不应继续统计为 session-only 业务页
 
 ## 背景
 
