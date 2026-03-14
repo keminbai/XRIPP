@@ -95,6 +95,18 @@
 
 ## 7. 当前降级页口径（本轮完成后）
 
+### 2026-03-14 增补
+
+本节反映的是通知中心完成当时的剩余页估算，保留历史原貌；
+但后续 `permissions/logs/overseas/*` 已全部真实化，因此这里的“剩余 7 页”已不再适用。
+
+当前真实口径应为：
+
+- 业务型 `session-only`：**0 页**
+- 说明页：**2 页**
+  - `admin/system/about.vue`
+  - `admin/system/backup.vue`
+
 建议当前剩余页面按真实口径收敛为：
 
 - session-only：5 页

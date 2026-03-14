@@ -105,6 +105,24 @@
 
 ## 4. 当前状态口径
 
+### 2026-03-14 增补
+
+本节记录的是 Phase 23/Phase 24 之前的阶段口径，保留原貌；
+但截至 2026-03-14 当前仓库状态，以下判断已过时：
+
+- `admin/overseas/analysis.vue`
+- `admin/overseas/services.vue`
+- `admin/overseas/reports.vue`
+
+上述三页已在后续 Phase 24 完成真实化，不再属于 `session-only` 页面。
+
+按当前口径重算：
+
+- 业务型 `session-only`：**0 页**
+- 说明页：**2 页**
+  - `admin/system/about.vue`
+  - `admin/system/backup.vue`
+
 本轮之后：
 
 - `admin/system/permissions.vue` 已完成前端真实接入
@@ -130,6 +148,7 @@
 - 当前 JWT 权限档案切换需要重新登录才会写入新 token
 - `audit.vue` 中“一审/二审视图”仍是运营视图切换，不等于真正 operator/auditor 双角色体系
 - 海外服务三页仍未建立独立业务数据后端
+  - 上述判断截至当前已失效：Phase 24 已补齐独立数据模型与接口
 
 ## 6. 结论
 

@@ -73,6 +73,7 @@
 - [SystemPermissions_Phase1_Closure_2026-03-14.md](./SystemPermissions_Phase1_Closure_2026-03-14.md) — 系统权限中心 Phase 1：最小 RBAC 数据底座 + 接口 + 请求链路骨架
 - [SystemPermissions_Phase2_Closure_2026-03-14.md](./SystemPermissions_Phase2_Closure_2026-03-14.md) — 系统权限中心 Phase 2：前端权限页接入 + 菜单/路由联动
 - [OverseasPublishing_Closure_2026-03-14.md](./OverseasPublishing_Closure_2026-03-14.md) — 出海发布系统真实化：services / reports / analysis 三页去 session-only
+- [OverseasPublishing_WindowsValidation_2026-03-14.md](./OverseasPublishing_WindowsValidation_2026-03-14.md) — Windows 环境验证记录：Phase 24 海外模块接口与口径修正通过
 - [Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md](./Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md) — Claude Windows 侧执行清单：Phase 24 DDL / API / 前端联调 / 权限验证
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
@@ -664,7 +665,7 @@
 | `admin/content/trainings.vue` | ✅ 已接入 | 列表/详情/新建/编辑/状态流转真实；已移除不存在的培训报名/显示申请假入口 |
 | `admin/content/media.vue` | ✅ 已接入 | 列表/详情/新建/编辑/状态流转真实 |
 | `admin/content/display.vue` | ✅ 已接入 | 轮播/广告真实内容管理 + 活动显示申请真实审核 |
-| `admin/overseas/*.vue` | 降级标注 | 海外服务模块无后端 API，已添加"功能开发中"横幅 |
+| `admin/overseas/*.vue` | ✅ 已接入 | 出海服务三页已真实化：services/reports/analysis 全部接入真实 API 与聚合统计 |
 | `admin/system/settings.vue` | ✅ 已接入 | 基础设置 / 邮件配置 / 安全设置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/login-config.vue` | ✅ 已接入 | 登录基础配置 / 安全策略 / OAuth 配置真实加载与保存；复用 Phase 20 配置底座 |
 | `admin/system/notifications.vue` | ✅ 已接入 | 通知类型设置 / 模板管理 / 发送记录均已接入真实 API；发送动作当前为真实留痕而非第三方网关投递；依赖 Phase 22 DDL |
@@ -673,7 +674,7 @@
 | `admin/system/logs.vue` | ✅ 已接入 | 统一聚合 audit_logs + state_transition_logs 形成真实日志查询页；支持筛选/分页/导出 |
 | `admin/system/backup.vue` | 说明页 | 运维/DBA 备份治理说明页，不承担真实备份/恢复入口 |
 | `admin/system/certificates.vue` | ✅ 已接入 | 模板上传走文件服务，模板元数据真实持久化；复用 Phase 20 配置底座 |
-| `admin/system/about.vue` | 纯信息 | 静态信息页，无需后端配置 |
+| `admin/system/about.vue` | 纯信息 | 系统说明页；运行版本与环境信息读取 `/v3/runtime-info`，不承担业务配置写入 |
 | `admin/business/packages.vue` | ✅ 已接入 | 会员套餐权益真实加载/保存/启停；复用 Phase 20 配置底座 |
 | `admin/business/promotions.vue` | ✅ 已接入 | 促销规则新增/编辑/复制/删除/启停真实持久化；复用 Phase 20 配置底座 |
 | `admin/business/roles.vue` | ✅ 已接入 | 业务角色权限配置 + 变更记录真实持久化；复用 Phase 20 配置底座 |

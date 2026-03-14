@@ -94,6 +94,18 @@
 
 `admin/system/customer-service.vue` 已不再属于当前降级页。
 
+### 2026-03-14 增补
+
+以下统计为 customer-service 完成当时的阶段估算，保留历史原貌；
+但后续 `notifications/logs/permissions/overseas/*` 已继续真实化，因此下面的“剩余 8 页”不再适用于当前仓库。
+
+按当前口径重算：
+
+- 业务型 `session-only`：**0 页**
+- 说明页：**2 页**
+  - `admin/system/about.vue`
+  - `admin/system/backup.vue`
+
 截至 2026-03-14 当前口径，剩余降级页应收缩为：
 
 - session-only：7 页
