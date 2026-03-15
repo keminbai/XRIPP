@@ -261,7 +261,7 @@
                     <div class="el-upload__text text-sm">上传营业执照，支持 PDF/JPG/PNG</div>
                   </el-upload>
                   <div v-if="attachments.business_license" class="text-xs text-slate-500">
-                    已上传：<a :href="attachments.business_license.url" target="_blank" class="text-blue-600 hover:underline">{{ attachments.business_license.fileName }}</a>
+                    已上传：<a :href="getAttachmentHref(attachments.business_license)" target="_blank" class="text-blue-600 hover:underline">{{ attachments.business_license.fileName }}</a>
                     <span v-if="attachments.business_license.fileSize"> · {{ formatFileSize(attachments.business_license.fileSize) }}</span>
                   </div>
                 </div>
@@ -283,7 +283,7 @@
                     <div class="el-upload__text text-sm">上传开户银行许可证，支持 PDF/JPG/PNG</div>
                   </el-upload>
                   <div v-if="attachments.bank_license" class="text-xs text-slate-500">
-                    已上传：<a :href="attachments.bank_license.url" target="_blank" class="text-blue-600 hover:underline">{{ attachments.bank_license.fileName }}</a>
+                    已上传：<a :href="getAttachmentHref(attachments.bank_license)" target="_blank" class="text-blue-600 hover:underline">{{ attachments.bank_license.fileName }}</a>
                     <span v-if="attachments.bank_license.fileSize"> · {{ formatFileSize(attachments.bank_license.fileSize) }}</span>
                   </div>
                 </div>
@@ -427,7 +427,7 @@
                 <div class="el-upload__text text-sm">拖拽或点击上传封面图</div>
               </el-upload>
               <div v-if="attachments.cover_image" class="mt-3 text-xs text-slate-500">
-                已上传：<a :href="attachments.cover_image.url" target="_blank" class="text-blue-600 hover:underline">{{ attachments.cover_image.fileName }}</a>
+                已上传：<a :href="getAttachmentHref(attachments.cover_image)" target="_blank" class="text-blue-600 hover:underline">{{ attachments.cover_image.fileName }}</a>
                 <span v-if="attachments.cover_image.fileSize"> · {{ formatFileSize(attachments.cover_image.fileSize) }}</span>
               </div>
             </div>
@@ -452,7 +452,7 @@
                 <div class="el-upload__text text-sm">只能上传 PDF 文件</div>
               </el-upload>
               <div v-if="attachments.company_pdf" class="mt-3 text-xs text-slate-500">
-                已上传：<a :href="attachments.company_pdf.url" target="_blank" class="text-blue-600 hover:underline">{{ attachments.company_pdf.fileName }}</a>
+                已上传：<a :href="getAttachmentHref(attachments.company_pdf)" target="_blank" class="text-blue-600 hover:underline">{{ attachments.company_pdf.fileName }}</a>
                 <span v-if="attachments.company_pdf.fileSize"> · {{ formatFileSize(attachments.company_pdf.fileSize) }}</span>
               </div>
             </div>
@@ -477,7 +477,7 @@
                 <div class="el-upload__text text-sm">拖拽或点击上传企业宣传图</div>
               </el-upload>
               <div v-if="attachments.promo_image" class="mt-3 text-xs text-slate-500">
-                已上传：<a :href="attachments.promo_image.url" target="_blank" class="text-blue-600 hover:underline">{{ attachments.promo_image.fileName }}</a>
+                已上传：<a :href="getAttachmentHref(attachments.promo_image)" target="_blank" class="text-blue-600 hover:underline">{{ attachments.promo_image.fileName }}</a>
                 <span v-if="attachments.promo_image.fileSize"> · {{ formatFileSize(attachments.promo_image.fileSize) }}</span>
               </div>
             </div>
@@ -605,6 +605,7 @@ import type { UploadRequestOptions, UploadUserFile } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
+import { resolveFileUrl } from '@/utils/file-url'
 import { apiFetchRaw, apiRequest } from '@/utils/request'
 
 const { supplierPricing, cityOptions, industryOptions } = useGlobalConfig()
@@ -701,6 +702,7 @@ type AttachmentCategory =
 
 type UploadedFileMeta = {
   url: string
+  previewUrl?: string
   fileName: string
   storedName?: string
   fileExt?: string
@@ -874,9 +876,11 @@ const showRetryAlert = computed(() => {
 })
 
 const normalizeUploadMeta = (raw: Partial<UploadedFileMeta> | null | undefined, fallbackName: string): UploadedFileMeta => {
+  const rawUrl = String(raw?.url || '')
   const fileSize = Number(raw?.fileSize)
   return {
-    url: String(raw?.url || ''),
+    url: rawUrl,
+    previewUrl: resolveFileUrl(rawUrl),
     fileName: String(raw?.fileName || fallbackName || '未命名文件'),
     storedName: raw?.storedName ? String(raw.storedName) : '',
     fileExt: raw?.fileExt ? String(raw.fileExt).toLowerCase() : '',
@@ -887,9 +891,13 @@ const normalizeUploadMeta = (raw: Partial<UploadedFileMeta> | null | undefined, 
 
 const toUploadUserFile = (file: UploadedFileMeta): UploadUserFile => ({
   name: file.fileName,
-  url: file.url,
+  url: file.previewUrl || resolveFileUrl(file.url),
   status: 'success'
 })
+
+const getAttachmentHref = (file: UploadedFileMeta | null | undefined) => {
+  return file?.previewUrl || resolveFileUrl(file?.url || '')
+}
 
 const isPaymentSatisfied = (status?: string) => ['paid', 'waived'].includes(String(status || '').toLowerCase())
 

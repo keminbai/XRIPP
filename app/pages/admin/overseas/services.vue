@@ -340,10 +340,10 @@
                 <el-image
                   v-for="item in detailItem.promoImage"
                   :key="item.fileUrl"
-                  :src="item.fileUrl"
+                  :src="item.previewUrl || resolveFileUrl(item.fileUrl)"
                   fit="cover"
                   class="detail-image"
-                  :preview-src-list="detailItem.promoImage.map(file => file.fileUrl)"
+                  :preview-src-list="detailItem.promoImage.map(file => file.previewUrl || resolveFileUrl(file.fileUrl))"
                 />
               </div>
               <span v-else>-</span>
@@ -357,10 +357,10 @@
                 <el-image
                   v-for="item in detailItem.images"
                   :key="item.fileUrl"
-                  :src="item.fileUrl"
+                  :src="item.previewUrl || resolveFileUrl(item.fileUrl)"
                   fit="cover"
                   class="detail-image"
-                  :preview-src-list="detailItem.images.map(file => file.fileUrl)"
+                  :preview-src-list="detailItem.images.map(file => file.previewUrl || resolveFileUrl(file.fileUrl))"
                 />
               </div>
               <span v-else>-</span>
@@ -396,6 +396,7 @@
 import { Plus, Check, RefreshLeft, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type UploadRequestOptions, type UploadUserFile } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { resolveFileUrl } from '@/utils/file-url'
 import { apiFetchRaw, apiRequest } from '@/utils/request'
 import {
   OVERSEAS_COUNTRY_OPTIONS,
@@ -411,6 +412,7 @@ definePageMeta({ layout: 'admin' })
 type UploadMeta = {
   fileName: string
   fileUrl: string
+  previewUrl?: string
   fileExt: string
   fileSize: number
 }
@@ -512,15 +514,16 @@ const filterProjectOptions = computed(() => {
 })
 
 const normalizeUploadMeta = (raw: any, fallbackName = ''): UploadMeta => ({
-  fileName: String(raw?.fileName || raw?.name || fallbackName || '未命名文件'),
   fileUrl: String(raw?.fileUrl || raw?.url || ''),
+  fileName: String(raw?.fileName || raw?.name || fallbackName || '未命名文件'),
+  previewUrl: resolveFileUrl(String(raw?.fileUrl || raw?.url || '')),
   fileExt: String(raw?.fileExt || '').toLowerCase(),
   fileSize: Number(raw?.fileSize || 0)
 })
 
 const toUploadUserFile = (file: UploadMeta): UploadUserFile => ({
   name: file.fileName,
-  url: file.fileUrl,
+  url: file.previewUrl || resolveFileUrl(file.fileUrl),
   status: 'success'
 })
 
@@ -638,7 +641,7 @@ const formatFileSize = (size = 0) => {
 
 const openFile = (url: string) => {
   if (!url || !import.meta.client) return
-  window.open(url, '_blank')
+  window.open(resolveFileUrl(url), '_blank')
 }
 
 const mapServiceItem = (raw: any): ServiceItem => ({
@@ -660,7 +663,7 @@ const mapServiceItem = (raw: any): ServiceItem => ({
   views: Number(raw?.views || 0),
   inquiries: Number(raw?.inquiries || 0),
   publishDate: String(raw?.publishDate || ''),
-  promoImageUrl: String(raw?.promoImageUrl || raw?.promoImage?.[0]?.fileUrl || ''),
+  promoImageUrl: resolveFileUrl(String(raw?.promoImageUrl || raw?.promoImage?.[0]?.fileUrl || '')),
   promoImage: Array.isArray(raw?.promoImage) ? raw.promoImage.map((item: any) => normalizeUploadMeta(item)) : [],
   images: Array.isArray(raw?.images) ? raw.images.map((item: any) => normalizeUploadMeta(item)) : [],
   introFiles: Array.isArray(raw?.introFiles) ? raw.introFiles.map((item: any) => normalizeUploadMeta(item)) : []

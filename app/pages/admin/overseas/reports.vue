@@ -258,6 +258,7 @@ definePageMeta({ layout: 'admin' })
 type UploadMeta = {
   fileName: string
   fileUrl: string
+  previewUrl?: string
   fileExt: string
   fileSize: number
 }
@@ -344,15 +345,16 @@ const isEdit = computed(() => editId.value !== null)
 const currentPageDownloads = computed(() => reportList.value.reduce((sum, item) => sum + item.downloads, 0))
 
 const normalizeUploadMeta = (raw: any, fallbackName = ''): UploadMeta => ({
-  fileName: String(raw?.fileName || raw?.name || fallbackName || '未命名文件'),
   fileUrl: String(raw?.fileUrl || raw?.url || ''),
+  fileName: String(raw?.fileName || raw?.name || fallbackName || '未命名文件'),
+  previewUrl: resolveFileUrl(String(raw?.fileUrl || raw?.url || '')),
   fileExt: String(raw?.fileExt || '').toLowerCase(),
   fileSize: Number(raw?.fileSize || 0)
 })
 
 const toUploadUserFile = (file: UploadMeta): UploadUserFile => ({
   name: file.fileName,
-  url: file.fileUrl,
+  url: file.previewUrl || resolveFileUrl(file.fileUrl),
   status: 'success'
 })
 
@@ -614,7 +616,7 @@ const downloadReport = async (row: ReportItem) => {
     const res = await apiRequest<any>(`/v3/admin/overseas/reports/${row.id}/download`, {
       method: 'POST'
     })
-    const url = String(res.data?.fileUrl || row.fileUrl || '')
+    const url = resolveFileUrl(String(res.data?.fileUrl || row.fileUrl || ''))
     if (url && import.meta.client) {
       window.open(url, '_blank')
     }

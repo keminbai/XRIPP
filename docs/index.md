@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-15（第五十七轮：上传路径稳定化修复）
+最后更新：2026-03-15（第五十八轮：历史文件 URL 兼容收口）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -80,6 +80,7 @@
 - [PartnerRouteGuard_Fix_2026-03-14.md](./PartnerRouteGuard_Fix_2026-03-14.md) — partner 后台允许页首屏死循环修复：统一 middleware 与权限快照的角色来源
 - [AdminRefreshAuth_Fix_2026-03-14.md](./AdminRefreshAuth_Fix_2026-03-14.md) — admin 后台刷新掉登录修复：middleware async/await + JWT 回退恢复用户态
 - [UploadPath_Stabilization_2026-03-15.md](./UploadPath_Stabilization_2026-03-15.md) — Windows 上传“找不到路径”修复：统一上传根目录 + Files.copy 写盘
+- [HistoricalFileUrl_Compatibility_2026-03-15.md](./HistoricalFileUrl_Compatibility_2026-03-15.md) — 历史记录附件/图片兼容收口：保留原始 fileUrl，新增 previewUrl 统一预览/下载/回显
 - [Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md](./Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md) — Claude Windows 侧执行清单：Phase 24 DDL / API / 前端联调 / 权限验证
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单
