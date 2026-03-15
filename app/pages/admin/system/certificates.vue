@@ -142,6 +142,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadProps, UploadUserFile } from 'element-plus'
 import { useAdminConfigNamespace } from '@/composables/useAdminConfigNamespace'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 
@@ -396,16 +397,6 @@ const handleConfirmUpload = async () => {
 const handlePreview = (row: CertificateTemplate) => {
   previewItem.value = row
   previewVisible.value = true
-}
-
-const resolveFileUrl = (url: string) => {
-  if (!url) {
-    return ''
-  }
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-  return url
 }
 
 const handleDownload = (row: CertificateTemplate) => {

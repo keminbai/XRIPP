@@ -82,7 +82,7 @@
           <el-table-column label="活动概览" min-width="320">
             <template #default="scope">
               <div class="flex gap-3 py-2">
-                <img :src="scope.row.image" class="w-16 h-10 rounded object-cover border border-slate-200" />
+                <img :src="resolveFileUrl(scope.row.image)" class="w-16 h-10 rounded object-cover border border-slate-200" />
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-slate-800 text-sm line-clamp-1">{{ scope.row.title }}</div>
                   <div class="flex items-center gap-2 mt-1 flex-wrap">
@@ -330,7 +330,7 @@
     <el-dialog v-model="viewDialogVisible" title="活动详情" width="720px">
       <div v-if="currentViewItem" class="space-y-4">
         <div class="flex gap-4">
-          <img :src="currentViewItem.image" class="w-32 h-20 rounded-lg object-cover border border-slate-200" />
+          <img :src="resolveFileUrl(currentViewItem.image)" class="w-32 h-20 rounded-lg object-cover border border-slate-200" />
           <div class="flex-1">
             <div class="font-bold text-lg text-slate-800 mb-2">{{ currentViewItem.title }}</div>
             <div class="flex gap-2 mb-2 flex-wrap">
@@ -410,6 +410,7 @@ import { computed, onMounted, ref } from 'vue'
 import type { FormInstance, UploadProps, UploadUserFile } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiRequest, getLoginUser } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 

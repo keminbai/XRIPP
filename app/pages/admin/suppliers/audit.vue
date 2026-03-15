@@ -297,6 +297,7 @@ import {
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 
@@ -663,13 +664,6 @@ const handleSizeChange = (size: number) => {
 }
 
 const isImageFile = (ext?: string) => ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(String(ext || '').toLowerCase())
-
-const resolveFileUrl = (url?: string) => {
-  const raw = String(url || '').trim()
-  if (!raw) return ''
-  if (/^https?:\/\//i.test(raw)) return raw
-  return raw.startsWith('/') ? raw : `/${raw}`
-}
 
 const openFile = (url?: string) => {
   const resolved = resolveFileUrl(url)

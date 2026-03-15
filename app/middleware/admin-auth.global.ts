@@ -20,7 +20,7 @@ function readRoleFromToken(token: string): string {
   }
 }
 
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   if (!to.path.startsWith('/admin')) return
 
   const { refreshSnapshot, canAccessAdminRoute, resolveAdminFallbackRoute, clearSnapshot } = useAdminPermissionSnapshot()
@@ -45,25 +45,24 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (role === 'partner') {
     clearSnapshot()
-    if (!canAccessAdminRoute(to.path)) {
+    if (!canAccessAdminRoute(to.path, null, { role })) {
       return navigateTo('/admin/partner-publish', { replace: true })
     }
     return
   }
 
   if (role === 'admin') {
-    return refreshSnapshot()
-      .then((snapshot) => {
-        if (canAccessAdminRoute(to.path, snapshot)) {
-          return
-        }
-        return navigateTo(resolveAdminFallbackRoute(snapshot), { replace: true })
-      })
-      .catch(() => {
-        if (to.path === '/admin') {
-          return
-        }
-        return navigateTo('/login', { replace: true })
-      })
+    try {
+      const snapshot = await refreshSnapshot()
+      if (canAccessAdminRoute(to.path, snapshot, { role })) {
+        return
+      }
+      return navigateTo(resolveAdminFallbackRoute(snapshot, { role }), { replace: true })
+    } catch {
+      if (to.path === '/admin') {
+        return
+      }
+      return navigateTo('/login', { replace: true })
+    }
   }
 })

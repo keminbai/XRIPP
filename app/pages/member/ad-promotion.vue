@@ -104,7 +104,7 @@
               >
                 <!-- 左侧：视觉封面 -->
                 <div class="w-full md:w-72 h-48 md:h-auto bg-slate-100 relative overflow-hidden flex-shrink-0">
-                  <img :src="item.image" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <img :src="resolveFileUrl(item.image)" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
                     <el-button round size="small" @click="handleView(item)">查看详情</el-button>
                   </div>
@@ -294,7 +294,7 @@
                     <div class="w-2 h-2 rounded-full bg-green-400"></div>
                   </div>
                   <div class="h-40 bg-slate-100 relative group cursor-pointer">
-                    <img v-if="formData.image" :src="formData.image" class="w-full h-full object-cover" />
+                    <img v-if="formData.image" :src="resolveFileUrl(formData.image)" class="w-full h-full object-cover" />
                     <div v-else class="w-full h-full flex flex-col items-center justify-center text-slate-300">
                       <el-icon class="text-3xl mb-1"><Picture /></el-icon>
                       <span class="text-xs">图片预览区</span>
@@ -338,7 +338,7 @@
     <el-dialog v-model="detailVisible" title="广告投放详情" width="600px" align-center class="custom-dialog">
       <div v-if="currentItem" class="space-y-5">
         <div class="aspect-video rounded-lg overflow-hidden bg-slate-100 shadow-inner">
-          <img :src="currentItem.image" class="w-full h-full object-cover" />
+          <img :src="resolveFileUrl(currentItem.image)" class="w-full h-full object-cover" />
         </div>
         <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 grid grid-cols-2 gap-4 text-sm">
           <div><span class="text-slate-400 block text-xs mb-1">广告标题</span><span class="font-bold">{{ currentItem.title }}</span></div>
@@ -366,6 +366,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'member' })
 

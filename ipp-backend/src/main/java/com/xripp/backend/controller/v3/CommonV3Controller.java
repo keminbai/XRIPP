@@ -1,13 +1,15 @@
 package com.xripp.backend.controller.v3;
 
+import com.xripp.backend.config.UploadStorageProperties;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -15,9 +17,11 @@ import java.util.*;
 @Slf4j
 @RestController
 @RequestMapping("/common")
+@RequiredArgsConstructor
 public class CommonV3Controller {
 
     private static final long MAX_FILE_SIZE = 50L * 1024 * 1024; // 50MB
+    private final UploadStorageProperties uploadStorageProperties;
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             "jpg", "jpeg", "png", "gif", "bmp", "webp",
@@ -50,14 +54,16 @@ public class CommonV3Controller {
             String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
             String safeFilename = UUID.randomUUID().toString().replace("-", "") + "." + ext;
 
-            Path uploadDir = Paths.get("./uploads", datePath);
+            Path uploadDir = uploadStorageProperties.getBaseDir().resolve(datePath).normalize();
             Files.createDirectories(uploadDir);
 
             Path targetPath = uploadDir.resolve(safeFilename);
-            file.transferTo(targetPath.toFile());
+            try (var inputStream = file.getInputStream()) {
+                Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
 
             String url = "/uploads/" + datePath + "/" + safeFilename;
-            log.info("[Upload] saved: {} -> {} ({}bytes)", originalFilename, url, file.getSize());
+            log.info("[Upload] saved: {} -> {} ({}bytes) baseDir={}", originalFilename, url, file.getSize(), uploadStorageProperties.getBaseDir());
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("url", url);
@@ -74,8 +80,8 @@ public class CommonV3Controller {
             return result;
 
         } catch (IOException e) {
-            log.error("[Upload] failed: {}", e.getMessage(), e);
-            return errorResult("upload failed: " + e.getMessage());
+            log.error("[Upload] failed under baseDir={}: {}", uploadStorageProperties.getBaseDir(), e.getMessage(), e);
+            return errorResult("upload failed: storage path unavailable");
         }
     }
 

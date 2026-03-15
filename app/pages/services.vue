@@ -781,6 +781,7 @@ import {
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getLoginUser, apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
 
 useHead({ title: '平台服务 - XRIPP全球公共采购服务平台' })
@@ -898,7 +899,7 @@ const mapApiActivityToCard = (a: any) => ({
   date: a.startTime ? String(a.startTime).slice(0, 10) : (a.date || '待定'),
   location: a.location || a.cityName || '待定',
   title: a.title || '未命名活动',
-  image: a.image || a.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+  image: resolveFileUrl(a.image || a.coverImage) || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
   isPaid: !(a.isFree ?? true),
   price: Number(a.fee || 0)
 })
@@ -1260,7 +1261,7 @@ const mapSupplierItem = (item: any) => {
     typeLabel: item.applyTypeLabel || '普通服务商',
     intro: item.intro || '暂无企业简介',
     companyPdfUrl: item.companyPdfUrl || '',
-    image: item.coverImageUrl || item.promoImageUrl || 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=2070&auto=format&fit=crop'
+    image: resolveFileUrl(item.coverImageUrl || item.promoImageUrl) || 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=2070&auto=format&fit=crop'
   }
 }
 

@@ -361,6 +361,7 @@ import * as echarts from 'echarts'
 import { onMounted, ref, computed, watch, nextTick } from 'vue'
 import { ChatDotRound, ArrowRight, Location, Close, TrendCharts, Download, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { resolveFileUrl } from '@/utils/file-url'
 
 useHead({ title: '海外服务 - XRIPP全球公共采购服务平台' })
 
@@ -425,7 +426,7 @@ const enhancePoint = (raw: any) => {
     mainService: services[0] || '',
     desc: raw.description || `提供${raw.country}本地化一站式服务，包括公司注册、税务合规、法律咨询等。我们的团队拥有10年以上${raw.country}市场经验，已服务超过${sc}家中国企业成功出海。`,
     inquiryCount: Math.floor(sc * 1.5) + 200,
-    image: raw.coverImage || cityImageMap[raw.city] || continentImageMap[raw.continent] || defaultImage
+    image: resolveFileUrl(raw.coverImage) || cityImageMap[raw.city] || continentImageMap[raw.continent] || defaultImage
   }
 }
 

@@ -5,7 +5,7 @@
 - 明确"当前权威文档"与"历史参考文档"
 - 减少前后端联调时的路径错误和口径不一致
 
-最后更新：2026-03-14（第五十四轮：partner 路由口径收敛 + UAT 文档校准）
+最后更新：2026-03-15（第五十七轮：上传路径稳定化修复）
 
 ## 1. 当前权威文档（开发与联调优先参考）
 
@@ -77,6 +77,9 @@
 - [OverseasPublishing_WindowsValidation_2026-03-14.md](./OverseasPublishing_WindowsValidation_2026-03-14.md) — Windows 环境验证记录：Phase 24 海外模块接口与口径修正通过
 - [AdminSmokeValidation_2026-03-14.md](./AdminSmokeValidation_2026-03-14.md) — Windows 环境全量 Admin 关键路径冒烟：40/40 PASS
 - [DeepRegression_2026-03-14.md](./DeepRegression_2026-03-14.md) — 深度回归验证：CRUD + 状态转换 + 多角色隔离 + audit_logs CHECK 修复
+- [PartnerRouteGuard_Fix_2026-03-14.md](./PartnerRouteGuard_Fix_2026-03-14.md) — partner 后台允许页首屏死循环修复：统一 middleware 与权限快照的角色来源
+- [AdminRefreshAuth_Fix_2026-03-14.md](./AdminRefreshAuth_Fix_2026-03-14.md) — admin 后台刷新掉登录修复：middleware async/await + JWT 回退恢复用户态
+- [UploadPath_Stabilization_2026-03-15.md](./UploadPath_Stabilization_2026-03-15.md) — Windows 上传“找不到路径”修复：统一上传根目录 + Files.copy 写盘
 - [Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md](./Claude_Windows_Runbook_Phase24_Overseas_2026-03-14.md) — Claude Windows 侧执行清单：Phase 24 DDL / API / 前端联调 / 权限验证
 - [UAT_Alpha_TestPlan_2026-03-13.md](./UAT_Alpha_TestPlan_2026-03-13.md) — 第一轮 Alpha UAT 测试范围与前置检查表
 - [UAT_Alpha_Checklist_2026-03-13.md](./UAT_Alpha_Checklist_2026-03-13.md) — 同事执行版测试清单

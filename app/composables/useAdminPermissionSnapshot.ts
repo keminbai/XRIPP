@@ -38,6 +38,10 @@ type RoutePermissionRule = {
   moduleCode: string
 }
 
+type RouteAccessOptions = {
+  role?: string | null
+}
+
 const PARTNER_ALLOWED_PREFIXES = [
   '/admin/partner-publish',
   '/admin/members/analysis',
@@ -123,6 +127,8 @@ const findRouteRule = (path: string) => ROUTE_PERMISSION_RULES.find((item) => pa
 
 const matchesRoutePrefix = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`)
 
+const normalizeRole = (role?: string | null) => String(role || '').toLowerCase()
+
 const hasGrantAnyCapability = (grant: AdminPermissionGrant | undefined) => {
   if (!grant) return false
   return [
@@ -184,10 +190,14 @@ export const useAdminPermissionSnapshot = () => {
     return hasGrantAnyCapability(targetSnapshot.modules.find((item) => item.moduleCode === moduleCode))
   }
 
-  const canAccessAdminRoute = (path: string, targetSnapshot = snapshot.value) => {
+  const canAccessAdminRoute = (
+    path: string,
+    targetSnapshot = snapshot.value,
+    options?: RouteAccessOptions
+  ) => {
     if (!path.startsWith('/admin')) return true
     const user = getLoginUser()
-    const role = String(user?.role || '').toLowerCase()
+    const role = normalizeRole(options?.role || user?.role)
 
     if (role === 'partner') {
       return PARTNER_ALLOWED_PREFIXES.some((prefix) => matchesRoutePrefix(path, prefix))
@@ -208,9 +218,9 @@ export const useAdminPermissionSnapshot = () => {
     return hasModuleAccess(rule.moduleCode, targetSnapshot)
   }
 
-  const resolveAdminFallbackRoute = (targetSnapshot = snapshot.value) => {
+  const resolveAdminFallbackRoute = (targetSnapshot = snapshot.value, options?: RouteAccessOptions) => {
     const user = getLoginUser()
-    const role = String(user?.role || '').toLowerCase()
+    const role = normalizeRole(options?.role || user?.role)
     if (role === 'partner') {
       return '/admin/partner-publish'
     }
@@ -221,7 +231,7 @@ export const useAdminPermissionSnapshot = () => {
       return '/admin'
     }
     for (const candidate of ADMIN_FALLBACK_CANDIDATES) {
-      if (canAccessAdminRoute(candidate, targetSnapshot)) {
+      if (canAccessAdminRoute(candidate, targetSnapshot, { role })) {
         return candidate
       }
     }

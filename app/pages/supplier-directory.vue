@@ -266,6 +266,7 @@ import {
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
 
 useHead({ title: '服务商名录库 - XRIPP全球公共采购服务平台' })
@@ -374,13 +375,6 @@ const handleDownload = (item: any) => {
   setTimeout(() => {
     if (downloadingId.value === item.id) downloadingId.value = 0
   }, 300)
-}
-
-const resolveFileUrl = (url?: string) => {
-  if (!url) return ''
-  if (/^https?:\/\//i.test(url)) return url
-  if (url.startsWith('/')) return url
-  return `/${url}`
 }
 
 const joinDisplay = (items?: string[]) => Array.isArray(items) && items.length ? items.join('、') : '-'

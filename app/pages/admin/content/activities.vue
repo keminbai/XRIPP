@@ -105,7 +105,7 @@
             <template #default="scope">
               <div class="flex gap-3 py-2">
                 <div class="relative w-16 h-10 rounded overflow-hidden flex-shrink-0 bg-slate-100">
-                  <img :src="scope.row.image" class="w-full h-full object-cover" />
+                  <img :src="resolveFileUrl(scope.row.image)" class="w-full h-full object-cover" />
                   <div v-if="scope.row.hasVideo" class="absolute inset-0 bg-black/30 flex items-center justify-center text-white">
                     <el-icon><VideoPlay /></el-icon>
                   </div>
@@ -407,7 +407,7 @@
             </el-upload>
             
             <div v-if="form.coverImage" class="mt-3 relative w-48 h-28 rounded-lg overflow-hidden border border-slate-200">
-              <img :src="form.coverImage" class="w-full h-full object-cover" />
+              <img :src="resolveFileUrl(form.coverImage)" class="w-full h-full object-cover" />
               <div 
                 class="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600"
                 @click="form.coverImage = ''; imageFileList = []"
@@ -440,7 +440,7 @@
             </el-upload>
             
             <div v-if="form.videoUrl" class="mt-3">
-              <video :src="form.videoUrl" controls class="w-full max-w-md h-48 rounded-lg border border-slate-200"></video>
+              <video :src="resolveFileUrl(form.videoUrl)" controls class="w-full max-w-md h-48 rounded-lg border border-slate-200"></video>
               <el-button 
                 type="danger" 
                 size="small" 
@@ -763,10 +763,10 @@
             class="border border-slate-200 rounded-xl p-3 space-y-3"
           >
             <el-image
-              :src="photo.url"
+              :src="resolveFileUrl(photo.url)"
               fit="cover"
               class="w-full h-40 rounded-lg border border-slate-100"
-              :preview-src-list="recordForm.photos.map(item => item.url)"
+              :preview-src-list="recordForm.photos.map(item => resolveFileUrl(item.url))"
               preview-teleported
             />
             <div class="text-xs text-slate-500 break-all">
@@ -864,10 +864,10 @@
                 class="border border-slate-200 rounded-xl p-3 space-y-3"
               >
                 <el-image
-                  :src="photo.url"
+                  :src="resolveFileUrl(photo.url)"
                   fit="cover"
                   class="w-full h-40 rounded-lg border border-slate-100"
-                  :preview-src-list="currentDetailItem.activityRecord.photos.map(item => item.url)"
+                  :preview-src-list="currentDetailItem.activityRecord.photos.map(item => resolveFileUrl(item.url))"
                   preview-teleported
                 />
                 <div class="text-xs text-slate-500 break-all">
@@ -885,7 +885,7 @@
 
         <div v-if="currentDetailItem.coverImage">
           <h4 class="text-sm font-bold mb-2">封面图片</h4>
-          <img :src="currentDetailItem.coverImage" class="w-full max-w-md rounded-lg border border-slate-200" />
+          <img :src="resolveFileUrl(currentDetailItem.coverImage)" class="w-full max-w-md rounded-lg border border-slate-200" />
         </div>
       </div>
     </el-dialog>
@@ -905,6 +905,7 @@ import type { UploadProps, UploadRequestOptions, UploadUserFile, FormInstance } 
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
 import { navigateTo } from '#app'
 import { apiFetchRaw, apiRequest, getLoginUser } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 
@@ -1061,13 +1062,6 @@ const formatFileSize = (size?: number) => {
   if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`
   if (size >= 1024) return `${(size / 1024).toFixed(1)} KB`
   return `${size} B`
-}
-
-const resolveFileUrl = (url?: string) => {
-  if (!url) return ''
-  if (/^https?:\/\//i.test(url)) return url
-  if (import.meta.client) return new URL(url, window.location.origin).toString()
-  return url
 }
 
 const normalizeActivityRecordPhoto = (item: any = {}): ActivityRecordPhotoItem => ({
@@ -1414,13 +1408,14 @@ const beforeImageUpload: UploadProps['beforeUpload'] = (rawFile) => {
   return validateImageUpload(rawFile, 2, '封面图片')
 }
 
-const handleImageSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
-  if (response.code === 200) {
-    form.value.coverImage = response.data.url
-    ElMessage.success('图片上传成功')
-  } else {
-    ElMessage.error('上传失败: ' + response.message)
+const handleImageSuccess: UploadProps['onSuccess'] = (response: any, uploadFile) => {
+  if (Number(response?.code) !== 200 || !response?.data?.url) {
+    ElMessage.error(response?.message || '图片上传失败')
+    return
   }
+  form.value.coverImage = response.data.url
+  imageFileList.value = [{ name: uploadFile.name, url: response.data.url } as UploadUserFile]
+  ElMessage.success('图片上传成功')
 }
 
 const beforeVideoUpload: UploadProps['beforeUpload'] = (rawFile) => {
@@ -1436,14 +1431,15 @@ const beforeVideoUpload: UploadProps['beforeUpload'] = (rawFile) => {
   return true
 }
 
-const handleVideoSuccess: UploadProps['onSuccess'] = (response, uploadFile) => {
-  if (response.code === 200) {
-    form.value.videoUrl = response.data.url
-    form.value.hasVideo = true
-    ElMessage.success('视频上传成功')
-  } else {
-    ElMessage.error('上传失败: ' + response.message)
+const handleVideoSuccess: UploadProps['onSuccess'] = (response: any, uploadFile) => {
+  if (Number(response?.code) !== 200 || !response?.data?.url) {
+    ElMessage.error(response?.message || '视频上传失败')
+    return
   }
+  form.value.videoUrl = response.data.url
+  form.value.hasVideo = true
+  videoFileList.value = [{ name: uploadFile.name, url: response.data.url } as UploadUserFile]
+  ElMessage.success('视频上传成功')
 }
 
 const handleUploadError: UploadProps['onError'] = (error) => {

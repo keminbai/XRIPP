@@ -130,6 +130,8 @@ springdoc:
 xripp:
   runtime:
     version: 2026-03-14-phase-ah
+  upload:
+    base-dir: ${XRIPP_UPLOAD_DIR:./uploads}
   schema-preflight:
     enabled: true
   data-scope:

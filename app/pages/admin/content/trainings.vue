@@ -120,7 +120,7 @@
             <template #default="scope">
               <div class="flex gap-3 py-2">
                 <div class="relative w-16 h-10 rounded overflow-hidden flex-shrink-0 bg-slate-100">
-                  <img :src="scope.row.image" class="w-full h-full object-cover" />
+                  <img :src="resolveFileUrl(scope.row.image)" class="w-full h-full object-cover" />
                   <div v-if="scope.row.hasVideo" class="absolute inset-0 bg-black/30 flex items-center justify-center text-white">
                     <el-icon><VideoPlay /></el-icon>
                   </div>
@@ -388,7 +388,7 @@
             </el-upload>
             
             <div v-if="form.coverImage" class="mt-3 relative w-48 h-28 rounded-lg overflow-hidden border border-slate-200">
-              <img :src="form.coverImage" class="w-full h-full object-cover" />
+              <img :src="resolveFileUrl(form.coverImage)" class="w-full h-full object-cover" />
               <div 
                 class="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center cursor-pointer hover:bg-red-600"
                 @click="form.coverImage = ''; imageFileList = []"
@@ -662,7 +662,7 @@
 
         <div v-if="currentDetailItem.coverImage">
           <h4 class="text-sm font-bold mb-2">封面图片</h4>
-          <img :src="currentDetailItem.coverImage" class="w-full max-w-md rounded-lg border border-slate-200" />
+          <img :src="resolveFileUrl(currentDetailItem.coverImage)" class="w-full max-w-md rounded-lg border border-slate-200" />
         </div>
       </div>
     </el-dialog>
@@ -681,6 +681,7 @@ import type { UploadProps, UploadUserFile, FormInstance } from 'element-plus'
 import { useGlobalConfig } from '~/composables/useGlobalConfig'
 import { navigateTo } from '#app'
 import { apiRequest, getLoginUser } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 

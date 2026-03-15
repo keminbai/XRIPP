@@ -326,6 +326,7 @@ import { ArrowRight, ArrowLeft, Trophy, Search, Link, Star, StarFilled, Calendar
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 const searchQuery = ref('')
 const activeIndex = ref(0)
@@ -394,7 +395,7 @@ const loadBanners = async () => {
       heroSlides.value = items
         .filter((item: any) => item.coverImage)
         .map((item: any, i: number) => ({
-          image: item.coverImage,
+          image: resolveFileUrl(item.coverImage),
           animation: animations[i % animations.length]
         }))
       if (heroSlides.value.length === 0) heroSlides.value = defaultSlides
@@ -426,7 +427,7 @@ const mapSupplierCard = (item: any) => ({
   logo: String(item.companyName || '?').trim().charAt(0) || '?',
   industry: item.mainServiceLabel || item.mainService || '综合服务',
   applyTypeLabel: item.applyTypeLabel || '服务商',
-  image: item.coverImageUrl || item.promoImageUrl || fallbackSupplierImage
+  image: resolveFileUrl(item.coverImageUrl || item.promoImageUrl) || fallbackSupplierImage
 })
 
 // 会员滚动逻辑
@@ -447,12 +448,13 @@ onMounted(async () => {
 
     apiRequest('/v3/activities?page=1&page_size=4&display_area=home').then((res: any) => {
       const items = Array.isArray(res?.data?.items) ? res.data.items : []
+      const mapAct = (a: any) => ({ ...a, image: resolveFileUrl(a.image || a.coverImage) || a.image })
       if (items.length > 0) {
-        activities.value = items
+        activities.value = items.map(mapAct)
         return
       }
       return apiRequest('/v3/activities?page=1&page_size=4').then((fallback: any) => {
-        activities.value = Array.isArray(fallback?.data?.items) ? fallback.data.items : []
+        activities.value = (Array.isArray(fallback?.data?.items) ? fallback.data.items : []).map(mapAct)
       })
     }).catch(() => { activities.value = [] }),
 

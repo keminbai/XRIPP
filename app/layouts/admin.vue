@@ -469,7 +469,7 @@ const homeLabel = computed(() => {
   return '工作台'
 })
 
-const showRoute = (path: string) => canAccessAdminRoute(path, permissionSnapshot.value)
+const showRoute = (path: string) => canAccessAdminRoute(path, permissionSnapshot.value, { role: currentRole.value })
 
 const showAdminRoute = (path: string) => {
   if (currentRole.value !== 'admin') return false

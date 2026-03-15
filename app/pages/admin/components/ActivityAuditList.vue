@@ -53,7 +53,7 @@
         <div class="bg-slate-50 p-4 rounded text-sm text-slate-600 mb-4">
           {{ currentItem.content || '暂无详细内容' }}
         </div>
-        <img v-if="currentItem.image" :src="currentItem.image" class="w-full rounded border" />
+        <img v-if="currentItem.image" :src="resolveFileUrl(currentItem.image)" class="w-full rounded border" />
       </div>
     </el-dialog>
   </div>
@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { resolveFileUrl } from '@/utils/file-url'
 
 const props = defineProps({
   role: { type: String, default: 'AUDIT_1' },

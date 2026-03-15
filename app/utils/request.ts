@@ -45,6 +45,39 @@ function safeParseUser(raw: string | null): LoginUser | null {
   }
 }
 
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/')
+  const normalized = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')
+
+  if (import.meta.client) {
+    return atob(normalized)
+  }
+
+  return Buffer.from(normalized, 'base64').toString('utf-8')
+}
+
+function parseUserFromToken(token: string): LoginUser | null {
+  if (!token) return null
+  try {
+    const payloadPart = token.split('.')[1]
+    if (!payloadPart) return null
+    const payload = JSON.parse(decodeBase64Url(payloadPart))
+
+    const id = Number(payload?.userId)
+    if (!Number.isFinite(id) || id <= 0) return null
+
+    return {
+      id,
+      username: String(payload?.username || ''),
+      role: String(payload?.role || ''),
+      partner_id: payload?.partnerId == null ? null : Number(payload.partnerId),
+      permission_profile_id: payload?.permissionProfileId == null ? null : Number(payload.permissionProfileId)
+    }
+  } catch {
+    return null
+  }
+}
+
 function redirectToLogin() {
   if (!import.meta.client) return
   const path = window.location.pathname + window.location.search
@@ -73,10 +106,21 @@ export function getToken(): string {
 export function getLoginUser(): LoginUser | null {
   const s = userState()
   if (s.value) return s.value
-  const c = useCookie<string | null>(USER_KEY, COOKIE_OPTIONS)
-  const user = safeParseUser(c.value)
+  const c = useCookie<LoginUser | string | null>(USER_KEY, COOKIE_OPTIONS)
+  const raw = c.value
+  const user = typeof raw === 'string'
+    ? safeParseUser(raw)
+    : (raw && typeof raw === 'object' ? raw as LoginUser : null)
   if (user) s.value = user
-  return user
+  if (user) return user
+
+  const tokenUser = parseUserFromToken(getToken())
+  if (tokenUser) {
+    s.value = tokenUser
+    return tokenUser
+  }
+
+  return null
 }
 
 export function setAuth(token: string, user: LoginUser) {
@@ -84,9 +128,9 @@ export function setAuth(token: string, user: LoginUser) {
   userState().value = user
 
   const tokenCookie = useCookie<string | null>(TOKEN_KEY, COOKIE_OPTIONS)
-  const userCookie = useCookie<string | null>(USER_KEY, COOKIE_OPTIONS)
+  const userCookie = useCookie<LoginUser | string | null>(USER_KEY, COOKIE_OPTIONS)
   tokenCookie.value = token
-  userCookie.value = JSON.stringify(user)
+  userCookie.value = user
 }
 
 export function clearAuth() {
@@ -94,7 +138,7 @@ export function clearAuth() {
   userState().value = null
 
   const tokenCookie = useCookie<string | null>(TOKEN_KEY, COOKIE_OPTIONS)
-  const userCookie = useCookie<string | null>(USER_KEY, COOKIE_OPTIONS)
+  const userCookie = useCookie<LoginUser | string | null>(USER_KEY, COOKIE_OPTIONS)
   tokenCookie.value = null
   userCookie.value = null
 }

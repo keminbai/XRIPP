@@ -329,6 +329,7 @@
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'member' })
 
@@ -756,13 +757,6 @@ const attachmentLabel = (value?: string) => {
 const moneyText = (value: unknown) => {
   const num = Number(value)
   return Number.isFinite(num) ? num.toLocaleString() : '0'
-}
-
-const resolveFileUrl = (url?: string) => {
-  const raw = String(url || '').trim()
-  if (!raw) return ''
-  if (/^https?:\/\//i.test(raw)) return raw
-  return raw.startsWith('/') ? raw : `/${raw}`
 }
 
 const openFile = (url?: string) => {

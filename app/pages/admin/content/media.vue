@@ -90,7 +90,7 @@
             <template #default="scope">
               <div class="flex gap-3 py-2">
                 <div class="relative w-20 h-14 rounded overflow-hidden flex-shrink-0 bg-slate-100">
-                  <img :src="scope.row.coverImage" class="w-full h-full object-cover" />
+                  <img :src="resolveFileUrl(scope.row.coverImage)" class="w-full h-full object-cover" />
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="font-bold text-slate-800 text-sm line-clamp-1">{{ scope.row.title }}</div>
@@ -263,6 +263,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { UploadProps, UploadUserFile, FormInstance } from 'element-plus'
 import { apiRequest, getLoginUser } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 

@@ -162,7 +162,7 @@
             <template #default="{ row }">
               <div class="flex gap-3 py-2">
                 <div class="w-20 h-28 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 flex-shrink-0">
-                  <img v-if="row.coverImage" :src="row.coverImage" class="w-full h-full object-cover" />
+                  <img v-if="row.coverImage" :src="resolveFileUrl(row.coverImage)" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center text-xs text-slate-400">无封面</div>
                 </div>
                 <div class="min-w-0 flex-1">
@@ -240,6 +240,7 @@ import { Plus, Upload, RefreshLeft, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type UploadRequestOptions, type UploadUserFile } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { apiFetchRaw, apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 import {
   OVERSEAS_COUNTRY_OPTIONS,
   OVERSEAS_REPORT_ACCESS_LEVEL_LABEL_MAP,

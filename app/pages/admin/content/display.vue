@@ -35,7 +35,7 @@
               <el-table-column label="活动信息" min-width="280">
                 <template #default="{ row }">
                   <div class="flex gap-3 items-center">
-                    <img v-if="row.coverImage" :src="row.coverImage" class="w-16 h-10 object-cover rounded border border-slate-200" />
+                    <img v-if="row.coverImage" :src="resolveFileUrl(row.coverImage)" class="w-16 h-10 object-cover rounded border border-slate-200" />
                     <div>
                       <div class="font-semibold text-slate-800">{{ row.title }}</div>
                       <div class="text-xs text-slate-500 mt-1">{{ row.cityName || '全国' }} | {{ row.publisher || '-' }}</div>
@@ -91,7 +91,7 @@
               <div class="grid grid-cols-1 gap-4">
                 <div v-for="item in carouselList" :key="item.id" class="bg-slate-50 border border-slate-200 rounded-lg p-4 flex gap-4 items-center">
                   <div class="w-48 h-28 rounded overflow-hidden bg-slate-200 flex-shrink-0 border border-slate-300">
-                    <img v-if="item.coverImage" :src="item.coverImage" class="w-full h-full object-cover" />
+                    <img v-if="item.coverImage" :src="resolveFileUrl(item.coverImage)" class="w-full h-full object-cover" />
                     <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-sm">无图片</div>
                   </div>
                   <div class="flex-1">
@@ -134,7 +134,7 @@
                     </el-tag>
                   </div>
                   <div class="w-full h-32 bg-slate-50 rounded border border-dashed border-slate-300 mb-3 flex items-center justify-center overflow-hidden">
-                    <img v-if="ad.coverImage" :src="ad.coverImage" class="w-full h-full object-cover" />
+                    <img v-if="ad.coverImage" :src="resolveFileUrl(ad.coverImage)" class="w-full h-full object-cover" />
                     <span v-else class="text-slate-400 text-sm">暂无广告图</span>
                   </div>
                   <div class="flex gap-2">
@@ -192,7 +192,7 @@
                <el-icon><Plus /></el-icon>
              </el-upload>
              <div v-if="contentForm.coverImage" class="mt-2">
-               <img :src="contentForm.coverImage" class="w-32 h-20 object-cover rounded border" />
+               <img :src="resolveFileUrl(contentForm.coverImage)" class="w-32 h-20 object-cover rounded border" />
              </div>
            </el-form-item>
            <el-form-item label="正文"><el-input v-model="contentForm.body" type="textarea" :rows="5" placeholder="详细内容" /></el-form-item>
@@ -211,6 +211,7 @@ import { ref, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiRequest } from '@/utils/request'
+import { resolveFileUrl } from '@/utils/file-url'
 
 definePageMeta({ layout: 'admin' })
 
