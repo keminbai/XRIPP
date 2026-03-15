@@ -1163,10 +1163,10 @@ const handleEdit = async (row: any) => {
       memberPrice: detail.memberPrice || ''
     }
     imageFileList.value = form.value.coverImage
-      ? [{ name: 'cover-image', url: form.value.coverImage } as UploadUserFile]
+      ? [{ name: 'cover-image', url: resolveFileUrl(form.value.coverImage) } as UploadUserFile]
       : []
     videoFileList.value = form.value.videoUrl
-      ? [{ name: 'promo-video', url: form.value.videoUrl } as UploadUserFile]
+      ? [{ name: 'promo-video', url: resolveFileUrl(form.value.videoUrl) } as UploadUserFile]
       : []
     publishDialogVisible.value = true
   } catch (e: any) {

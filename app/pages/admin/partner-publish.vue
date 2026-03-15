@@ -725,10 +725,10 @@ const fillForm = (row: PublishRow) => {
     summary: row.summary || '',
   }
   imageFileList.value = row.coverImage
-    ? [{ name: 'cover-image', url: row.coverImage } as UploadUserFile]
+    ? [{ name: 'cover-image', url: resolveFileUrl(row.coverImage) } as UploadUserFile]
     : []
   videoFileList.value = row.videoUrl
-    ? [{ name: 'promo-video', url: row.videoUrl } as UploadUserFile]
+    ? [{ name: 'promo-video', url: resolveFileUrl(row.videoUrl) } as UploadUserFile]
     : []
 }
 

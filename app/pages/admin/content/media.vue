@@ -547,7 +547,7 @@ const handleEdit = async (row: any) => {
       author: detail.author
     }
     imageFileList.value = form.value.coverImage
-      ? [{ name: 'cover-image', url: form.value.coverImage } as UploadUserFile]
+      ? [{ name: 'cover-image', url: resolveFileUrl(form.value.coverImage) } as UploadUserFile]
       : []
     publishDialogVisible.value = true
   } catch (e: any) {
